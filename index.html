@@ -1,0 +1,688 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pulsómetro HW9</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: una columna tipo instrumento de campo; la FC en grande manda, todo lo demás se lee de un vistazo */
+:root{
+  --bg:#EEF1F5; --surface:#FFFFFF; --ink:#16202E; --muted:#596678; --line:#D6DDE6; --soft:#E3E8EF;
+  --accent:#7A2E6B; --accent-ink:#FFFFFF; --warn:#B4531A; --ok:#2D7D3A;
+  --z0:#AEB9C6; --z1:#7D90A8; --z2:#2F7BC0; --z3:#38A04A; --z4:#E8831A; --z5:#D3343C;
+  --display:'Barlow Condensed','Arial Narrow',system-ui,sans-serif;
+  --body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D131B; --surface:#151D28; --ink:#E5EBF2; --muted:#93A1B2; --line:#283445; --soft:#1C2633;
+  --accent:#D688C6; --accent-ink:#22101E; --warn:#F0955A; --ok:#6CCB7A;
+  --z0:#4A5767; --z1:#8FA3BC; --z2:#4F9BE0; --z3:#4FC062; --z4:#F59A3A; --z5:#EF5058; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D131B; --surface:#151D28; --ink:#E5EBF2; --muted:#93A1B2; --line:#283445; --soft:#1C2633;
+  --accent:#D688C6; --accent-ink:#22101E; --warn:#F0955A; --ok:#6CCB7A;
+  --z0:#4A5767; --z1:#8FA3BC; --z2:#4F9BE0; --z3:#4FC062; --z4:#F59A3A; --z5:#EF5058; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--body);margin:0;-webkit-tap-highlight-color:transparent}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance;line-height:1.1}
+h2{font-size:24px}
+h3{font-size:19px}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:13px}
+.muted{color:var(--muted)}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar-in{max-width:560px;margin:0 auto;padding-inline:12px;padding-block:8px;display:flex;align-items:center;gap:8px;min-height:52px}
+.bar h1{font-size:22px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back{border:0;background:none;color:var(--ink);font:600 26px/1 var(--display);width:36px;height:36px;border-radius:8px;cursor:pointer}
+.back:focus-visible,.btn:focus-visible,.rpe-row:focus-visible,.item:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--mono);padding:5px 9px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--z0)}
+.chip.on .dot{background:var(--ok)} .chip.conn .dot,.chip.re .dot{background:var(--warn);animation:blink 1s infinite} .chip.sim .dot{background:var(--accent)}
+@keyframes blink{50%{opacity:.25}}
+
+.wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:14px 48px;display:flex;flex-direction:column;gap:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.note{border-left:3px solid var(--warn);background:var(--surface);padding:12px 14px;border-radius:4px 10px 10px 4px;display:flex;flex-direction:column;gap:8px}
+.note.info{border-left-color:var(--z2)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 16px var(--body);padding:11px 16px;border-radius:10px;cursor:pointer;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--z5);border-color:color-mix(in srgb,var(--z5) 45%,var(--line))}
+.btn.armed{background:var(--z5);color:#fff;border-color:var(--z5)}
+.btn.small{min-height:36px;padding:6px 12px;font-size:14px}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.link{border:0;background:none;color:var(--accent);font:600 15px var(--body);padding:4px 0;cursor:pointer;text-align:left}
+
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left;width:100%;color:var(--ink);font:inherit}
+.item .grow{flex:1;min-width:0}
+.item .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .s{font-size:14px;color:var(--muted)}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font:700 20px var(--display);color:var(--accent);flex:none}
+.tag{font:600 12px var(--body);padding:3px 8px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.tag.pend{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.tag.ex{background:color-mix(in srgb,var(--z2) 16%,transparent);color:var(--z2)}
+
+form{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-weight:600;font-size:15px}
+.hint{font-size:13px;color:var(--muted)}
+input,select,textarea{font:16px var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;width:100%;min-width:0}
+textarea{min-height:70px;resize:vertical}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.g5 input{padding:9px 4px;text-align:center}
+.g5 .zl{font:700 13px var(--display);text-align:center;border-radius:6px;padding:2px 0;color:#fff}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--surface);color:var(--ink);font:600 14px var(--body);padding:10px 4px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+
+.ztable{width:100%;border-collapse:collapse;font-size:15px}
+.ztable td{padding:6px 4px;border-bottom:1px solid var(--line)}
+.ztable tr:last-child td{border-bottom:0}
+.zsw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:8px}
+
+.rpe{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.rpe-row{display:flex;align-items:center;gap:14px;border:0;border-bottom:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 14px;min-height:42px;cursor:pointer;text-align:left;font:inherit}
+.rpe-row:last-child{border-bottom:0}
+.rpe-n{font:700 24px var(--display);width:28px;text-align:right;font-variant-numeric:tabular-nums}
+.rpe-d{font-size:15px}
+.rpe-row.on{background:var(--accent);color:var(--accent-ink)}
+
+.live-hr{display:flex;flex-direction:column;align-items:center;gap:2px;padding-block:6px}
+.big{font:700 clamp(96px,34vw,150px)/.85 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.02em;transition:color .3s}
+.unit{font:600 16px var(--display);letter-spacing:.12em;color:var(--muted)}
+.zpill{font:700 16px var(--display);letter-spacing:.06em;padding:4px 14px;border-radius:999px;color:#fff;background:var(--z0);text-transform:uppercase}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat b{font:700 28px/1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+canvas{display:block;width:100%;height:190px}
+canvas.tall{height:240px}
+.zb{display:flex;flex-direction:column;gap:7px}
+.zb-r{display:grid;grid-template-columns:34px 1fr 58px 44px;align-items:center;gap:8px;font-size:14px}
+.zb-r .k{font:700 15px var(--display)}
+.zb-t{height:14px;background:var(--soft);border-radius:4px;overflow:hidden}
+.zb-f{height:100%;border-radius:4px;transition:width .4s}
+.zb-r .v,.zb-r .p{text-align:right;font-variant-numeric:tabular-nums}
+.zb-r .p{color:var(--muted)}
+.ctrls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:20;max-width:calc(100% - 32px)}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+@media (max-width:380px){.stats{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="bar"><div class="bar-in">
+  <button class="back" id="back" aria-label="Volver" hidden>‹</button>
+  <h1 id="ttl">Pulsómetro</h1>
+  <span class="chip" id="chip"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
+</div></header>
+<main class="wrap" id="app"></main>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+/* ================= Utilidades ================= */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const zc=z=>css('--z'+z);
+const dec=(n,d=1)=>n==null||isNaN(n)?'':Number(n).toFixed(d).replace('.',',');
+const pad=n=>String(n).padStart(2,'0');
+function fmtDur(ms){ms=Math.max(0,Math.round(ms/1000));const h=Math.floor(ms/3600),m=Math.floor(ms%3600/60),s=ms%60;return h?`${h}:${pad(m)}:${pad(s)}`:`${pad(m)}:${pad(s)}`}
+const fmtMin=ms=>Math.round(ms/60000)+' min';
+const fmtDate=t=>new Date(t).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
+const fmtDT=t=>new Date(t).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+function ago(t){const m=Math.round((Date.now()-t)/60000);if(m<60)return`hace ${m} min`;const h=Math.round(m/60);return h<48?`hace ${h} h`:`hace ${Math.round(h/24)} días`}
+function age(b){if(!b)return null;const d=new Date(b),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a}
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+
+/* ================= Constantes del dominio ================= */
+const ZNAME=['Reposo','Muy suave','Suave','Moderada','Intensa','Máxima'];
+const DEF_PC=[50,60,70,80,90];
+const TYPES=['Carrera','Fútbol','Fuerza','Bicicleta','Intervalos','Recuperación','Partido','Natación','Otro'];
+// Escala CR-10 de Foster (sRPE) y versión para fatiga/estado previo
+const RPE_POST=['Reposo','Muy, muy fácil','Fácil','Moderado','Algo duro','Duro','','Muy duro','','','Máximo'];
+const RPE_PRE=['Nada de fatiga','Muy, muy leve','Leve','Moderada','Algo fuerte','Fuerte','','Muy fuerte','','','Máxima'];
+
+/* ================= Lógica pura (zonas, parser, resumen) ================= */
+const tanaka=a=>Math.round(208-0.7*a);
+function zoneLimits(p){ // límites inferiores de Z1..Z5 en ppm
+  if(p.method==='manual') return p.manual.map(Number);
+  if(p.method==='karvonen'&&p.hrRest) return p.percents.map(x=>Math.round(p.hrRest+x/100*(p.hrMax-p.hrRest)));
+  return p.percents.map(x=>Math.round(x/100*p.hrMax));
+}
+function zoneOf(bpm,lim){let z=0;for(let i=0;i<5;i++)if(bpm>=lim[i])z=i+1;return z}
+// Heart Rate Measurement 0x2A37 (little-endian)
+function parseHR(dv){
+  const f=dv.getUint8(0);let i=1,bpm;
+  if(f&1){bpm=dv.getUint16(i,true);i+=2}else{bpm=dv.getUint8(i);i+=1}
+  const contact=(f&4)?!!(f&2):null;
+  if(f&8)i+=2;
+  const rr=[];
+  if(f&16){while(i+1<dv.byteLength){rr.push(Math.round(dv.getUint16(i,true)*1000/1024));i+=2}}
+  return {bpm,contact,rr};
+}
+// samples: [t_ms, bpm, segmento]. Huecos >5 s = sin señal; cambio de segmento = pausa
+function summarize(samples,lim){
+  const zoneMs=[0,0,0,0,0,0];let sumB=0,sumT=0,max=0;
+  for(let i=0;i<samples.length;i++){
+    const [t,b,seg]=samples[i];if(b>max)max=b;
+    const n=samples[i+1];if(!n||n[2]!==seg)continue;
+    const dt=n[0]-t;if(dt<=0||dt>5000)continue;
+    zoneMs[zoneOf(b,lim)]+=dt;sumB+=b*dt;sumT+=dt;
+  }
+  return {zoneMs,avgHr:sumT?Math.round(sumB/sumT):null,maxHr:max||null,coveredMs:sumT};
+}
+const srpe=s=>s.rpePost==null?null:Math.round(s.rpePost*s.activeMs/60000);
+
+/* ================= Almacenamiento (IndexedDB con respaldo en memoria) ================= */
+const DB={db:null,mem:null,
+  async open(){
+    if(this.db||this.mem)return;
+    try{
+      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',1);
+        r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('profiles',{keyPath:'id'});
+          d.createObjectStore('sessions',{keyPath:'id'}).createIndex('userId','userId');d.createObjectStore('tracks',{keyPath:'id'})};
+        r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))});
+    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map()};S.memOnly=true}
+  },
+  tx(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);let out;const r=fn(t.objectStore(store));if(r)r.onsuccess=()=>{out=r.result};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error)})},
+  all(s){return this.mem?Promise.resolve([...this.mem[s].values()]):this.tx(s,'readonly',o=>o.getAll())},
+  get(s,id){return this.mem?Promise.resolve(this.mem[s].get(id)):this.tx(s,'readonly',o=>o.get(id))},
+  put(s,v){if(this.mem){this.mem[s].set(v.id,structuredClone(v));return Promise.resolve()}return this.tx(s,'readwrite',o=>o.put(v))},
+  del(s,id){if(this.mem){this.mem[s].delete(id);return Promise.resolve()}return this.tx(s,'readwrite',o=>o.delete(id))}
+};
+
+/* ================= Estado ================= */
+const S={profiles:[],sessions:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
+let inFrame=false;try{inFrame=window.top!==window.self}catch(e){inFrame=true}
+const btOK=!!navigator.bluetooth&&!inFrame;
+const prof=id=>S.profiles.find(p=>p.id===id);
+const sessOf=uid=>S.sessions.filter(s=>s.userId===uid&&s.status==='done').sort((a,b)=>b.startTime-a.startTime);
+
+/* ================= Bluetooth ================= */
+const BLE={dev:null,status:'off',bpm:null,bat:null,contact:null,last:0,manual:false,timer:null,tries:0,sim:null,h:null,
+  name(){return this.status==='sim'?'Simulador':(this.dev?.name||'Pulsómetro')},
+  set(st){this.status=st;updChip();if(S.view==='pre'||S.view==='live')updDevice()},
+  async pick(){
+    if(!navigator.bluetooth)throw new Error('Este navegador no tiene Web Bluetooth. Usa Chrome en Android.');
+    const d=await navigator.bluetooth.requestDevice({filters:[{services:['heart_rate']}],optionalServices:['battery_service']});
+    this.stopSim();
+    if(this.dev&&this.dev!==d)this.disconnect();
+    this.dev=d;this.manual=false;this.tries=0;
+    if(!d._hooked){d.addEventListener('gattserverdisconnected',()=>this.onDrop());d._hooked=true}
+    await this.connect();
+  },
+  async connect(){
+    this.set(this.status==='re'?'re':'conn');
+    const srv=await this.dev.gatt.connect();
+    const ch=await (await srv.getPrimaryService('heart_rate')).getCharacteristic('heart_rate_measurement');
+    this.h=this.h||(e=>this.onValue(e.target.value));
+    ch.removeEventListener('characteristicvaluechanged',this.h);
+    ch.addEventListener('characteristicvaluechanged',this.h);
+    await ch.startNotifications();
+    this.tries=0;clearTimeout(this.timer);this.set('on');lsSet('lastDevice',this.dev.name||'');
+    try{const c=await (await srv.getPrimaryService('battery_service')).getCharacteristic('battery_level');this.bat=(await c.readValue()).getUint8(0);updChip()}catch(e){}
+  },
+  onDrop(){
+    if(this.manual||!this.dev){this.set('off');return}
+    clearTimeout(this.timer);
+    const delay=Math.min(30,2**this.tries)*1000;this.tries++;
+    this.set('re');
+    this.timer=setTimeout(async()=>{try{await this.connect()}catch(e){if(!this.dev.gatt.connected)this.onDrop()}},delay);
+  },
+  disconnect(){this.manual=true;clearTimeout(this.timer);try{this.dev?.gatt?.connected&&this.dev.gatt.disconnect()}catch(e){}this.bpm=null;this.set('off')},
+  onValue(dv){const p=parseHR(dv);this.bpm=p.bpm;this.contact=p.contact;this.last=Date.now();onHR(p)},
+  startSim(){
+    if(this.dev)this.disconnect();this.stopSim();this.manual=false;
+    const p=prof(S.arg)||S.profiles[0];const max=p?.hrMax||190;let hr=Math.round(max*0.45),t=0;
+    this.set('sim');
+    this.sim=setInterval(()=>{
+      t++;const c=Math.floor((t-90)/120),ph=(t-90)%120;
+      let tgt=t<90?0.6:(ph<60?(c%4===3?0.95:0.87):0.67);
+      hr+=(tgt*max-hr)*0.09+(Math.random()-0.5)*3;
+      const bpm=Math.round(hr);this.bpm=bpm;this.contact=true;this.last=Date.now();
+      onHR({bpm,contact:true,rr:[Math.round(60000/bpm)]});
+    },1000);
+  },
+  stopSim(){if(this.sim){clearInterval(this.sim);this.sim=null;this.bpm=null;if(this.status==='sim')this.set('off')}}
+};
+function updChip(){
+  const c=$('#chip'),st=BLE.status;
+  c.className='chip '+({on:'on',conn:'conn',re:'re',sim:'sim'}[st]||'');
+  let t='Sin pulsómetro';
+  if(st==='conn')t='Conectando…';
+  else if(st==='re')t='Reconectando…';
+  else if(st==='on'||st==='sim')t=(BLE.bpm?BLE.bpm+' ppm':BLE.name())+(BLE.bat!=null&&st==='on'?' · '+BLE.bat+' %':'')+(st==='sim'?' · sim':'');
+  $('#chipt').textContent=t;
+}
+const hasSource=()=>BLE.status==='on'||BLE.status==='sim';
+
+/* ================= Grabación de sesión ================= */
+function newRec(p,o){return{id:uid(),userId:p.id,startTime:null,endTime:null,activeMs:0,zoneLimits:zoneLimits(p),hrMax:p.hrMax,
+  rpePre:o.rpePre,rpePost:null,rpePostTime:null,type:o.type,notes:'',deviceName:BLE.name(),status:'recording',
+  samples:[],rr:[],pauses:[],seg:0,running:false,segStart:0,acc:0,inc:{zoneMs:[0,0,0,0,0,0],sumB:0,sumT:0,max:0}}}
+const recActive=r=>r.acc+(r.running?Date.now()-r.segStart:0);
+function recAdd(p,t){
+  const r=S.rec;if(!r||!r.running)return;
+  if(p.bpm<25||p.contact===false)return; // sin contacto: se contará como sin señal
+  const last=r.samples[r.samples.length-1];
+  if(last&&last[2]===r.seg){const dt=t-last[0];if(dt>0&&dt<=5000){const z=zoneOf(last[1],r.zoneLimits);r.inc.zoneMs[z]+=dt;r.inc.sumB+=last[1]*dt;r.inc.sumT+=dt}}
+  r.samples.push([t,p.bpm,r.seg]);if(p.bpm>r.inc.max)r.inc.max=p.bpm;
+  for(const x of p.rr)r.rr.push([t,x]);
+}
+function sessMeta(r){const {samples,rr,pauses,seg,running,segStart,acc,inc,...m}=r;return m}
+async function saveRec(){
+  const r=S.rec;if(!r)return;
+  const m=sessMeta(r);m.activeMs=recActive(r);
+  await DB.put('sessions',m);await DB.put('tracks',{id:r.id,samples:r.samples,rr:r.rr,pauses:r.pauses});
+  upsertSession(m);
+}
+function upsertSession(m){const i=S.sessions.findIndex(s=>s.id===m.id);if(i<0)S.sessions.push(m);else S.sessions[i]=m}
+async function finalize(meta,track){
+  const s=summarize(track.samples,meta.zoneLimits);
+  meta.avgHr=s.avgHr;meta.maxHr=s.maxHr;meta.zoneMs=s.zoneMs;
+  meta.noSignalMs=Math.max(0,meta.activeMs-s.coveredMs);meta.status='done';
+  await DB.put('sessions',meta);await DB.put('tracks',track);upsertSession(meta);
+}
+async function finishRec(){
+  const r=S.rec;const now=Date.now();
+  if(r.running){r.acc+=now-r.segStart;r.running=false}
+  const lp=r.pauses[r.pauses.length-1];if(lp&&lp[1]==null)lp[1]=now;
+  r.endTime=now;r.activeMs=r.acc;
+  const meta=sessMeta(r);meta.activeMs=r.acc;
+  await finalize(meta,{id:r.id,samples:r.samples,rr:r.rr,pauses:r.pauses});
+  clearInterval(S.autosave);S.rec=null;keepAwake(false);
+  return meta.id;
+}
+function onHR(p){
+  const t=Date.now();updChip();
+  if(S.rec)recAdd(p,t);
+  if(S.view==='live')updLive();
+  if(S.view==='pre'){const e=$('#preHr');if(e)e.textContent=p.bpm}
+}
+
+/* ================= Pantalla encendida ================= */
+let wl=null;
+async function keepAwake(on){try{
+  if(on&&!wl&&'wakeLock' in navigator){wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>{wl=null})}
+  if(!on&&wl){await wl.release();wl=null}
+}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&S.rec)keepAwake(true)});
+window.addEventListener('beforeunload',e=>{if(S.rec){saveRec();e.preventDefault();e.returnValue=''}});
+
+/* ================= Gráficas (canvas) ================= */
+function cv(el){const r=el.getBoundingClientRect(),d=window.devicePixelRatio||1;el.width=Math.round(r.width*d);el.height=Math.round(r.height*d);const c=el.getContext('2d');c.setTransform(d,0,0,d,0,0);return{c,w:r.width,h:r.height}}
+function drawHR(el,samples,lim,hrMax,t0,t1,live){
+  if(!el)return;const {c,w,h}=cv(el);
+  const L=34,R=6,T=6,B=20,pw=w-L-R,ph=h-T-B;
+  let mn=Infinity,mx=0;for(const s of samples){if(s[1]<mn)mn=s[1];if(s[1]>mx)mx=s[1]}
+  const lo=Math.max(35,Math.min(lim[0]-15,mn===Infinity?lim[0]-15:mn-5)),hi=Math.max(hrMax,mx)+5;
+  const X=t=>L+(t-t0)/(t1-t0||1)*pw,Y=b=>T+(1-(b-lo)/(hi-lo))*ph;
+  const muted=css('--muted'),line=css('--line'),ink=css('--ink');
+  // bandas de zona
+  for(let z=0;z<=5;z++){const a=z?lim[z-1]:lo,b=z<5?lim[z]:hi;if(b<=lo||a>=hi)continue;
+    c.fillStyle=zc(z);c.globalAlpha=.13;const y1=Y(Math.min(b,hi)),y2=Y(Math.max(a,lo));c.fillRect(L,y1,pw,y2-y1)}
+  c.globalAlpha=1;c.font='10px '+css('--mono');c.textBaseline='middle';c.textAlign='right';
+  for(const v of lim){if(v<=lo||v>=hi)continue;const y=Math.round(Y(v))+.5;c.strokeStyle=line;c.lineWidth=1;c.beginPath();c.moveTo(L,y);c.lineTo(L+pw,y);c.stroke();c.fillStyle=muted;c.fillText(v,L-5,y)}
+  // eje x
+  c.textAlign='center';c.textBaseline='top';c.fillStyle=muted;
+  if(live){c.fillText('−3 min',L+12,h-B+5);c.fillText('ahora',L+pw-14,h-B+5)}
+  else{const span=(t1-t0)/60000;const st=[1,2,5,10,15,20,30,60].find(s=>span/s<=6)||120;
+    for(let m=0;m<=span;m+=st){const x=X(t0+m*60000);c.fillText(m+'′',Math.min(Math.max(x,L+8),L+pw-8),h-B+5)}}
+  // trazo de FC coloreado por zona
+  c.lineWidth=2.2;c.lineJoin='round';c.lineCap='round';
+  for(let i=0;i<samples.length-1;i++){const a=samples[i],b=samples[i+1];if(b[2]!==a[2]||b[0]-a[0]>5000||a[0]<t0)continue;
+    c.strokeStyle=zc(zoneOf(a[1],lim));c.beginPath();c.moveTo(X(a[0]),Y(a[1]));c.lineTo(X(b[0]),Y(b[1]));c.stroke()}
+  if(live&&samples.length){const a=samples[samples.length-1];c.fillStyle=ink;c.beginPath();c.arc(X(a[0]),Y(a[1]),3.5,0,7);c.fill()}
+  if(!samples.length){c.fillStyle=muted;c.textAlign='center';c.textBaseline='middle';c.font='14px '+css('--body');c.fillText('Esperando datos de FC…',L+pw/2,T+ph/2)}
+}
+function weekStart(t){const d=new Date(t);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
+function drawWeeks(el,sess){
+  if(!el)return;const {c,w,h}=cv(el);
+  const now=weekStart(Date.now()),W=7*864e5,weeks=[];
+  for(let i=7;i>=0;i--){const ws=now-i*W;weeks.push({ws,v:sess.filter(s=>weekStart(s.startTime)===ws).reduce((a,s)=>a+(srpe(s)||0),0)})}
+  const max=Math.max(100,...weeks.map(x=>x.v)),L=6,B=20,T=18,bw=(w-L*2)/weeks.length;
+  c.font='11px '+css('--mono');c.textAlign='center';
+  weeks.forEach((x,i)=>{const bh=(h-T-B)*x.v/max,xx=L+i*bw+bw*.18,ww=bw*.64;
+    c.fillStyle=i===weeks.length-1?css('--accent'):css('--z1');c.globalAlpha=x.v?1:.25;
+    c.fillRect(xx,h-B-Math.max(bh,2),ww,Math.max(bh,2));c.globalAlpha=1;
+    c.fillStyle=css('--ink');if(x.v)c.fillText(x.v,xx+ww/2,h-B-bh-6);
+    const d=new Date(x.ws);c.fillStyle=css('--muted');c.fillText(d.getDate()+'/'+(d.getMonth()+1),xx+ww/2,h-5)});
+}
+
+/* ================= Componentes ================= */
+function zoneBars(zoneMs,noSig){
+  const tot=zoneMs.reduce((a,b)=>a+b,0)+(noSig||0);let h='<div class="zb">';
+  for(let z=5;z>=0;z--){const p=tot?zoneMs[z]/tot*100:0;
+    h+=`<div class="zb-r"><span class="k" style="color:${zc(z)}">Z${z}</span><div class="zb-t"><div class="zb-f" id="zf${z}" style="width:${p}%;background:${zc(z)}"></div></div><span class="v" id="zv${z}">${fmtDur(zoneMs[z])}</span><span class="p" id="zp${z}">${Math.round(p)} %</span></div>`}
+  if(noSig>1000)h+=`<div class="zb-r"><span class="k muted">—</span><span class="hint">Sin señal o sin contacto</span><span class="v">${fmtDur(noSig)}</span><span class="p">${Math.round(noSig/tot*100)} %</span></div>`;
+  return h+'</div>';
+}
+function zoneTable(lim,hrMax){let h='<table class="ztable num">';
+  for(let z=5;z>=1;z--){const top=z<5?lim[z]-1:hrMax;h+=`<tr><td><span class="zsw" style="background:${zc(z)}"></span><b>Z${z}</b> <span class="muted">${ZNAME[z]}</span></td><td style="text-align:right">${lim[z-1]}–${top} ppm</td></tr>`}
+  return h+`<tr><td><span class="zsw" style="background:${zc(0)}"></span><b>Z0</b> <span class="muted">${ZNAME[0]}</span></td><td style="text-align:right">&lt; ${lim[0]} ppm</td></tr></table>`}
+function rpeScale(name,kind,val){const L=kind==='pre'?RPE_PRE:RPE_POST;let h=`<div class="rpe" role="radiogroup">`;
+  for(let i=10;i>=0;i--)h+=`<button type="button" class="rpe-row${val===i?' on':''}" data-act="rpe" data-name="${name}" data-v="${i}" role="radio" aria-checked="${val===i}"><span class="rpe-n">${i}</span><span class="rpe-d">${L[i]||''}</span></button>`;
+  return h+'</div>'}
+const stat=(v,l,id)=>`<div class="stat"><b${id?` id="${id}"`:''}>${v}</b><span>${l}</span></div>`;
+function methodName(p){return p.method==='karvonen'?'Karvonen':p.method==='pct'?'% FCmáx':'Manual'}
+
+/* ================= Vistas ================= */
+const V={};
+V.home=()=>{
+  let h='';
+  if(!btOK)h+=`<div class="note info"><b>Bluetooth no disponible en esta vista</b><span class="hint">Para conectar el HW9, abre la app desde su enlace https en Chrome para Android. Aquí puedes probarlo todo con el simulador.</span></div>`;
+  if(S.memOnly)h+=`<div class="note"><b>Los datos no se guardarán</b><span class="hint">Este navegador no permite almacenamiento. Abre la app desde su propio enlace para que guarde perfiles y sesiones.</span></div>`;
+  for(const s of S.sessions.filter(s=>s.status==='recording'&&(!S.rec||S.rec.id!==s.id)))
+    h+=`<div class="note"><b>Sesión sin terminar · ${esc(prof(s.userId)?.name||'')}</b><span class="hint">Empezó ${fmtDT(s.startTime)}. Se cerró la app antes de finalizarla.</span><div class="row"><button class="btn small primary" data-act="recover" data-id="${s.id}">Guardar lo grabado</button><button class="btn small danger" data-act="discard" data-id="${s.id}">Descartar</button></div></div>`;
+  for(const s of S.sessions.filter(s=>s.status==='done'&&s.rpePost==null&&Date.now()-s.endTime<7*864e5))
+    h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · terminó ${ago(s.endTime)}</span></span><span class="tag pend">Anotar</span></button>`;
+  h+=`<section class="sec"><div class="sec-h"><h2>Perfiles</h2><button class="btn small" data-act="newProfile">Nuevo perfil</button></div>`;
+  if(!S.profiles.length)h+=`<div class="empty">Crea un perfil por cada persona que vaya a usar el pulsómetro. Cada uno guarda sus zonas y sus sesiones.</div>`;
+  else{h+='<div class="list">';
+    for(const p of [...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))){const ss=sessOf(p.id),a=age(p.birthDate);
+      h+=`<button class="item" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${p.example?' <span class="tag ex">Ejemplo</span>':''}</span><br><span class="s num">${a!=null?a+' años · ':''}FCmáx ${p.hrMax} · ${methodName(p)}</span></span><span class="s num">${ss.length} ses.</span></button>`}
+    h+='</div>'}
+  h+=`</section><section class="sec"><h3>Copia de seguridad</h3><p class="hint" style="margin:0">Los datos se guardan solo en este móvil y en este navegador. Exporta una copia de vez en cuando.</p><div class="row"><button class="btn small" data-act="backup">Exportar copia (.json)</button><button class="btn small" data-act="import">Importar copia</button></div></section>`;
+  return h;
+};
+V.edit=()=>{
+  const p=S.arg?prof(S.arg):null;
+  const f=S.form.p||(S.form.p=p?structuredClone(p):{id:uid(),name:'',birthDate:'',hrMax:'',hrMaxEstimated:false,hrRest:'',method:'karvonen',percents:[...DEF_PC],manual:[],createdAt:Date.now()});
+  const pcRows=f.percents.map((v,i)=>`<div class="field"><span class="zl" style="background:${zc(i+1)}">Z${i+1}</span><input id="pc${i}" type="number" inputmode="numeric" value="${v}" aria-label="Z${i+1} desde (%)"></div>`).join('');
+  const mRows=[0,1,2,3,4].map(i=>`<div class="field"><span class="zl" style="background:${zc(i+1)}">Z${i+1}</span><input id="mz${i}" type="number" inputmode="numeric" value="${f.manual[i]??''}" aria-label="Z${i+1} desde (ppm)"></div>`).join('');
+  return `<form id="pform" novalidate>
+  <div class="card">
+    <div class="field"><label for="fname">Nombre</label><input id="fname" value="${esc(f.name)}" autocomplete="off" required></div>
+    <div class="field"><label for="fbirth">Fecha de nacimiento</label><input id="fbirth" type="date" value="${esc(f.birthDate)}"></div>
+    <div class="g2">
+      <div class="field"><label for="fmax">FC máxima</label><input id="fmax" type="number" inputmode="numeric" value="${f.hrMax}" placeholder="ppm"><span class="hint" id="estHint">${f.hrMaxEstimated?'Estimada con Tanaka (208 − 0,7 × edad). Cámbiala si tienes un valor medido.':'Valor medido o de una prueba.'}</span><button type="button" class="link" data-act="estimate">Estimar con la edad</button></div>
+      <div class="field"><label for="frest">FC en reposo</label><input id="frest" type="number" inputmode="numeric" value="${f.hrRest}" placeholder="ppm"><span class="hint">Mejor medida al despertar. Necesaria para Karvonen.</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="field"><span class="lbl">Método de zonas</span><div class="seg" role="radiogroup">
+      <button type="button" data-act="method" data-v="karvonen" class="${f.method==='karvonen'?'on':''}">Karvonen</button>
+      <button type="button" data-act="method" data-v="pct" class="${f.method==='pct'?'on':''}">% FCmáx</button>
+      <button type="button" data-act="method" data-v="manual" class="${f.method==='manual'?'on':''}">Manual</button></div>
+      <span class="hint" id="mHint">${f.method==='karvonen'?'FC = reposo + % × (máx − reposo)':f.method==='pct'?'FC = % × FCmáx':'Escribe el inicio de cada zona en ppm.'}</span></div>
+    <div ${f.method==='manual'?'hidden':''} id="pcBox"><span class="lbl">Inicio de cada zona (%)</span><div class="g5" style="margin-top:6px">${pcRows}</div></div>
+    <div ${f.method==='manual'?'':'hidden'} id="mBox"><span class="lbl">Inicio de cada zona (ppm)</span><div class="g5" style="margin-top:6px">${mRows}</div></div>
+    <div id="zprev"></div>
+  </div>
+  <p class="hint" id="ferr" style="color:var(--z5);margin:0" hidden></p>
+  <button class="btn primary wide" type="submit">Guardar perfil</button>
+  ${p?`<button class="btn danger wide" type="button" data-act="delProfile">Borrar perfil y sus sesiones</button>`:''}
+  </form>`;
+};
+function readForm(){
+  const f=S.form.p;
+  f.name=$('#fname').value.trim();f.birthDate=$('#fbirth').value;
+  f.hrMax=parseInt($('#fmax').value)||'';f.hrRest=parseInt($('#frest').value)||'';
+  f.percents=[0,1,2,3,4].map(i=>parseFloat($('#pc'+i).value));
+  f.manual=[0,1,2,3,4].map(i=>parseInt($('#mz'+i).value));
+  return f;
+}
+function validate(f){
+  if(!f.name)return'Escribe un nombre.';
+  if(!(f.hrMax>=100&&f.hrMax<=240))return'La FC máxima debe estar entre 100 y 240 ppm.';
+  if(f.hrRest&&!(f.hrRest>=25&&f.hrRest<f.hrMax-20))return'Revisa la FC en reposo.';
+  if(f.method==='karvonen'&&!f.hrRest)return'Karvonen necesita la FC en reposo. Escríbela o elige % FCmáx.';
+  const arr=f.method==='manual'?f.manual:f.percents;
+  if(arr.some(x=>isNaN(x)))return'Completa el inicio de las cinco zonas.';
+  for(let i=1;i<5;i++)if(arr[i]<=arr[i-1])return'Cada zona tiene que empezar por encima de la anterior.';
+  if(f.method==='manual'&&arr[4]>=f.hrMax)return'Z5 tiene que empezar por debajo de la FC máxima.';
+  return null;
+}
+function updZprev(){const box=$('#zprev');if(!box)return;const f=readForm(),e=validate({...f,name:f.name||'x'});
+  box.innerHTML=e?`<p class="hint" style="margin:0">${esc(e)}</p>`:`<span class="lbl">Rangos resultantes</span>`+zoneTable(zoneLimits(f),f.hrMax)}
+
+V.profile=()=>{
+  const p=prof(S.arg);if(!p)return'';const ss=sessOf(p.id),lim=zoneLimits(p),a=age(p.birthDate);
+  const wk=ss.filter(s=>weekStart(s.startTime)===weekStart(Date.now()));
+  let h=`<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
+  <div class="stats">${stat(p.hrMax+(p.hrMaxEstimated?'*':''),'FC máx')}${stat(p.hrRest||'—','FC reposo')}${stat(wk.reduce((a,s)=>a+(srpe(s)||0),0),'sRPE semana')}</div>
+  ${p.hrMaxEstimated?'<span class="hint">* FC máxima estimada con la fórmula de Tanaka.</span>':''}
+  ${zoneTable(lim,p.hrMax)}</div>
+  <button class="btn primary wide" data-act="newSession">Nueva sesión</button>
+  <section class="sec"><div class="sec-h"><h3>Carga semanal (sRPE, UA)</h3></div><div class="card"><canvas id="wk" style="height:160px" role="img" aria-label="Carga sRPE de las últimas 8 semanas"></canvas></div></section>
+  <section class="sec"><div class="sec-h"><h3>Sesiones</h3>${ss.length?'<button class="btn small" data-act="exportSummary">Exportar CSV</button>':''}</div>`;
+  if(!ss.length)h+=`<div class="empty">Todavía no hay sesiones. Pulsa «Nueva sesión» para grabar la primera.</div>`;
+  else{h+='<div class="list">';for(const s of ss){const l=srpe(s);
+    h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">${esc(s.type)}</span><br><span class="s num">${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm</span></span>${l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`}</button>`}
+    h+='</div>'}
+  return h+'</section>';
+};
+V.pre=()=>{
+  const p=prof(S.arg);const f=S.form;if(f.rpePre===undefined)f.rpePre=null;if(!f.type)f.type=lsGet('lastType_'+p.id)||'Carrera';
+  return `<div class="card"><div class="field"><label for="stype">Tipo de sesión</label><input id="stype" list="types" value="${esc(f.type)}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div></div>
+  <section class="sec"><div class="sec-h"><h3>RPE pre · ¿cómo llegas?</h3><button class="link" data-act="clearPre">Omitir</button></div><span class="hint">Fatiga o cansancio percibido ahora mismo, escala CR-10.</span>${rpeScale('rpePre','pre',f.rpePre)}</section>
+  <section class="sec"><h3>Pulsómetro</h3><div class="card" id="devBox"></div></section>
+  <button class="btn primary wide" id="startBtn" data-act="start">Empezar sesión</button>`;
+};
+function updDevice(){
+  const b=$('#devBox');
+  if(b){const st=BLE.status;let h='';
+    if(st==='on'||st==='sim')h=`<div class="row" style="justify-content:space-between"><span><b>${esc(BLE.name())}</b><br><span class="hint">${st==='sim'?'Datos simulados':'Conectado'}${BLE.bat!=null&&st==='on'?' · batería '+BLE.bat+' %':''}</span></span><span class="num" style="font:700 40px var(--display)"><span id="preHr">${BLE.bpm??'—'}</span> <span class="unit">ppm</span></span></div><button class="btn small" data-act="disconnect">Desconectar</button>`;
+    else if(st==='conn'||st==='re')h=`<b>${st==='re'?'Reconectando…':'Conectando…'}</b><span class="hint">Asegúrate de que el HW9 está encendido y en el brazo.</span><button class="btn small" data-act="disconnect">Cancelar</button>`;
+    else h=`<span class="hint">Enciende el HW9 y póntelo en el antebrazo. Si no aparece en la lista, activa la ubicación del móvil y cierra otras apps que lo estén usando (Strava, Coospo…).</span><div class="row"><button class="btn primary" data-act="connect" ${btOK?'':'disabled'}>Conectar pulsómetro</button><button class="btn" data-act="sim">Usar simulador</button></div>${lsGet('lastDevice')?`<span class="hint">Último usado: ${esc(lsGet('lastDevice'))}</span>`:''}`;
+    b.innerHTML=h}
+  const sb=$('#startBtn');if(sb)sb.disabled=!hasSource();
+  const ls=$('#liveSt');if(ls){const st=BLE.status;ls.textContent=st==='re'?'Señal perdida. Reconectando… la sesión sigue grabando.':st==='off'?'Pulsómetro desconectado.':'';ls.parentElement.hidden=!(st==='re'||st==='off')}
+}
+V.live=()=>{
+  const r=S.rec;
+  return `<div class="note" hidden><b id="liveSt"></b><button class="btn small" data-act="connect" ${btOK?'':'hidden'}>Volver a conectar</button></div>
+  <div class="live-hr"><span class="big" id="lBpm">—</span><span class="unit">PPM</span><span class="zpill" id="lZone">—</span></div>
+  <div class="stats">${stat('00:00','Tiempo','lTime')}${stat('—','FC media','lAvg')}${stat('—','FC máx','lMax')}</div>
+  <div class="card"><canvas id="lc" role="img" aria-label="FC de los últimos 3 minutos"></canvas></div>
+  <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(r.inc.zoneMs,0)}</div>
+  <div class="ctrls"><button class="btn" id="pauseBtn" data-act="pause">${r.running?'Pausar':'Reanudar'}</button><button class="btn danger" data-act="finish">Finalizar</button></div>
+  <span class="hint" style="text-align:center">Deja esta pantalla abierta: con la pantalla apagada Chrome puede dejar de recibir datos.</span>`;
+};
+function updLive(){
+  const r=S.rec;if(!r||S.view!=='live')return;
+  const fresh=Date.now()-BLE.last<5000&&hasSource();
+  const b=fresh?BLE.bpm:null,z=b!=null?zoneOf(b,r.zoneLimits):null;
+  const be=$('#lBpm');if(!be)return;
+  be.textContent=b??'—';be.style.color=z!=null?zc(z):'var(--muted)';
+  const zp=$('#lZone');zp.textContent=z!=null?`Z${z} · ${ZNAME[z]}`:'Sin señal';zp.style.background=z!=null?zc(z):'var(--z0)';
+  $('#lTime').textContent=fmtDur(recActive(r));
+  $('#lAvg').textContent=r.inc.sumT?Math.round(r.inc.sumB/r.inc.sumT):'—';
+  $('#lMax').textContent=r.inc.max||'—';
+  const tot=r.inc.zoneMs.reduce((a,c)=>a+c,0);
+  for(let i=0;i<6;i++){const p=tot?r.inc.zoneMs[i]/tot*100:0;$('#zf'+i).style.width=p+'%';$('#zv'+i).textContent=fmtDur(r.inc.zoneMs[i]);$('#zp'+i).textContent=Math.round(p)+' %'}
+  const now=Date.now(),t0=now-180000;let k=r.samples.length;while(k>0&&r.samples[k-1][0]>=t0-2000)k--;
+  drawHR($('#lc'),r.samples.slice(k),r.zoneLimits,r.hrMax,t0,now,true);
+  $('#pauseBtn').textContent=r.running?'Pausar':'Reanudar';
+}
+V.post=()=>{const f=S.form;if(f.rpePost===undefined)f.rpePost=null;const s=S.sessions.find(x=>x.id===S.arg);
+  return `<div class="card"><span class="lbl">Sesión terminada</span><div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}</div></div>
+  <section class="sec"><h3>RPE de la sesión</h3><span class="hint">¿Cómo de dura ha sido la sesión en conjunto? Lo ideal es contestarlo unos 30 minutos después de terminar. Puedes dejarlo para luego.</span>${rpeScale('rpePost','post',f.rpePost)}</section>
+  <div class="card"><div class="field"><label for="snotes">Notas</label><textarea id="snotes" placeholder="Sensaciones, contenido de la sesión…">${esc(s.notes)}</textarea></div></div>
+  <button class="btn primary wide" data-act="savePost">Guardar RPE</button>
+  <div class="ctrls"><button class="btn" data-act="later">Anotar más tarde</button><button class="btn" data-act="remind">Avisarme en 30 min</button></div>`};
+V.summary=()=>{
+  const s=S.sessions.find(x=>x.id===S.arg);if(!s)return'';const p=prof(s.userId),l=srpe(s);
+  return `<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(s.startTime)} · ${esc(p?.name||'')}</span>${s.example?'<span class="tag ex">Ejemplo</span>':''}</div>
+  <div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}${stat(s.rpePre??'—','RPE pre')}${stat(s.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
+  <canvas id="sc" class="tall" role="img" aria-label="Frecuencia cardíaca de la sesión con zonas"></canvas></div>
+  <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(s.zoneMs,s.noSignalMs)}<span class="hint num">Zonas aplicadas: ${s.zoneLimits.join(' · ')} ppm (FCmáx ${s.hrMax})</span></div>
+  ${s.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="savePending">Guardar RPE</button></section>`:''}
+  <div class="card"><div class="field"><label for="snotes2">Notas</label><textarea id="snotes2" data-act="notes">${esc(s.notes)}</textarea></div><span class="hint">${esc(s.deviceName)}</span></div>
+  <div class="row"><button class="btn" data-act="exportSession">Exportar CSV de la sesión</button><button class="btn danger" data-act="delSession">Borrar sesión</button></div>`;
+};
+
+/* ================= Navegación ================= */
+const TITLES={home:()=> 'Pulsómetro',edit:()=>S.arg?'Editar perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión'};
+function go(view,arg,{push=true,keepForm=false}={}){
+  if(push)S.stack.push([S.view,S.arg]);
+  S.view=view;S.arg=arg??null;if(!keepForm)S.form={};render();window.scrollTo(0,0);
+  if(push)try{history.pushState({},'')}catch(e){}
+}
+function back(){
+  if(S.view==='live')return; // en directo no se sale con «atrás»
+  const prev=S.stack.pop();if(!prev){go('home',null,{push:false});return}
+  let [v,a]=prev;if(v==='live'||v==='pre'||v==='post'||(v==='edit'&&S.view!=='edit'))return back();
+  if((v==='profile'&&!prof(a))||(v==='summary'&&!S.sessions.find(x=>x.id===a))){v='home';a=null}
+  go(v,a,{push:false});
+}
+window.addEventListener('popstate',()=>{if(S.view==='live'){try{history.pushState({},'')}catch(e){}return}back()});
+$('#back').onclick=()=>{try{history.back()}catch(e){back()}};
+function render(){
+  $('#ttl').textContent=TITLES[S.view]();
+  $('#back').hidden=S.view==='home'||S.view==='live';
+  $('#app').innerHTML=V[S.view]();
+  if(S.view==='edit'){updZprev();$('#pform').addEventListener('input',updZprev);$('#pform').addEventListener('submit',e=>{e.preventDefault();saveProfile()})}
+  if(S.view==='profile')drawWeeks($('#wk'),sessOf(S.arg));
+  if(S.view==='pre'||S.view==='live')updDevice();
+  if(S.view==='live')updLive();
+  if(S.view==='summary')drawSummary();
+}
+async function drawSummary(){const s=S.sessions.find(x=>x.id===S.arg);const tr=await DB.get('tracks',s.id);if(S.view!=='summary'||S.arg!==s.id)return;
+  const sm=tr?.samples||[];drawHR($('#sc'),sm,s.zoneLimits,s.hrMax,s.startTime,s.endTime||sm.at(-1)?.[0]||s.startTime+1,false)}
+let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>{if(S.view==='profile')drawWeeks($('#wk'),sessOf(S.arg));if(S.view==='summary')drawSummary();if(S.view==='live')updLive()},150)});
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
+new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* ================= Acciones ================= */
+function arm(btn,label,fn){if(btn.classList.contains('armed')){fn();return}const o=btn.textContent;btn.classList.add('armed');btn.textContent=label;setTimeout(()=>{if(btn.isConnected){btn.classList.remove('armed');btn.textContent=o}},4000)}
+const A={
+  openProfile:id=>go('profile',id),
+  newProfile:()=>go('edit',null),
+  editProfile:()=>go('edit',S.arg),
+  estimate(){const f=readForm(),a=age(f.birthDate);if(a==null){toast('Escribe primero la fecha de nacimiento');return}
+    $('#fmax').value=tanaka(a);f.hrMax=tanaka(a);f.hrMaxEstimated=true;$('#estHint').textContent='Estimada con Tanaka (208 − 0,7 × edad). Cámbiala si tienes un valor medido.';updZprev()},
+  method(b){readForm();S.form.p.method=b.dataset.v;const y=$('#fmax').value;render();$('#fmax').value=y},
+  async delProfile(b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;
+    for(const s of S.sessions.filter(s=>s.userId===id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
+    await DB.del('profiles',id);S.sessions=S.sessions.filter(s=>s.userId!==id);S.profiles=S.profiles.filter(p=>p.id!==id);
+    S.stack=[];go('home',null,{push:false});toast('Perfil borrado')})},
+  newSession(){go('pre',S.arg)},
+  rpe(b){const n=b.dataset.name,v=+b.dataset.v;S.form[n]=v;b.parentElement.querySelectorAll('.rpe-row').forEach(x=>{const on=+x.dataset.v===v;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)})},
+  clearPre(){S.form.rpePre=null;document.querySelectorAll('.rpe-row.on').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-checked','false')})},
+  async connect(){try{await BLE.pick()}catch(e){
+    if(e.name==='NotFoundError')return;
+    BLE.set('off');toast(e.name==='SecurityError'?'Bluetooth bloqueado aquí. Abre la app desde su enlace en Chrome.':e.message||'No se pudo conectar')}},
+  sim(){BLE.startSim()},
+  disconnect(){BLE.stopSim();BLE.disconnect()},
+  async start(){
+    if(!hasSource())return;
+    const p=prof(S.arg);S.form.type=($('#stype').value||'Otro').trim();lsSet('lastType_'+p.id,S.form.type);
+    const r=newRec(p,{rpePre:S.form.rpePre,type:S.form.type});
+    r.startTime=Date.now();r.running=true;r.segStart=r.startTime;S.rec=r;
+    await saveRec();S.autosave=setInterval(saveRec,15000);
+    keepAwake(true);S.stack=S.stack.filter(x=>x[0]!=='pre');go('live',null,{push:false});
+    clearInterval(S.tick);S.tick=setInterval(()=>{if(S.view==='live')updLive()},1000);
+  },
+  pause(){const r=S.rec,now=Date.now();
+    if(r.running){r.acc+=now-r.segStart;r.running=false;r.pauses.push([now,null]);r.seg++}
+    else{r.pauses[r.pauses.length-1][1]=now;r.segStart=now;r.running=true}
+    updLive();saveRec()},
+  finish(b){arm(b,'Pulsa otra vez para terminar',async()=>{const id=await finishRec();clearInterval(S.tick);go('post',id,{push:false})})},
+  async savePost(){const s=S.sessions.find(x=>x.id===S.arg);s.notes=$('#snotes').value;
+    if(S.form.rpePost==null){toast('Elige un valor o pulsa «Anotar más tarde»');return}
+    s.rpePost=S.form.rpePost;s.rpePostTime=Date.now();await DB.put('sessions',s);go('summary',s.id,{push:false});toast('RPE guardado')},
+  async later(){const s=S.sessions.find(x=>x.id===S.arg);s.notes=$('#snotes').value;await DB.put('sessions',s);go('summary',s.id,{push:false})},
+  async remind(){const s=S.sessions.find(x=>x.id===S.arg);
+    let ok=false;try{if('Notification' in window){ok=Notification.permission==='granted'||(await Notification.requestPermission())==='granted'}}catch(e){}
+    setTimeout(()=>{try{if(ok)new Notification('RPE post pendiente',{body:`Anota cómo de dura fue la sesión de ${s.type}.`})}catch(e){}toast('Ya puedes anotar el RPE post')},30*60000);
+    toast(ok?'Te aviso en 30 min si la app sigue abierta':'Aviso dentro de la app en 30 min');A.later()},
+  async savePending(){const s=S.sessions.find(x=>x.id===S.arg);if(S.form.rpePost==null){toast('Elige un valor de la escala');return}
+    s.rpePost=S.form.rpePost;s.rpePostTime=Date.now();await DB.put('sessions',s);render();toast('RPE guardado')},
+  openSession:id=>go('summary',id),
+  async delSession(b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
+  async exportSession(){const s=S.sessions.find(x=>x.id===S.arg),tr=await DB.get('tracks',s.id);
+    const rows=['timestamp_iso;segundos;bpm;zona',...(tr?.samples||[]).map(([t,b])=>`${new Date(t).toISOString()};${dec((t-s.startTime)/1000)};${b};Z${zoneOf(b,s.zoneLimits)}`)];
+    download(`${slug(prof(s.userId)?.name)}_${fileDate(s.startTime)}_${slug(s.type)}.csv`,rows.join('\r\n'),'text/csv')},
+  exportSummary(){const p=prof(S.arg);const rows=['usuario;fecha;tipo;duracion_min;fc_media;fc_max;min_z0;min_z1;min_z2;min_z3;min_z4;min_z5;rpe_pre;rpe_post;srpe'];
+    for(const s of [...sessOf(p.id)].reverse())rows.push([p.name,new Date(s.startTime).toLocaleString('es-ES'),s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??''].map(v=>String(v).replace(/;/g,',')).join(';'));
+    download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
+  async backup(){const data={app:'pulsometro',version:1,exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
+    download(`pulsometro_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
+  import(){$('#importFile').click()},
+  async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
+    const last=tr.samples.at(-1);m.endTime=last?last[0]:m.startTime;if(!m.activeMs)m.activeMs=m.endTime-m.startTime;
+    await finalize(m,tr);go('summary',id);toast('Sesión recuperada')},
+  async discard(id){await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);render()}
+};
+async function saveProfile(){
+  const f=readForm(),e=validate(f),er=$('#ferr');
+  if(e){er.textContent=e;er.hidden=false;return}
+  const old=prof(f.id);
+  delete f.example;await DB.put('profiles',f);
+  const i=S.profiles.findIndex(p=>p.id===f.id);if(i<0)S.profiles.push(f);else S.profiles[i]=f;
+  if(old)back();else go('profile',f.id);toast('Perfil guardado');
+}
+$('#app').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)});
+$('#app').addEventListener('change',async e=>{if(e.target.id==='snotes2'){const s=S.sessions.find(x=>x.id===S.arg);s.notes=e.target.value;await DB.put('sessions',s);toast('Notas guardadas')}
+  if(e.target.id==='fmax'&&S.form.p)S.form.p.hrMaxEstimated=false});
+// Ajuste: los handlers que reciben botón esperan el elemento
+for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x,b)=>f(b||x))(A[k]);
+
+$('#importFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;
+  try{const d=JSON.parse(await file.text());if(d.app!=='pulsometro')throw 0;
+    for(const p of d.profiles||[])await DB.put('profiles',p);for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);
+    await loadAll();render();toast(`Importados ${d.profiles.length} perfiles y ${d.sessions.length} sesiones`)}
+  catch(err){toast('El archivo no es una copia válida de esta app')}});
+
+const slug=s=>String(s||'x').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
+const fileDate=t=>{const d=new Date(t);return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`};
+async function download(name,text,type,bom=true){
+  const blob=new Blob([bom?'﻿'+text:text],{type:type+';charset=utf-8'});
+  const file=new File([blob],name,{type});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})&&/Android|iPhone|iPad/i.test(navigator.userAgent)){await navigator.share({files:[file],title:name});return}}catch(e){if(e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  if(inFrame)toast('La descarga no funciona en esta vista. Ábrela desde su enlace.');
+}
+
+/* ================= Datos de ejemplo ================= */
+function genSession(p,start,mins,kind){
+  const lim=zoneLimits(p),samples=[],max=p.hrMax;let hr=p.hrRest?p.hrRest+15:80,t=start;
+  for(let s=0;s<mins*60;s++){
+    let tgt;const m=s/60;
+    if(kind==='int'){tgt=m<10?0.65:m>mins-8?0.6:(Math.floor((m-10)/2)%2===0?0.9:0.7)}
+    else if(kind==='rec'){tgt=0.6}
+    else{tgt=m<8?0.65:m>mins-5?0.62:0.76+0.04*Math.sin(m/4)}
+    hr+=(tgt*max-hr)*0.06+(Math.random()-0.5)*2.6;
+    samples.push([t,Math.round(hr),0]);t+=1000+(Math.random()<0.02?0:0);
+  }
+  return {samples,lim};
+}
+async function seedExample(){
+  const birth=new Date();birth.setFullYear(birth.getFullYear()-22);
+  const p={id:uid(),name:'Ejemplo',birthDate:birth.toISOString().slice(0,10),hrMax:tanaka(22),hrMaxEstimated:true,hrRest:58,method:'karvonen',percents:[...DEF_PC],manual:[],createdAt:Date.now(),example:true};
+  await DB.put('profiles',p);
+  const plan=[[1,'Carrera',40,'cont',4,6,1],[3,'Intervalos',38,'int',5,8,1],[6,'Recuperación',30,'rec',6,3,0],[9,'Carrera',45,'cont',3,6,2],[13,'Intervalos',42,'int',4,8,1],[16,'Carrera',50,'cont',3,5,1]];
+  for(const [dAgo,type,mins,kind,pre,post,h] of plan){
+    const st=new Date();st.setDate(st.getDate()-dAgo);st.setHours(18+h,15,0,0);const {samples,lim}=genSession(p,st.getTime(),mins,kind);
+    const m={id:uid(),userId:p.id,startTime:st.getTime(),endTime:samples.at(-1)[0],activeMs:mins*60000,zoneLimits:lim,hrMax:p.hrMax,rpePre:pre,rpePost:post,rpePostTime:st.getTime()+(mins+30)*60000,type,notes:'',deviceName:'Datos de ejemplo',status:'recording',example:true};
+    await finalize(m,{id:m.id,samples,rr:[],pauses:[]});
+  }
+  lsSet('seeded','1');
+}
+
+/* ================= Arranque ================= */
+async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions')}
+(async()=>{
+  await DB.open();await loadAll();
+  if(!S.profiles.length&&!lsGet('seeded')){await seedExample();await loadAll()}
+  try{history.replaceState({},'')}catch(e){}
+  render();updChip();
+})();
+</script>
