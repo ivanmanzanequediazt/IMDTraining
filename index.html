@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>IMDTraining</title>
 <meta name="theme-color" content="#0E150F">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -177,6 +177,74 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 .welcome{display:flex;flex-direction:column;gap:12px;padding-block:24px}
 .big-brand{font:700 44px/1 var(--display);letter-spacing:.02em}
 .share{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.diag{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--warn)}
+/* ---- Organización visual ---- */
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic.sm{width:16px;height:16px;vertical-align:-3px}
+.btn .ic{width:18px;height:18px}
+.ptabs{position:sticky;top:calc(env(safe-area-inset-top,0px) + 53px);z-index:4;background:var(--bg);display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:6px 16px 8px;border-bottom:1px solid var(--line)}
+.ptabs::-webkit-scrollbar{display:none}
+.ptabs button{flex:1 1 0;min-width:52px;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;color:var(--muted);font:600 11.5px var(--body);padding:6px 2px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.ptabs button.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.ptabs button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.info{font-size:14px;color:var(--muted)}
+.info summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;list-style:none;color:var(--muted);font-weight:600;padding:4px 0}
+.info summary::-webkit-details-marker{display:none}
+.info summary .ic{width:17px;height:17px}
+.info[open] summary{color:var(--ink)}
+.info>div{padding:6px 0 2px;line-height:1.5}
+.starts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:0;border-radius:14px;padding:16px 14px;cursor:pointer;background:var(--accent);color:var(--accent-ink);font:inherit;min-height:116px}
+.start:nth-child(2){background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line))}
+.start .ic{width:28px;height:28px;margin-bottom:auto}
+.start:nth-child(2) .ic{color:var(--accent)}
+.start b{font:700 18px/1.1 var(--display)}
+.start span{font-size:13px;opacity:.85}
+.start:focus-visible,.kpi:focus-visible,.pcard:focus-visible,.action:focus-visible,.fchip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kpi{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;color:var(--ink);font:inherit;min-width:0}
+.kpi b{font:700 26px/1 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.kpi span{font-size:12px;color:var(--muted);line-height:1.25}
+.kpi .dot{position:absolute;top:12px;right:12px;width:10px;height:10px;border-radius:50%}
+.kind{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none}
+.kind.hr{background:color-mix(in srgb,var(--z5) 16%,transparent);color:var(--z5)}
+.kind.st{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.item .grow{display:flex;flex-direction:column;gap:1px}
+.item.hl{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.wk-h{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:10px 2px 2px}
+.chips-f{display:flex;gap:6px;flex-wrap:wrap}
+.fchip{border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 14px var(--body);padding:7px 13px;border-radius:999px;cursor:pointer}
+.fchip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.acwr-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.acwr-head>div{display:flex;flex-direction:column;gap:2px}
+.big-num{font:700 46px/1 var(--display)}
+.warnTxt{color:var(--warn)}
+.prof-head{display:flex;align-items:center;gap:12px}
+.avatar.lg{width:54px;height:54px;font-size:26px}
+.pname{font:700 22px/1.1 var(--display);display:block}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.pcard{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;color:var(--ink);font:inherit;text-align:left;min-width:0}
+.pcard .grow{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pcard .t{font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcard .s{font-size:13px;color:var(--muted)}
+.pcard .tags{display:flex;gap:4px;flex-wrap:wrap}
+.pcard .tags:empty{display:none}
+.pdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-left:6px;vertical-align:2px}
+.acwr-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:58px;padding:6px 8px;border-radius:10px;background:color-mix(in srgb,var(--c) 16%,transparent);border:1px solid color-mix(in srgb,var(--c) 45%,transparent)}
+.acwr-mini b{font:700 20px/1 var(--display);color:var(--c)}
+.acwr-mini span{font-size:10px;color:var(--muted);letter-spacing:.06em;font-weight:600}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.action{display:flex;flex-direction:column;align-items:flex-start;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;color:var(--ink);font:inherit;text-align:left}
+.action .ic{color:var(--accent);width:24px;height:24px;margin-bottom:4px}
+.action b{font:700 17px var(--display)}
+.action span{font-size:13px;color:var(--muted)}
+details.more>summary,details.danger-zone>summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;list-style:none}
+details.more>summary::-webkit-details-marker,details.danger-zone>summary::-webkit-details-marker{display:none}
+details.danger-zone>summary{color:var(--z5)}
+details.more[open],details.danger-zone[open]{gap:12px}
+details.more:not([open]),details.danger-zone:not([open]){gap:0}
+.note.slim{flex-direction:row;align-items:flex-start;gap:10px;padding:10px 12px}
+.note.slim .ic{color:var(--z2);margin-top:2px}
 /* Test */
 .tabs{margin-bottom:-4px}
 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -731,6 +799,7 @@ function drawAcwr(el,ser){
 function drawProfileCharts(){const id=S.arg;
   drawAcwr($('#acwr'),acwrSeries(dailyLoads(loadItems(id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'));
   drawBars($('#wk'),loadBuckets(loadItems(id),lsGet('loadView')==='month'?'month':'week'));
+  drawBars($('#wkMini'),loadBuckets(loadItems(id),'week'));
   drawBars($('#stv'),loadBuckets(volItems(id),lsGet('loadView')==='month'?'month':'week'))}
 const fmtKg=k=>{k=Math.round((+k||0)*10)/10;return (Number.isInteger(k)?k.toLocaleString('es-ES'):k.toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1}))};
 
@@ -754,9 +823,9 @@ function methodName(p){return p.method==='karvonen'?'Karvonen':p.method==='pct'?
 /* ================= Vistas ================= */
 const V={};
 // Avisos (Bluetooth, sesiones sin terminar, RPE pendiente). uid = solo ese perfil; sin uid = todos menos los clientes importados
-function alertsHTML(uid){let h='';const mine=x=>uid?x.userId===uid:!prof(x.userId)?.remote;
-  if(!btOK)h+=`<div class="note info"><b>Bluetooth no disponible en esta vista</b><span class="hint">Para conectar el HW9, abre la app desde su enlace https en Chrome para Android. Aquí puedes probarlo todo con el simulador.</span></div>`;
-  if(S.memOnly)h+=`<div class="note"><b>Los datos no se guardarán</b><span class="hint">Este navegador no permite almacenamiento. Abre la app desde su propio enlace para que guarde perfiles y sesiones.</span></div>`;
+function alertsHTML(uid,noGlobal){let h='';const mine=x=>uid?x.userId===uid:!prof(x.userId)?.remote;
+  if(!btOK&&!noGlobal)h+=`<div class="note info slim">${ic('info')}<span class="hint">Bluetooth no disponible aquí: abre la app desde su enlace en Chrome para Android. Puedes probarlo todo con el simulador.</span></div>`;
+  if(S.memOnly&&!noGlobal)h+=`<div class="note"><b>Los datos no se guardarán</b><span class="hint">Este navegador no permite almacenamiento. Abre la app desde su propio enlace para que guarde perfiles y sesiones.</span></div>`;
   for(const s of S.sessions.filter(s=>mine(s)&&s.status==='recording'&&(!S.rec||S.rec.id!==s.id)))
     h+=`<div class="note"><b>Sesión sin terminar · ${esc(prof(s.userId)?.name||'')}</b><span class="hint">Empezó ${fmtDT(s.startTime)}. Se cerró la app antes de finalizarla.</span><div class="row"><button class="btn small primary" data-act="recover" data-id="${s.id}">Guardar lo grabado</button><button class="btn small danger" data-act="discard" data-id="${s.id}">Descartar</button></div></div>`;
   for(const s of S.sessions.filter(s=>mine(s)&&s.status==='done'&&s.rpePost==null&&Date.now()-s.endTime<7*864e5))
@@ -766,18 +835,22 @@ function alertsHTML(uid){let h='';const mine=x=>uid?x.userId===uid:!prof(x.userI
   for(const s of S.strength.filter(s=>mine(s)&&s.status==='open'))
     h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Fuerza en curso · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · empezó ${ago(s.startTime)}</span></span><span class="tag str">Continuar</span></button>`;
   return h}
+function profileCard(p){const all=allOf(p.id),last=all[0],ser=acwrSeries(dailyLoads(loadItems(p.id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio),pend=all.some(s=>s.rpePost==null);
+  return `<button class="pcard" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span>
+    <span class="grow"><span class="t">${esc(p.name)}${pend?'<i class="pdot" title="RPE pendiente"></i>':''}</span><span class="s">${last?'Última sesión '+ago(last.startTime):'Sin sesiones'}</span>
+    <span class="tags">${p.example?'<span class="tag ex">Ejemplo</span>':''}${p.remote?'<span class="tag str">Cliente</span>':''}</span></span>
+    <span class="acwr-mini" style="--c:${zc(st.z)}"><b class="num">${cur?.ratio!=null?dec(cur.ratio,2):'—'}</b><span>ACWR</span></span></button>`}
 V.home=()=>{
-  let h=alertsHTML();
-  h+=`<div class="card"><span class="lbl">Clientes</span><span class="hint">Pásale a cada cliente el enlace de invitación. Crea su perfil en su móvil y te envía sus datos en un archivo, que importas aquí: se añade su perfil o se actualiza si ya lo tenías.</span>
-    <span class="hint">En el móvil, lo más cómodo: instala la app (Chrome ⋮ → Instalar aplicación) y, en WhatsApp, comparte el archivo recibido a IMDTraining. Se importa solo.</span>
-    <div class="row"><button class="btn small primary" data-act="invite">Invitar a un cliente</button><button class="btn small" data-act="import">Importar datos de un cliente</button></div></div>`;
-  h+=`<section class="sec"><div class="sec-h"><h2>Perfiles</h2><button class="btn small" data-act="newProfile">Nuevo perfil</button></div>`;
-  if(!S.profiles.length)h+=`<div class="empty">Crea un perfil por cada persona que vaya a usar el pulsómetro. Cada uno guarda sus zonas y sus sesiones.</div>`;
-  else{h+='<div class="list">';
-    for(const p of [...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))){const ss=allOf(p.id),a=age(p.birthDate);
-      h+=`<button class="item" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${p.example?' <span class="tag ex">Ejemplo</span>':''}${p.remote?' <span class="tag str">Cliente</span>':''}</span><br><span class="s num">${p.remote&&p.lastImport?'Datos recibidos '+ago(p.lastImport):(a!=null?a+' años · ':'')+'FCmáx '+p.hrMax+' · '+methodName(p)}</span></span><span class="s num">${ss.length} ses.</span></button>`}
-    h+='</div>'}
-  h+=`</section><section class="sec"><h3>Copia de seguridad</h3><p class="hint" style="margin:0">Los datos se guardan solo en este móvil y en este navegador. Exporta una copia de vez en cuando.</p><div class="row"><button class="btn small" data-act="backup">Exportar copia (.json)</button><button class="btn small" data-act="importBackup">Importar copia</button></div></section>`;
+  let h=alertsHTML()+installCardHTML();
+  const ps=[...S.profiles].sort((a,b)=>(a.example?1:0)-(b.example?1:0)||a.name.localeCompare(b.name));
+  h+=`<section class="sec"><div class="sec-h"><h2>Perfiles <span class="muted num">${ps.length||''}</span></h2><button class="btn small" data-act="newProfile">${ic('plus')}Nuevo</button></div>`;
+  h+=ps.length?`<div class="pgrid">${ps.map(profileCard).join('')}</div>`:`<div class="empty">Crea un perfil por cada persona que entrenes. Cada uno guarda sus zonas, sesiones y test.</div>`;
+  h+=`</section><section class="sec"><h3>Clientes</h3><div class="actions">
+    <button class="action" data-act="invite">${ic('userPlus')}<b>Invitar</b><span>Envía el enlace</span></button>
+    <button class="action" data-act="import">${ic('download')}<b>Importar</b><span>Datos recibidos</span></button></div>
+    ${info('Pásale a cada cliente el enlace de invitación: crea su perfil en su móvil y te envía sus datos en un archivo. En el móvil, lo más cómodo es compartir ese archivo desde WhatsApp a IMDTraining (con la app instalada) y se importa solo; también puedes usar «Importar». Si el perfil ya existía, se actualiza y solo se suman las sesiones nuevas.','Cómo funciona')}</section>
+  <details class="card more"><summary>${ic('save')}<span>Copia de seguridad</span></summary><span class="hint">Los datos se guardan solo en este móvil y en este navegador. Exporta una copia de vez en cuando.</span>
+    <div class="row"><button class="btn small" data-act="backup">Exportar copia</button><button class="btn small" data-act="importBackup">Importar copia</button></div></details>`;
   return h;
 };
 V.edit=()=>{
@@ -833,51 +906,76 @@ function validate(f){
 function updZprev(){const box=$('#zprev');if(!box)return;const f=readForm(),e=validate({...f,name:f.name||'x'});
   box.innerHTML=e?`<p class="hint" style="margin:0">${esc(e)}</p>`:`<span class="lbl">Rangos resultantes</span>`+zoneTable(zoneLimits(f),f.hrMax)}
 
+// Elemento de la lista de sesiones (pulsómetro o fuerza)
+function sessItem(s){const l=loadOfAny(s),right=l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`;
+  if(s.kind==='st'){const k=strengthStats(s);
+    return `<button class="item" data-act="openStrength" data-id="${s.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(s.type)}</span><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
+  return `<button class="item" data-act="openSession" data-id="${s.id}"><span class="kind hr">${ic('heart')}</span><span class="grow"><span class="t">${esc(s.type)}</span><span class="s num">${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm</span></span>${right}</button>`}
+const kpi=(val,label,act,tab,extra='')=>`<button class="kpi" data-act="${act}" data-v="${tab}">${extra}<b class="num">${val}</b><span>${label}</span></button>`;
 V.profile=()=>{
-  const p=prof(S.arg);if(!p)return'';const ss=sessOf(p.id),lim=zoneLimits(p),a=age(p.birthDate);
-  const method=lsGet('acwrMethod')==='ewma'?'ewma':'ra',view=lsGet('loadView')==='month'?'month':'week';
-  const ser=acwrSeries(dailyLoads(loadItems(p.id)),method),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio);
-  const nDays=ser.length,all=allOf(p.id),sts=stOf(p.id),open=S.strength.filter(s=>s.userId===p.id&&s.status==='open');
-  const wk7=Date.now()-7*864e5,v7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)});
-  let h=`${isClient()?alertsHTML(p.id):''}${profileTabs(p.id,'train')}${shareCard(p)}<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${p.weight?fmtKg(p.weight)+' kg · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
-  <div class="stats">${stat(p.hrMax+(p.hrMaxEstimated?'*':''),'FC máx')}${stat(p.hrRest||'—','FC reposo')}${stat(all.length,'Sesiones')}</div>
-  ${p.hrMaxEstimated?'<span class="hint">* FC máxima estimada con la fórmula de Tanaka.</span>':''}
-  ${zoneTable(lim,p.hrMax)}</div>
-  ${open.map(o=>`<button class="item" data-act="openStrength" data-id="${o.id}"><span class="grow"><span class="t">${esc(o.type)} en curso</span><br><span class="s">Empezó ${ago(o.startTime)} · ${strengthStats(o).sets} series anotadas</span></span><span class="tag str">Continuar</span></button>`).join('')}
-  <div class="ctrls"><button class="btn primary" data-act="newSession">Sesión con pulsómetro</button><button class="btn primary" data-act="newStrength">Sesión de fuerza</button></div>
-  <section class="sec"><h3>Carga de entrenamiento</h3>
-  <div class="card">
-    <div class="seg two" role="radiogroup" aria-label="Método de cálculo del ACWR">
-      <button type="button" data-act="acwrMethod" data-v="ra" class="${method==='ra'?'on':''}" aria-checked="${method==='ra'}" role="radio">Medias móviles 7:28</button>
-      <button type="button" data-act="acwrMethod" data-v="ewma" class="${method==='ewma'?'on':''}" aria-checked="${method==='ewma'}" role="radio">EWMA</button></div>
-    <div class="stats">${stat(cur?cur.acute:0,'Últ. 7 días')}${stat(cur?cur.month:0,'Últ. 28 días')}${stat(cur?.ratio!=null?dec(cur.ratio,2):'—','ACWR')}</div>
-    <span class="acwr-pill" style="background:${zc(st.z)}">${st.txt}</span>
-    <span class="hint">${cur?`Carga aguda ${cur.acute} UA frente a una media crónica de ${Math.round(cur.month/4)} UA por semana.`:'Registra sesiones con RPE post para calcular la carga.'}${nDays&&nDays<28?` Hacen falta 28 días de registros para que el ACWR sea fiable; llevas ${nDays}.`:''}</span>
-    <div class="chart"><canvas id="acwr" style="height:170px" role="img" aria-label="ACWR de las últimas 6 semanas"></canvas></div>
-    <div class="acwr-key"><span><i style="background:${zc(2)}"></i>&lt; 0,8 baja</span><span><i style="background:${zc(3)}"></i>0,8–1,3 óptima</span><span><i style="background:${zc(4)}"></i>1,3–1,5 precaución</span><span><i style="background:${zc(5)}"></i>&gt; 1,5 riesgo</span></div>
-  </div>
-  <div class="card">
-    <div class="sec-h"><span class="lbl">Carga por ${view==='week'?'semana natural (lun–dom)':'mes'} · UA</span></div>
-    <div class="seg two" role="radiogroup" aria-label="Agrupar carga por">
-      <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
-      <button type="button" data-act="loadView" data-v="month" class="${view==='month'?'on':''}" aria-checked="${view==='month'}" role="radio">Meses</button></div>
-    <canvas id="wk" style="height:160px" role="img" aria-label="Carga sRPE por ${view==='week'?'semana':'mes'}"></canvas>
-    <span class="hint">Carga = RPE post × minutos de sesión (sRPE de Foster), sumando las sesiones con pulsómetro y las de fuerza. Las sesiones con el RPE post pendiente no suman. Rangos del ACWR orientativos (Gabbett, 2016).</span>
-  </div>
-  ${sts.length?`<div class="card">
-    <div class="sec-h"><span class="lbl">Fuerza · volumen-carga por ${view==='week'?'semana':'mes'} (kg)</span></div>
-    <div class="stats">${stat(fmtKg(v7.vol),'Kg últ. 7 días')}${stat(v7.sets,'Series 7 días')}${stat(v7.rpe!=null?dec(v7.rpe,1):'—','RPE medio serie')}</div>
-    <canvas id="stv" style="height:150px" role="img" aria-label="Volumen-carga de fuerza por ${view==='week'?'semana':'mes'}"></canvas>
-    <span class="hint">Volumen-carga = series × repeticiones × kg. Se muestra aparte y no entra en el ACWR; ahí cuenta el sRPE de cada sesión de fuerza.</span>
-  </div>`:''}${sts.length?mgCard(p.id):''}</section>
-  <section class="sec"><div class="sec-h"><h3>Sesiones</h3>${all.length?'<button class="btn small" data-act="exportSummary">Exportar CSV</button>':''}</div>`;
-  if(!all.length)h+=`<div class="empty">Todavía no hay sesiones. Empieza una con pulsómetro o registra una sesión de fuerza.</div>`;
-  else{h+='<div class="list">';for(const s of all){const l=loadOfAny(s),right=l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`;
-    if(s.kind==='st'){const k=strengthStats(s);
-      h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">${esc(s.type)} <span class="tag str">Fuerza</span></span><br><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
-    else h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">${esc(s.type)}</span><br><span class="s num">${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm</span></span>${right}</button>`}
-    h+='</div>'}
-  return h+'</section>';
+  const p=prof(S.arg);if(!p)return'';const tab=PTABS.some(t=>t[0]===S.ptab)&&S.ptab!=='test'?S.ptab:'res';
+  const all=allOf(p.id),method=lsGet('acwrMethod')==='ewma'?'ewma':'ra',ser=acwrSeries(dailyLoads(loadItems(p.id)),method),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio);
+  let h=(isClient()?alertsHTML(p.id)+installCardHTML():'')+profileTabs(p.id,tab);
+  if(tab==='res'){
+    const open=S.strength.filter(s=>s.userId===p.id&&s.status==='open'),last=all[0];
+    h+=isClient()?'':alertsHTML(p.id,true);
+    h+=open.map(o=>`<button class="item hl" data-act="openStrength" data-id="${o.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(o.type)} en curso</span><span class="s">Empezó ${ago(o.startTime)} · ${strengthStats(o).sets} series anotadas</span></span><span class="tag str">Continuar</span></button>`).join('');
+    h+=`<div class="starts"><button class="start" data-act="newSession">${ic('heart')}<b>Sesión con pulsómetro</b><span>FC en directo y zonas</span></button><button class="start" data-act="newStrength">${ic('dumbbell')}<b>Sesión de fuerza</b><span>Ejercicios, series y RPE</span></button></div>
+    <div class="kpis">${kpi(cur?.ratio!=null?dec(cur.ratio,2):'—','ACWR','ptab','load',`<i class="dot" style="background:${zc(st.z)}"></i>`)}${kpi(cur?cur.acute:0,'UA últimos 7 días','ptab','load')}${kpi(last?ago(last.startTime).replace('hace ',''):'—','Última sesión','ptab','ses')}</div>
+    ${all.length?`<div class="card"><div class="sec-h"><span class="lbl">Carga semanal</span><button class="link" data-act="ptab" data-v="load">Ver carga ${ic('chev','sm')}</button></div><canvas id="wkMini" style="height:120px" role="img" aria-label="Carga de las últimas 8 semanas"></canvas></div>`:''}
+    ${isClient()?shareCard(p):''}
+    <section class="sec"><div class="sec-h"><h3>Últimas sesiones</h3>${all.length>3?`<button class="link" data-act="ptab" data-v="ses">Ver todas (${all.length}) ${ic('chev','sm')}</button>`:''}</div>
+    ${all.length?`<div class="list">${all.slice(0,3).map(sessItem).join('')}</div>`:`<div class="empty">Todavía no hay sesiones. Empieza una con los botones de arriba.</div>`}</section>`}
+  else if(tab==='ses'){
+    const f=S.sfilter||'all',list=all.filter(s=>f==='all'||(f==='hr'?s.kind==='hr':s.kind==='st'));
+    h+=`<div class="sec-h"><div class="chips-f" role="radiogroup" aria-label="Filtrar sesiones">${[['all','Todas'],['hr','Pulsómetro'],['st','Fuerza']].map(([k,l])=>`<button type="button" role="radio" aria-checked="${f===k}" class="fchip ${f===k?'on':''}" data-act="sfilter" data-v="${k}">${l}</button>`).join('')}</div>${all.length?`<button class="btn small" data-act="exportSummary">${ic('download')}CSV</button>`:''}</div>`;
+    if(!list.length)h+=`<div class="empty">No hay sesiones${f==='all'?'':' de este tipo'}.</div>`;
+    else{let wk=null;h+='<div class="list">';
+      for(const s of list){const w=weekStart(s.startTime);
+        if(w!==wk){wk=w;const inW=list.filter(x=>weekStart(x.startTime)===w),ua=inW.reduce((a,x)=>a+(loadOfAny(x)||0),0),d=new Date(w);
+          h+=`<div class="wk-h"><span>Semana del ${d.getDate()} ${d.toLocaleDateString('es-ES',{month:'short'}).replace('.','')}</span><span class="num">${inW.length} sesi${inW.length===1?'ón':'ones'} · ${ua} UA</span></div>`}
+        h+=sessItem(s)}
+      h+='</div>'}}
+  else if(tab==='load'){
+    const view=lsGet('loadView')==='month'?'month':'week',nDays=ser.length;
+    h+=`<div class="card">
+      <div class="acwr-head"><div><span class="lbl">ACWR</span><b class="big-num num">${cur?.ratio!=null?dec(cur.ratio,2):'—'}</b></div><span class="acwr-pill" style="background:${zc(st.z)}">${st.txt}</span></div>
+      <div class="stats">${stat(cur?cur.acute:0,'UA 7 días')}${stat(cur?cur.month:0,'UA 28 días')}${stat(cur?Math.round(cur.month/4):0,'Media semanal')}</div>
+      ${nDays&&nDays<28?`<span class="hint warnTxt">Hacen falta 28 días de registros para que el ACWR sea fiable; llevas ${nDays}.</span>`:''}
+      <div class="chart"><canvas id="acwr" style="height:170px" role="img" aria-label="ACWR de las últimas 6 semanas"></canvas></div>
+      <div class="acwr-key"><span><i style="background:${zc(2)}"></i>&lt; 0,8</span><span><i style="background:${zc(3)}"></i>0,8–1,3</span><span><i style="background:${zc(4)}"></i>1,3–1,5</span><span><i style="background:${zc(5)}"></i>&gt; 1,5</span></div>
+      <div class="seg two" role="radiogroup" aria-label="Método de cálculo del ACWR">
+        <button type="button" data-act="acwrMethod" data-v="ra" class="${method==='ra'?'on':''}" aria-checked="${method==='ra'}" role="radio">Medias móviles 7:28</button>
+        <button type="button" data-act="acwrMethod" data-v="ewma" class="${method==='ewma'?'on':''}" aria-checked="${method==='ewma'}" role="radio">EWMA</button></div>
+      ${info('Carga de cada sesión = RPE post × minutos (sRPE de Foster), sumando pulsómetro y fuerza; las sesiones con el RPE post pendiente no suman. ACWR = carga aguda (7 días) / carga crónica (media semanal de 28 días), o con medias exponenciales (EWMA, Williams et al., 2017). Rangos orientativos: &lt; 0,8 carga baja · 0,8–1,3 zona óptima · 1,3–1,5 precaución · &gt; 1,5 riesgo elevado (Gabbett, 2016).')}
+    </div>
+    <div class="card"><div class="sec-h"><span class="lbl">Carga por ${view==='week'?'semana':'mes'} · UA</span></div>
+      <div class="seg two" role="radiogroup" aria-label="Agrupar carga por">
+        <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
+        <button type="button" data-act="loadView" data-v="month" class="${view==='month'?'on':''}" aria-checked="${view==='month'}" role="radio">Meses</button></div>
+      <canvas id="wk" style="height:170px" role="img" aria-label="Carga sRPE por ${view==='week'?'semana':'mes'}"></canvas></div>`}
+  else if(tab==='str'){
+    const sts=stOf(p.id),view=lsGet('loadView')==='month'?'month':'week',wk7=Date.now()-7*864e5,v7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)});
+    if(!sts.length)h+=`<div class="empty">Todavía no hay sesiones de fuerza.</div><button class="btn primary wide" data-act="newStrength">${ic('dumbbell')}Registrar una sesión de fuerza</button>`;
+    else h+=`<div class="kpis">${kpi(fmtKg(v7.vol),'kg en 7 días','ptab','str')}${kpi(v7.sets,'series en 7 días','ptab','str')}${kpi(v7.rpe!=null?dec(v7.rpe,1):'—','RPE medio serie','ptab','str')}</div>
+      ${mgCard(p.id)}
+      <div class="card"><div class="sec-h"><span class="lbl">Volumen-carga por ${view==='week'?'semana':'mes'} · kg</span></div>
+        <div class="seg two" role="radiogroup" aria-label="Agrupar por">
+          <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
+          <button type="button" data-act="loadView" data-v="month" class="${view==='month'?'on':''}" aria-checked="${view==='month'}" role="radio">Meses</button></div>
+        <canvas id="stv" style="height:150px" role="img" aria-label="Volumen-carga de fuerza"></canvas>
+        ${info('Volumen-carga = series × repeticiones × kg. Se muestra aparte y no entra en el ACWR; ahí cuenta el sRPE de cada sesión de fuerza.')}</div>
+      <button class="btn primary wide" data-act="newStrength">${ic('plus')}Nueva sesión de fuerza</button>`}
+  else if(tab==='data'){
+    const lim=zoneLimits(p),a=age(p.birthDate);
+    h+=`<div class="card"><div class="prof-head"><span class="avatar lg">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><div class="grow"><b class="pname">${esc(p.name)}</b><span class="hint">${a!=null?a+' años':''}${p.weight?' · '+fmtKg(p.weight)+' kg':''}${p.remote?' · cliente':''}</span></div><button class="btn small" data-act="editProfile">Editar</button></div>
+      <div class="stats">${stat(p.hrMax+(p.hrMaxEstimated?'*':''),'FC máx')}${stat(p.hrRest||'—','FC reposo')}${stat(methodName(p),'Zonas')}</div>
+      ${p.hrMaxEstimated?'<span class="hint">* FC máxima estimada con la fórmula de Tanaka. Si la mides, cámbiala en Editar.</span>':''}</div>
+    <div class="card"><span class="lbl">Zonas de frecuencia cardíaca</span>${zoneTable(lim,p.hrMax)}</div>
+    ${isClient()?'':shareCard(p)}
+    ${isClient()?'':`<details class="card danger-zone"><summary>Borrar perfil</summary><span class="hint">Se eliminan de este móvil ${esc(p.name)} y todos sus datos: ${all.length} sesi${all.length===1?'ón':'ones'} y ${S.tests.filter(t=>t.userId===p.id).length} test. No se puede deshacer.${p.remote?' Si vuelve a enviarte sus datos y los importas, el perfil se volverá a crear.':''}</span>
+      <button class="btn danger wide" data-act="delProfileHere">Borrar el perfil de ${esc(p.name)}</button></details>`}`}
+  return h;
 };
 V.pre=()=>{
   const p=prof(S.arg);const f=S.form;if(f.rpePre===undefined)f.rpePre=null;if(!f.type)f.type=lsGet('lastType_'+p.id)||'Carrera';
@@ -998,8 +1096,7 @@ V.strength=()=>{
   h+=`<datalist id="exlist">${exerciseNames(st.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
   <button class="btn wide" data-act="stAddEx">+ Añadir ejercicio</button>
   <div class="card"><span class="lbl">Total de la sesión</span><div class="stats" id="stTot">${stTotHTML(tot)}</div>
-  <span class="hint">RPE de cada serie en escala CR-10: 3 moderado · 5 duro · 7 muy duro · 10 máximo. Para peso corporal deja 0 kg o pon el lastre.</span>
-  <span class="hint">Grupos musculares: un toque lo marca como principal, otro como secundario (cuenta ½ serie) y otro lo quita. Se propone una asignación según el nombre y se recuerda la tuya para la próxima vez.</span></div>
+  ${info('RPE de cada serie en escala CR-10: 3 moderado · 5 duro · 7 muy duro · 10 máximo. Para ejercicios con el peso corporal deja 0 kg o pon el lastre.<br><br>Grupos musculares: un toque lo marca como principal, otro como secundario (cuenta ½ serie) y otro lo quita. Se propone una asignación según el nombre y se recuerda la tuya para la próxima vez.','Ayuda')}</div>
   ${st.status==='open'?`<button class="btn primary wide" data-act="stFinish">Terminar sesión</button>`:`<button class="btn primary wide" data-act="stDone">Guardar cambios</button>`}`;
   return h;
 };
@@ -1041,8 +1138,8 @@ function mgCard(uid){
     <span class="hint num">${inP.length} sesi${inP.length===1?'ón':'ones'} de fuerza · total ${fmt(tot)} ${met==='kg'?'kg':'series'}</span>
     <div class="mg-list">${rows}</div>
     ${cur.unassigned.sets?`<span class="hint">${fmt(met==='kg'?cur.unassigned.kg:cur.unassigned.sets)} ${met==='kg'?'kg':'series'} sin grupo asignado. Asígnalo en la sesión para que cuente.</span>`:''}
-    <div class="acwr-key"><span><i style="background:var(--accent)"></i>Como grupo principal</span><span><i style="background:var(--accent);opacity:.4"></i>Como secundario (cuenta ½)</span></div>
-    <span class="hint">Recuento fraccional: cada serie suma 1 al grupo principal del ejercicio y 0,5 a los secundarios. En unilaterales cuenta una serie por cada par izquierda-derecha.</span>
+    <div class="acwr-key"><span><i style="background:var(--accent)"></i>Principal</span><span><i style="background:var(--accent);opacity:.4"></i>Secundario (½)</span></div>
+    ${info('Recuento fraccional: cada serie suma 1 al grupo principal del ejercicio y 0,5 a los secundarios. En unilaterales cuenta una serie por cada par izquierda-derecha. Los grupos de cada ejercicio se asignan en el registro de la sesión.')}
   </div>`}
 const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series')+stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio');
 let stSaveT=null;
@@ -1149,6 +1246,40 @@ async function switchMode(){
   if(own.length>1){toast('En modo deportista solo puede haber un perfil propio en este móvil');return}
   if(own[0]){own[0].owner='client';await DB.put('profiles',own[0])}
   lsSet('mode','client');S.stack=[];clientRoot();render();toast('Modo deportista')}
+// Borra un perfil con todas sus sesiones (y registros de FC), sesiones de fuerza y test
+async function deleteProfile(id){const p=prof(id);if(!p)return;
+  if(S.rec&&S.rec.userId===id){toast('Termina antes la sesión que está grabando');return}
+  for(const s of S.sessions.filter(s=>s.userId===id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
+  for(const s of S.strength.filter(s=>s.userId===id))await DB.del('strength',s.id);
+  for(const t of S.tests.filter(t=>t.userId===id))await DB.del('tests',t.id);
+  await DB.del('profiles',id);
+  S.sessions=S.sessions.filter(s=>s.userId!==id);S.strength=S.strength.filter(s=>s.userId!==id);S.tests=S.tests.filter(t=>t.userId!==id);S.profiles=S.profiles.filter(x=>x.id!==id);
+  for(const k of ['lastSent_','lastType_','lastStType_'])lsSet(k+id,'');
+  S.stack=[];go('home',null,{push:false});toast(`Perfil de ${p.name} borrado`)}
+/* ================= Instalación como app ================= */
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;refreshInstall()});
+window.addEventListener('appinstalled',()=>{installEvt=null;refreshInstall();toast('App instalada. Ya puedes compartirle archivos desde WhatsApp')});
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+// Comprueba qué impide instalar la app y lo explica
+async function installDiag(){
+  const out=[],ua=navigator.userAgent;
+  if(/; wv\)|FBAN|FBAV|Instagram|WhatsApp|Line\//i.test(ua))out.push('Estás en el navegador interno de otra app (WhatsApp, Instagram…). Ábrela en Chrome: ⋮ → «Abrir en Chrome».');
+  else if(/SamsungBrowser/i.test(ua))out.push('Estás en Samsung Internet. Abre el enlace en Google Chrome para instalarla y poder compartirle archivos.');
+  else if(!/Chrome\//.test(ua)||/Edg\/|OPR\/|Firefox/i.test(ua))out.push('Abre el enlace en Google Chrome para instalar la app.');
+  if(location.protocol!=='https:'&&location.hostname!=='localhost')out.push('La app tiene que abrirse desde su enlace https (GitHub Pages).');
+  try{const r=await fetch('manifest.json',{cache:'no-store'});if(!r.ok)throw 0;const m=await r.json();if(!m.share_target)out.push('El archivo manifest.json es antiguo: vuelve a subirlo.')}
+  catch(e){out.push('Falta manifest.json en el repositorio de GitHub (o tiene otro nombre, como manifest.json.txt o manifest(1).json). Súbelo junto a index.html con ese nombre exacto.')}
+  for(const f of ['sw.js','icon-192.png','icon-512.png']){try{const r=await fetch(f,{cache:'no-store'});if(!r.ok)throw 0}catch(e){out.push(`Falta ${f} en el repositorio de GitHub. Súbelo junto a index.html.`)}}
+  if(!out.length){try{const reg=await navigator.serviceWorker?.getRegistration();if(!reg)out.push('La app todavía se está preparando: recarga la página una vez.')}catch(e){}}
+  return out}
+const installCardHTML=()=>inFrame||isStandalone()?'':`<div class="card" id="installCard"><span class="lbl">Instalar la app</span><div id="installBody" class="sec"><span class="hint">Comprobando…</span></div></div>`;
+async function refreshInstall(){const b=$('#installBody');if(!b)return;
+  if(isStandalone()){$('#installCard').hidden=true;return}
+  if(installEvt){b.innerHTML=`<span class="hint">Instálala para abrirla como una app, usarla sin conexión y compartirle desde WhatsApp los archivos de tus clientes.</span><button class="btn primary" data-act="installApp">Instalar IMDTraining</button>`;return}
+  const d=await installDiag();const b2=$('#installBody');if(!b2||installEvt)return;
+  b2.innerHTML=d.length?`<details class="info"><summary>${ic('info')}<span>Todavía no se puede instalar · ver por qué (${d.length})</span></summary><ul class="diag">${d.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`
+    :`<span class="hint">Todo está listo para instalarla. Si no aparece aquí el botón, abre el menú de Chrome (⋮) y busca «Instalar aplicación», o «Añadir a pantalla de inicio» y después «Instalar». Si ya tenías un acceso directo de la web, bórralo antes y recarga la página.</span>`}
 /* ================= Test ================= */
 const TEST_TYPES={
   vo2:{short:'VO2máx',name:'VO2máx · cicloergómetro',desc:'Submáximo por etapas (YMCA o libre). Estima el VO2máx con la FC y con el RPE.'},
@@ -1159,9 +1290,17 @@ const testById=id=>S.tests.find(t=>t.id===id);
 const testsOf=uid=>S.tests.filter(t=>t.userId===uid).sort((a,b)=>b.date-a.date);
 const borgOpts=v=>`<option value=""${v==null||v===''?' selected':''}>—</option>`+Array.from({length:15},(_,i)=>i+6).map(i=>`<option value="${i}"${+v===i&&v!==''&&v!=null?' selected':''}>${i}</option>`).join('');
 const BORG_HINT='RPE en escala de Borg 6–20, la usada por los métodos de extrapolación: 9 muy ligero · 11 ligero · 13 algo duro · 15 duro · 17 muy duro · 19 extremadamente duro · 20 máximo.';
-function profileTabs(uid,on){return `<div class="seg two tabs" role="tablist" aria-label="Secciones del perfil">
-  <button type="button" role="tab" aria-selected="${on==='train'}" class="${on==='train'?'on':''}" data-act="tabTrain" data-id="${uid}">Entrenamiento</button>
-  <button type="button" role="tab" aria-selected="${on==='test'}" class="${on==='test'?'on':''}" data-act="tabTest" data-id="${uid}">Test</button></div>`}
+// Iconos de trazo (24×24)
+const ICONS={pulse:'M22 12h-4l-3 9L9 3l-3 9H2',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z',
+  dumbbell:'M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11',chart:'M3 3v18h18M8 17v-5M13 17V8M18 17v-9',list:'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
+  test:'M9 3h6v4H9zM16 5h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2M9 14l2 2 4-4',user:'M20 21a8 8 0 0 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  plus:'M12 5v14M5 12h14',download:'M12 3v12M7 10l5 5 5-5M5 21h14',send:'M22 2 11 13M22 2l-7 20-4-9-9-4z',userPlus:'M15 21a6 6 0 0 0-12 0M9 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M16 11h6',
+  info:'M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',clock:'M12 7v5l3 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',chev:'M9 6l6 6-6 6',save:'M5 3h11l3 3v15H5zM8 3v6h7M8 21v-7h8v7'};
+const ic=(n,c='')=>`<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n]}"/></svg>`;
+// Explicación plegada: el texto largo no ocupa pantalla hasta que se pide
+const info=(txt,title='Cómo se calcula')=>`<details class="info"><summary>${ic('info')}<span>${title}</span></summary><div>${txt}</div></details>`;
+const PTABS=[['res','Resumen','pulse'],['ses','Sesiones','list'],['load','Carga','chart'],['str','Fuerza','dumbbell'],['test','Test','test'],['data','Datos','user']];
+function profileTabs(uid,on){return `<nav class="ptabs" role="tablist" aria-label="Secciones del perfil">${PTABS.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${on===k}" class="${on===k?'on':''}" data-act="ptab" data-v="${k}" data-id="${uid}">${ic(i)}<span>${l}</span></button>`).join('')}</nav>`}
 function testHeadline(t){
   if(t.type==='vo2'){const r=vo2Calc(t);return r.hr?`${dec(r.hr.vo2,1)} ml/kg/min`:'Sin resultado todavía'}
   if(t.type==='vt2'){const r=vt2Calc(t);return r.vt2?`${Math.round(r.vt2.w)} W${r.vt2.hr?' · '+Math.round(r.vt2.hr)+' ppm':''}${r.vt2.how==='medido'?' (medido)':''}`:'Sin resultado todavía'}
@@ -1207,18 +1346,18 @@ function vo2Form(t){const h85=t.hrMax?Math.round(t.hrMax*0.85):null;
   return `<div class="card"><span class="lbl">Protocolo</span><div class="seg two" role="radiogroup">
     <button type="button" role="radio" aria-checked="${t.protocol==='ymca'}" class="${t.protocol==='ymca'?'on':''}" data-act="tProto" data-v="ymca">YMCA</button>
     <button type="button" role="radio" aria-checked="${t.protocol!=='ymca'}" class="${t.protocol!=='ymca'?'on':''}" data-act="tProto" data-v="free">Libre</button></div>
-    <span class="hint">${t.protocol==='ymca'?`Cadencia de 50 rpm y etapas de 3 min. 1.ª etapa a 25 W. La 2.ª depende de la FC al final de la 1.ª: &lt; 80 → 125 W · 80–89 → 100 W · 90–100 → 75 W · &gt; 100 → 50 W. Después, +25 W por etapa. Anota la FC de los minutos 2 y 3; si difieren más de 6 ppm, alarga la etapa un minuto. Termina cuando dos etapas seguidas queden entre 110 y ${h85??'el 85 % de la FCmáx'} ppm (85 % de la FCmáx).`:'Etapas de 2–3 min a cargas crecientes y cadencia constante. Anota la FC estable del final de cada etapa y el RPE. Para antes de superar el 85 % de la FCmáx.'}</span></div>
+    ${info(t.protocol==='ymca'?`Cadencia de 50 rpm y etapas de 3 min. 1.ª etapa a 25 W. La 2.ª depende de la FC al final de la 1.ª: &lt; 80 → 125 W · 80–89 → 100 W · 90–100 → 75 W · &gt; 100 → 50 W. Después, +25 W por etapa. Anota la FC de los minutos 2 y 3; si difieren más de 6 ppm, alarga la etapa un minuto. Termina cuando dos etapas seguidas queden entre 110 y ${h85??'el 85 % de la FCmáx'} ppm (85 % de la FCmáx).`:'Etapas de 2–3 min a cargas crecientes y cadencia constante. Anota la FC estable del final de cada etapa y el RPE. Para antes de superar el 85 % de la FCmáx.','Cómo hacer el test')}</div>
   <section class="sec"><h3>Etapas</h3><div class="card"><div class="sets stg"><div class="set-h"><span>Etapa</span><span>W</span><span>FC</span><span>RPE</span><span></span></div>${stageRows(t)}</div>
     <div class="ex-f"><button class="btn small" data-act="tAddRow">+ Etapa</button><span class="hint num" id="tNext"></span></div>
-    <span class="hint">${BORG_HINT}</span></div></section>`}
+    ${info(BORG_HINT,'Escala de RPE (Borg 6–20)')}</div></section>`}
 function vt2Form(t){const g=t.gen||{start:50,inc:25,n:10};
-  return `<div class="card"><span class="lbl">Protocolo</span><span class="hint">Incremental en cicloergómetro a cadencia constante (70–90 rpm): 5 min de calentamiento, empezar a 50–100 W y subir 20–25 W por minuto hasta el agotamiento. Anota la FC al final de cada minuto y, si puedes, el RPE. Hacen falta al menos 5 etapas; cuantas más por encima del umbral, mejor.</span>
+  return `<div class="card"><span class="lbl">Protocolo</span>${info('Incremental en cicloergómetro a cadencia constante (70–90 rpm): 5 min de calentamiento, empezar a 50–100 W y subir 20–25 W por minuto hasta el agotamiento. Anota la FC al final de cada minuto y, si puedes, el RPE. Hacen falta al menos 5 etapas; cuantas más por encima del umbral, mejor.','Cómo hacer el test')}
     <div class="g3"><div class="field"><label for="gS">Inicio (W)</label><input id="gS" type="number" inputmode="numeric" data-g="start" value="${g.start}"></div>
     <div class="field"><label for="gI">+W/etapa</label><input id="gI" type="number" inputmode="numeric" data-g="inc" value="${g.inc}"></div>
     <div class="field"><label for="gN">Etapas</label><input id="gN" type="number" inputmode="numeric" data-g="n" value="${g.n}"></div></div>
     <button class="btn small" data-act="tGen">Crear etapas con estas cargas</button></div>
   <section class="sec"><h3>Etapas</h3><div class="card"><div class="sets stg"><div class="set-h"><span>Min</span><span>W</span><span>FC</span><span>RPE</span><span></span></div>${stageRows(t,'min')}</div>
-    <div class="ex-f"><button class="btn small" data-act="tAddRow">+ Etapa</button></div><span class="hint">${BORG_HINT}</span></div></section>
+    <div class="ex-f"><button class="btn small" data-act="tAddRow">+ Etapa</button></div>${info(BORG_HINT,'Escala de RPE (Borg 6–20)')}</div></section>
   <div class="card"><span class="lbl">VT2 medido (opcional)</span><span class="hint">Si el test se hizo con analizador de gases (VE/VCO2, PetCO2), escribe aquí el VT2 y se usará en lugar de la estimación por FC.</span>
     <div class="g2"><div class="field"><label for="mW">Potencia (W)</label><input id="mW" type="number" inputmode="numeric" data-m="w" value="${t.measured?.w??''}"></div>
     <div class="field"><label for="mH">FC (ppm)</label><input id="mH" type="number" inputmode="numeric" data-m="hr" value="${t.measured?.hr??''}"></div></div></div>`}
@@ -1373,7 +1512,7 @@ drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)r
   if(d==='invite')return navFromDrawer(()=>inviteClient());
   if(d==='import')return navFromDrawer(()=>$('#importFile').click());
   if(d==='mode')return navFromDrawer(()=>switchMode());
-  if(d==='backup')return navFromDrawer(()=>{toRoot('home');setTimeout(()=>$('[data-act="backup"]')?.scrollIntoView({behavior:'smooth',block:'center'}),50)});
+  if(d==='backup')return navFromDrawer(()=>{toRoot('home');setTimeout(()=>{const d=$('details.more');if(d){d.open=true;d.scrollIntoView({behavior:'smooth',block:'center'})}},50)});
 });
 menuBtn.onclick=openDrawer;scrim.onclick=closeDrawer;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawerOpen()){closeDrawer();menuBtn.focus()}});
@@ -1397,6 +1536,7 @@ function render(){
   if(S.view==='live'){attachScrub($('#lc'));updLive()}
   if(S.view==='summary'){attachScrub($('#sc'));drawSummary()}
   if(S.view==='test'){updTestDevice();updTestResults()}
+  if($('#installBody'))refreshInstall();
 }
 async function drawSummary(){const s=S.sessions.find(x=>x.id===S.arg);const tr=await DB.get('tracks',s.id);if(S.view!=='summary'||S.arg!==s.id)return;
   const sm=tr?.samples||[];drawHR($('#sc'),sm,s.zoneLimits,s.hrMax,s.startTime,s.endTime||sm.at(-1)?.[0]||s.startTime+1,false)}
@@ -1405,9 +1545,10 @@ let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>
 /* ================= Acciones ================= */
 function arm(btn,label,fn){if(btn.classList.contains('armed')){fn();return}const o=btn.textContent;btn.classList.add('armed');btn.textContent=label;setTimeout(()=>{if(btn.isConnected){btn.classList.remove('armed');btn.textContent=o}},4000)}
 const A={
-  openProfile:id=>go('profile',id),
+  openProfile:id=>{S.ptab='res';S.sfilter='all';go('profile',id)},
   newProfile:()=>go('edit',null),
   invite:()=>inviteClient(),
+  async installApp(){if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;refreshInstall()},
   import:()=>$('#importFile').click(),
   importBackup:()=>$('#importFile').click(),
   send:()=>sendToCoach(),
@@ -1418,12 +1559,8 @@ const A={
   estimate(){const f=readForm(),a=age(f.birthDate);if(a==null){toast('Escribe primero la fecha de nacimiento');return}
     $('#fmax').value=tanaka(a);f.hrMax=tanaka(a);f.hrMaxEstimated=true;$('#estHint').textContent='Estimada con Tanaka (208 − 0,7 × edad). Cámbiala si tienes un valor medido.';updZprev()},
   method(b){readForm();S.form.p.method=b.dataset.v;const y=$('#fmax').value;render();$('#fmax').value=y},
-  async delProfile(b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;
-    for(const s of S.sessions.filter(s=>s.userId===id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
-    for(const s of S.strength.filter(s=>s.userId===id))await DB.del('strength',s.id);S.strength=S.strength.filter(s=>s.userId!==id);
-    for(const t of S.tests.filter(t=>t.userId===id))await DB.del('tests',t.id);S.tests=S.tests.filter(t=>t.userId!==id);
-    await DB.del('profiles',id);S.sessions=S.sessions.filter(s=>s.userId!==id);S.profiles=S.profiles.filter(p=>p.id!==id);
-    S.stack=[];go('home',null,{push:false});toast('Perfil borrado')})},
+  async delProfile(b){arm(b,'Pulsa otra vez para borrar',()=>deleteProfile(S.arg))},
+  delProfileHere(_,b){const p=prof(S.arg);arm(b,`Pulsa otra vez: se borra ${p?.name||'el perfil'} con todos sus datos`,()=>deleteProfile(S.arg))},
   newSession(){go('pre',S.arg)},
   rpe(b){const n=b.dataset.name,v=+b.dataset.v;S.form[n]=v;b.parentElement.querySelectorAll('.rpe-row').forEach(x=>{const on=+x.dataset.v===v;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});
     if(n==='stRpePre'){const st=stById(S.arg);st.rpePre=v;saveSt(st);const sm=b.closest('details')?.querySelector('summary');if(sm)sm.innerHTML=`RPE pre · ¿cómo llegas? <span class="tag">${v}</span>`}},
@@ -1461,6 +1598,9 @@ const A={
   /* --- Test --- */
   tabTrain:id=>go('profile',id,{push:false}),
   tabTest:id=>go('tests',id,{push:false}),
+  ptab(_,b){const v=b.dataset.v,id=b.dataset.id||S.arg;if(v==='test'){go('tests',id,{push:false});return}
+    S.ptab=v;if(S.view!=='profile')go('profile',id,{push:false});else{render();scrollTo(0,0)}},
+  sfilter(_,b){S.sfilter=b.dataset.v;render()},
   openTest:id=>go('test',id),
   async newTest(_,b){const p=prof(S.arg),type=b.dataset.v;
     const t={id:uid(),userId:p.id,type,date:Date.now(),weight:p.weight||'',hrMax:p.hrMax,protocol:'ymca',
