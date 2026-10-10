@@ -1,27 +1,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>IMDT training</title>
+<title>IMDTraining</title>
+<meta name="theme-color" content="#0E150F">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 /* Layout: una columna tipo instrumento de campo; la FC en grande manda, todo lo demás se lee de un vistazo */
 :root{
-  --bg:#EEF1F5; --surface:#FFFFFF; --ink:#16202E; --muted:#596678; --line:#D6DDE6; --soft:#E3E8EF;
-  --accent:#7A2E6B; --accent-ink:#FFFFFF; --warn:#B4531A; --ok:#2D7D3A;
-  --z0:#AEB9C6; --z1:#7D90A8; --z2:#2F7BC0; --z3:#38A04A; --z4:#E8831A; --z5:#D3343C;
+  /* Identidad IMDTraining: morado de marca, blanco hueso y fondo verde muy oscuro (complementario del morado). Tema oscuro fijo */
+  --bg:#0E150F; --surface:#162019; --ink:#EDE6D6; --muted:#A3AE9F; --line:#2B392E; --soft:#1F2B22;
+  --accent:#A866DB; --accent-ink:#170B20; --bone:#EDE6D6; --warn:#F0955A; --ok:#7BCB86;
+  --z0:#56635A; --z1:#93A6BE; --z2:#4F9BE0; --z3:#5CC46D; --z4:#F59A3A; --z5:#EF5058;
   --display:'Barlow Condensed','Arial Narrow',system-ui,sans-serif;
   --body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0D131B; --surface:#151D28; --ink:#E5EBF2; --muted:#93A1B2; --line:#283445; --soft:#1C2633;
-  --accent:#D688C6; --accent-ink:#22101E; --warn:#F0955A; --ok:#6CCB7A;
-  --z0:#4A5767; --z1:#8FA3BC; --z2:#4F9BE0; --z3:#4FC062; --z4:#F59A3A; --z5:#EF5058; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0D131B; --surface:#151D28; --ink:#E5EBF2; --muted:#93A1B2; --line:#283445; --soft:#1C2633;
-  --accent:#D688C6; --accent-ink:#22101E; --warn:#F0955A; --ok:#6CCB7A;
-  --z0:#4A5767; --z1:#8FA3BC; --z2:#4F9BE0; --z3:#4FC062; --z4:#F59A3A; --z5:#EF5058; color-scheme:dark}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -176,6 +171,9 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 .mgr-t{display:flex;height:12px;background:var(--soft);border-radius:4px;overflow:hidden}
 .mgr-d{background:var(--accent)}
 .mgr-i{background:var(--accent);opacity:.4}
+.welcome{display:flex;flex-direction:column;gap:12px;padding-block:24px}
+.big-brand{font:700 44px/1 var(--display);letter-spacing:.02em}
+.share{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 /* Test */
 .tabs{margin-bottom:-4px}
 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -193,11 +191,13 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 #drawer{position:fixed;top:0;bottom:0;left:0;z-index:30;width:min(300px,84vw);background:var(--surface);border-right:1px solid var(--line);
   padding:calc(14px + env(safe-area-inset-top,0px)) 12px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;
   transform:translateX(-102%);transition:transform .22s ease;overflow-y:auto;overscroll-behavior:contain}
-#drawer.open{transform:none;box-shadow:0 0 40px rgba(0,0,0,.25)}
-#scrim{position:fixed;inset:0;z-index:25;background:rgba(10,15,22,.45)}
+#drawer.open{transform:none;box-shadow:0 0 48px rgba(0,0,0,.55)}
+#scrim{position:fixed;inset:0;z-index:25;background:rgba(4,8,5,.6)}
 .d-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px}
 .d-brand{font:700 24px var(--display);letter-spacing:.02em}
-.d-brand span{color:var(--accent)}
+.brand .b1{color:var(--accent)}
+.brand .b2{color:var(--bone)}
+.bar h1.brand{letter-spacing:.02em}
 .d-sec{display:flex;flex-direction:column;gap:2px}
 .d-sec .lbl{padding:0 8px 6px}
 .d-item{display:flex;align-items:center;gap:11px;width:100%;border:0;background:none;color:var(--ink);font:inherit;text-align:left;padding:8px;border-radius:10px;cursor:pointer;min-height:52px}
@@ -221,23 +221,26 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
-  <div class="d-head"><span class="d-brand">IMDT <span>training</span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
+  <div class="d-head"><span class="d-brand brand"><span class="b1">IMDT</span><span class="b2">raining</span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
   <button class="d-item d-plain" data-d="home" id="dHome">Inicio</button>
   <button class="d-item d-plain" data-d="tests" id="dTests">Test</button>
-  <div class="d-sec"><span class="lbl">Perfiles</span><div id="dList"></div></div>
-  <button class="btn small" data-d="new">Nuevo perfil</button>
-  <div class="d-foot"><button class="d-item d-plain" data-d="backup">Copia de seguridad</button></div>
+  <div class="d-sec" id="dSecProfiles"><span class="lbl">Perfiles</span><div id="dList"></div></div>
+  <button class="btn small" data-d="new" id="dNew">Nuevo perfil</button>
+  <button class="d-item d-plain" data-d="send" id="dSend">Enviar mis datos al entrenador</button>
+  <button class="d-item d-plain" data-d="invite" id="dInvite">Invitar a un cliente</button>
+  <button class="d-item d-plain" data-d="import" id="dImport">Importar datos de un cliente</button>
+  <div class="d-foot"><button class="d-item d-plain" data-d="backup">Copia de seguridad</button><button class="d-item d-plain" data-d="mode" id="dMode">Cambiar modo</button></div>
 </nav>
 <div id="scrim" hidden></div>
 
 <header class="bar"><div class="bar-in">
   <button class="menu" id="menuBtn" aria-label="Abrir menú de perfiles" aria-controls="drawer" aria-expanded="false"><i></i><i></i><i></i></button>
   <button class="back" id="back" aria-label="Volver" hidden>‹</button>
-  <h1 id="ttl">IMDT training</h1>
+  <h1 id="ttl" class="brand"><span class="b1">IMDT</span><span class="b2">raining</span></h1>
   <span class="chip" id="chip"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
 </div></header>
 <main class="wrap" id="app"></main>
-<input type="file" id="importFile" accept="application/json,.json" hidden>
+<input type="file" id="importFile" accept="application/json,.json,text/plain,.txt" hidden>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -254,7 +257,7 @@ function fmtDur(ms){ms=Math.max(0,Math.round(ms/1000));const h=Math.floor(ms/360
 const fmtMin=ms=>Math.round(ms/60000)+' min';
 const fmtDate=t=>new Date(t).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
 const fmtDT=t=>new Date(t).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-function ago(t){const m=Math.round((Date.now()-t)/60000);if(m<60)return`hace ${m} min`;const h=Math.round(m/60);return h<48?`hace ${h} h`:`hace ${Math.round(h/24)} días`}
+function ago(t){const m=Math.round((Date.now()-t)/60000);if(m<1)return'hace un momento';if(m<60)return`hace ${m} min`;const h=Math.round(m/60);return h<48?`hace ${h} h`:`hace ${Math.round(h/24)} días`}
 function age(b){if(!b)return null;const d=new Date(b),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a}
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
@@ -747,25 +750,30 @@ function methodName(p){return p.method==='karvonen'?'Karvonen':p.method==='pct'?
 
 /* ================= Vistas ================= */
 const V={};
-V.home=()=>{
-  let h='';
+// Avisos (Bluetooth, sesiones sin terminar, RPE pendiente). uid = solo ese perfil; sin uid = todos menos los clientes importados
+function alertsHTML(uid){let h='';const mine=x=>uid?x.userId===uid:!prof(x.userId)?.remote;
   if(!btOK)h+=`<div class="note info"><b>Bluetooth no disponible en esta vista</b><span class="hint">Para conectar el HW9, abre la app desde su enlace https en Chrome para Android. Aquí puedes probarlo todo con el simulador.</span></div>`;
   if(S.memOnly)h+=`<div class="note"><b>Los datos no se guardarán</b><span class="hint">Este navegador no permite almacenamiento. Abre la app desde su propio enlace para que guarde perfiles y sesiones.</span></div>`;
-  for(const s of S.sessions.filter(s=>s.status==='recording'&&(!S.rec||S.rec.id!==s.id)))
+  for(const s of S.sessions.filter(s=>mine(s)&&s.status==='recording'&&(!S.rec||S.rec.id!==s.id)))
     h+=`<div class="note"><b>Sesión sin terminar · ${esc(prof(s.userId)?.name||'')}</b><span class="hint">Empezó ${fmtDT(s.startTime)}. Se cerró la app antes de finalizarla.</span><div class="row"><button class="btn small primary" data-act="recover" data-id="${s.id}">Guardar lo grabado</button><button class="btn small danger" data-act="discard" data-id="${s.id}">Descartar</button></div></div>`;
-  for(const s of S.sessions.filter(s=>s.status==='done'&&s.rpePost==null&&Date.now()-s.endTime<7*864e5))
+  for(const s of S.sessions.filter(s=>mine(s)&&s.status==='done'&&s.rpePost==null&&Date.now()-s.endTime<7*864e5))
     h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · terminó ${ago(s.endTime)}</span></span><span class="tag pend">Anotar</span></button>`;
-  for(const s of S.strength.filter(s=>s.status==='done'&&s.rpePost==null&&Date.now()-(s.endTime||s.startTime)<7*864e5))
+  for(const s of S.strength.filter(s=>mine(s)&&s.status==='done'&&s.rpePost==null&&Date.now()-(s.endTime||s.startTime)<7*864e5))
     h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} (fuerza) · ${ago(s.endTime||s.startTime)}</span></span><span class="tag pend">Anotar</span></button>`;
-  for(const s of S.strength.filter(s=>s.status==='open'))
+  for(const s of S.strength.filter(s=>mine(s)&&s.status==='open'))
     h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Fuerza en curso · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · empezó ${ago(s.startTime)}</span></span><span class="tag str">Continuar</span></button>`;
+  return h}
+V.home=()=>{
+  let h=alertsHTML();
+  h+=`<div class="card"><span class="lbl">Clientes</span><span class="hint">Pásale a cada cliente el enlace de invitación. Crea su perfil en su móvil y te envía sus datos en un archivo, que importas aquí: se añade su perfil o se actualiza si ya lo tenías.</span>
+    <div class="row"><button class="btn small primary" data-act="invite">Invitar a un cliente</button><button class="btn small" data-act="import">Importar datos de un cliente</button></div></div>`;
   h+=`<section class="sec"><div class="sec-h"><h2>Perfiles</h2><button class="btn small" data-act="newProfile">Nuevo perfil</button></div>`;
   if(!S.profiles.length)h+=`<div class="empty">Crea un perfil por cada persona que vaya a usar el pulsómetro. Cada uno guarda sus zonas y sus sesiones.</div>`;
   else{h+='<div class="list">';
     for(const p of [...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))){const ss=allOf(p.id),a=age(p.birthDate);
-      h+=`<button class="item" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${p.example?' <span class="tag ex">Ejemplo</span>':''}</span><br><span class="s num">${a!=null?a+' años · ':''}FCmáx ${p.hrMax} · ${methodName(p)}</span></span><span class="s num">${ss.length} ses.</span></button>`}
+      h+=`<button class="item" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${p.example?' <span class="tag ex">Ejemplo</span>':''}${p.remote?' <span class="tag str">Cliente</span>':''}</span><br><span class="s num">${p.remote&&p.lastImport?'Datos recibidos '+ago(p.lastImport):(a!=null?a+' años · ':'')+'FCmáx '+p.hrMax+' · '+methodName(p)}</span></span><span class="s num">${ss.length} ses.</span></button>`}
     h+='</div>'}
-  h+=`</section><section class="sec"><h3>Copia de seguridad</h3><p class="hint" style="margin:0">Los datos se guardan solo en este móvil y en este navegador. Exporta una copia de vez en cuando.</p><div class="row"><button class="btn small" data-act="backup">Exportar copia (.json)</button><button class="btn small" data-act="import">Importar copia</button></div></section>`;
+  h+=`</section><section class="sec"><h3>Copia de seguridad</h3><p class="hint" style="margin:0">Los datos se guardan solo en este móvil y en este navegador. Exporta una copia de vez en cuando.</p><div class="row"><button class="btn small" data-act="backup">Exportar copia (.json)</button><button class="btn small" data-act="importBackup">Importar copia</button></div></section>`;
   return h;
 };
 V.edit=()=>{
@@ -827,7 +835,7 @@ V.profile=()=>{
   const ser=acwrSeries(dailyLoads(loadItems(p.id)),method),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio);
   const nDays=ser.length,all=allOf(p.id),sts=stOf(p.id),open=S.strength.filter(s=>s.userId===p.id&&s.status==='open');
   const wk7=Date.now()-7*864e5,v7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)});
-  let h=`${profileTabs(p.id,'train')}<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${p.weight?fmtKg(p.weight)+' kg · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
+  let h=`${isClient()?alertsHTML(p.id):''}${profileTabs(p.id,'train')}${shareCard(p)}<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${p.weight?fmtKg(p.weight)+' kg · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
   <div class="stats">${stat(p.hrMax+(p.hrMaxEstimated?'*':''),'FC máx')}${stat(p.hrRest||'—','FC reposo')}${stat(all.length,'Sesiones')}</div>
   ${p.hrMaxEstimated?'<span class="hint">* FC máxima estimada con la fórmula de Tanaka.</span>':''}
   ${zoneTable(lim,p.hrMax)}</div>
@@ -1094,6 +1102,49 @@ $('#app').addEventListener('change',e=>{
   if(e.target.id==='stNotes2'){const st=stById(S.arg);st.notes=e.target.value;saveSt(st);toast('Notas guardadas')}});
 setInterval(()=>{const c=$('#stClock');const st=S.view==='strength'&&stById(S.arg);if(c&&st)c.textContent=fmtDur(Date.now()-st.startTime)},1000);
 
+/* ================= Modo entrenador / deportista ================= */
+// El modo se guarda en el navegador. 'client' = deportista (un único perfil propio), 'coach' = entrenador (todos los perfiles)
+const isClient=()=>lsGet('mode')==='client'||S.modeFallback==='client';
+const myProfile=()=>S.profiles.filter(p=>!p.example&&!p.remote).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0))[0];
+function clientRoot(){const p=myProfile();S.stack=[];if(p){S.view='profile';S.arg=p.id}else{S.view='edit';S.arg=null;S.form={}}}
+V.welcome=()=>`<div class="welcome">
+  <h2 class="brand big-brand"><span class="b1">IMDT</span><span class="b2">raining</span></h2>
+  <p class="hint">Registro de frecuencia cardíaca, fuerza, carga de entrenamiento y test. ¿Cómo vas a usar la app?</p>
+  <button class="item" data-act="chooseMode" data-v="client"><span class="grow"><span class="t">Soy deportista</span><br><span class="s">Creo mi perfil, registro mis entrenamientos y envío los datos a mi entrenador.</span></span></button>
+  <button class="item" data-act="chooseMode" data-v="coach"><span class="grow"><span class="t">Soy entrenador</span><br><span class="s">Gestiono varios perfiles e importo los datos que me envían mis clientes.</span></span></button>
+  <span class="hint">Puedes cambiarlo más adelante desde el menú.</span></div>`;
+function newSinceSent(p){const t=+lsGet('lastSent_'+p.id)||0;
+  return [...allOf(p.id),...S.tests.filter(x=>x.userId===p.id)].filter(x=>(x.startTime??x.date)>t).length}
+function shareCard(p){
+  if(isClient()&&!p.remote){const t=+lsGet('lastSent_'+p.id)||0,n=newSinceSent(p);
+    return `<div class="card share"><div class="sec-h"><span class="lbl">Tu entrenador</span>${n?`<span class="tag pend">${n} sin enviar</span>`:''}</div>
+      <span class="hint">${t?`Último envío ${ago(t)}.`:'Todavía no has enviado tus datos.'} Se envía tu perfil con todas tus sesiones y test en un archivo; tu entrenador lo importa en su app.</span>
+      <button class="btn primary" data-act="send">Enviar mis datos a mi entrenador</button></div>`}
+  if(!isClient()&&p.remote)return `<div class="note info"><b>Perfil de cliente</b><span class="hint">Datos recibidos ${p.lastImport?ago(p.lastImport):''}. Para actualizarlos, importa el nuevo archivo que te envíe. Los cambios que hagas aquí en el perfil se sustituyen al importar un envío nuevo; las sesiones y test se suman.</span></div>`;
+  return ''}
+async function sendToCoach(){
+  const p=myProfile();if(!p){toast('Crea primero tu perfil');return}
+  const sess=S.sessions.filter(s=>s.userId===p.id&&s.status==='done'),tracks=[];
+  for(const s of sess){const t=await DB.get('tracks',s.id);if(t)tracks.push(t)}
+  const data={app:'imdtraining',kind:'client',version:3,exported:new Date().toISOString(),profiles:[p],sessions:sess,tracks,
+    strength:S.strength.filter(s=>s.userId===p.id&&s.status==='done'),tests:S.tests.filter(t=>t.userId===p.id)};
+  const base=`imdtraining_${slug(p.name)}_${fileDate(Date.now())}`,txt=JSON.stringify(data);
+  // Android solo comparte ciertos tipos de archivo: se prueba .json y, si no, .txt (la app importa los dos)
+  try{if(navigator.canShare){for(const [ext,type] of [['json','application/json'],['txt','text/plain']]){const f=new File([txt],`${base}.${ext}`,{type});
+      if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'Datos para mi entrenador',text:`Datos de entrenamiento de ${p.name} (IMDTraining)`});lsSet('lastSent_'+p.id,Date.now());render();toast('Datos enviados');return}}}}
+  catch(e){if(e.name==='AbortError')return}
+  await download(`${base}.json`,txt,'application/json',false);lsSet('lastSent_'+p.id,Date.now());render();
+  toast('Archivo guardado en Descargas: envíaselo a tu entrenador')}
+async function inviteClient(){
+  const url=location.origin+location.pathname+'#cliente',text='Te invito a registrar tus entrenamientos con IMDTraining. Abre este enlace en Chrome, crea tu perfil y envíame tus datos desde la app:';
+  try{if(navigator.share){await navigator.share({title:'IMDTraining',text,url});return}}catch(e){if(e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(text+' '+url);toast('Enlace de invitación copiado')}catch(e){toast(url)}}
+async function switchMode(){
+  if(isClient()){lsSet('mode','coach');S.modeFallback=null;S.stack=[];go('home',null,{push:false});toast('Modo entrenador');return}
+  const own=S.profiles.filter(p=>!p.example&&!p.remote);
+  if(own.length>1){toast('En modo deportista solo puede haber un perfil propio en este móvil');return}
+  if(own[0]){own[0].owner='client';await DB.put('profiles',own[0])}
+  lsSet('mode','client');S.stack=[];clientRoot();render();toast('Modo deportista')}
 /* ================= Test ================= */
 const TEST_TYPES={
   vo2:{short:'VO2máx',name:'VO2máx · cicloergómetro',desc:'Submáximo por etapas (YMCA o libre). Estima el VO2máx con la FC y con el RPE.'},
@@ -1115,10 +1166,10 @@ function testValue(t){if(t.type==='vo2')return vo2Calc(t).hr?.vo2??null;if(t.typ
 const TEST_UNIT={vo2:' ml/kg/min',vt2:' W',jump:' cm CMJ'};
 
 V.tests=()=>{
-  const ps=[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
+  const ps=isClient()?[myProfile()].filter(Boolean):[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
   if(!ps.length)return `<div class="empty">Crea primero un perfil para registrar sus test.</div><button class="btn primary wide" data-act="newProfile">Nuevo perfil</button>`;
   const p=prof(S.arg)||ps[0];S.arg=p.id;const ts=testsOf(p.id),a=age(p.birthDate);
-  let h=profileTabs(p.id,'test')+`<div class="card"><div class="field"><label for="tUser">Usuario</label><select id="tUser">${ps.map(x=>`<option value="${x.id}"${x.id===p.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+  let h=profileTabs(p.id,'test')+`<div class="card"${isClient()?' hidden':''}><div class="field"><label for="tUser">Usuario</label><select id="tUser">${ps.map(x=>`<option value="${x.id}"${x.id===p.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
     <span class="hint num">${a!=null?a+' años · ':''}FCmáx ${p.hrMax}${p.hrMaxEstimated?' (estimada)':''} · ${p.weight?fmtKg(p.weight)+' kg':'sin peso en el perfil'}. Los cálculos usan estos datos; puedes ajustarlos en cada test.</span></div>
   <section class="sec"><h3>Nuevo test</h3><div class="list">${Object.entries(TEST_TYPES).map(([k,v])=>`<button class="item" data-act="newTest" data-v="${k}"><span class="grow"><span class="t">${v.name}</span><br><span class="s">${v.desc}</span></span><span class="tag str">Empezar</span></button>`).join('')}</div></section>
   <section class="sec"><div class="sec-h"><h3>Historial</h3>${ts.length?'<button class="btn small" data-act="tExport">Exportar CSV</button>':''}</div>`;
@@ -1258,7 +1309,7 @@ $('#app').addEventListener('input',e=>{
 $('#app').addEventListener('change',e=>{if(e.target.id==='tUser')go('tests',e.target.value,{push:false})});
 
 /* ================= Navegación ================= */
-const TITLES={home:()=> 'IMDT training',edit:()=>S.arg?'Editar perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
+const TITLES={home:()=> 'IMDTraining',welcome:()=>'IMDTraining',edit:()=>S.arg?'Editar perfil':isClient()?'Tu perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
 function go(view,arg,{push=true,keepForm=false}={}){
   if(push)S.stack.push([S.view,S.arg]);
   S.view=view;S.arg=arg??null;if(!keepForm)S.form={};render();window.scrollTo(0,0);
@@ -1293,7 +1344,10 @@ function activeProfileId(){
   if(S.view==='live')return S.rec?.userId;return null}
 function renderDrawer(){
   const act=activeProfileId();
-  $('#dHome').classList.toggle('on',S.view==='home');$('#dTests').classList.toggle('on',S.view==='tests'||S.view==='test');
+  const cl=isClient();
+  $('#dHome').textContent=cl?'Mi perfil':'Inicio';$('#dHome').classList.toggle('on',S.view==='home'||(cl&&S.view==='profile'));
+  $('#dSecProfiles').hidden=cl;$('#dNew').hidden=cl;$('#dSend').hidden=!cl||!myProfile();$('#dInvite').hidden=cl;$('#dImport').hidden=cl;
+  $('#dMode').textContent=cl?'Cambiar a modo entrenador':'Cambiar a modo deportista';$('#dTests').classList.toggle('on',S.view==='tests'||S.view==='test');
   const ps=[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
   $('#dList').innerHTML=ps.length?ps.map(p=>{const ss=allOf(p.id),last=ss[0],pend=ss.some(s=>s.rpePost==null);
     return `<button class="d-item${p.id===act?' on':''}" data-d="profile" data-id="${p.id}"${p.id===act?' aria-current="page"':''}><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${S.rec?.userId===p.id?' · grabando':''}</span><span class="s">${last?'Última: '+fmtDate(last.startTime):'Sin sesiones'} · ${ss.length} ses.</span></span>${pend?'<span class="d-pend" title="RPE post pendiente"></span>':''}</button>`}).join('')
@@ -1311,6 +1365,10 @@ drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)r
   if(d==='tests')return navFromDrawer(()=>toRoot('tests',activeProfileId()||[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))[0]?.id||null));
   if(d==='profile')return navFromDrawer(()=>toRoot('profile',b.dataset.id));
   if(d==='new')return navFromDrawer(()=>toRoot('edit',null));
+  if(d==='send')return navFromDrawer(()=>sendToCoach());
+  if(d==='invite')return navFromDrawer(()=>inviteClient());
+  if(d==='import')return navFromDrawer(()=>$('#importFile').click());
+  if(d==='mode')return navFromDrawer(()=>switchMode());
   if(d==='backup')return navFromDrawer(()=>{toRoot('home');setTimeout(()=>$('[data-act="backup"]')?.scrollIntoView({behavior:'smooth',block:'center'}),50)});
 });
 menuBtn.onclick=openDrawer;scrim.onclick=closeDrawer;
@@ -1323,9 +1381,11 @@ document.addEventListener('touchend',e=>{if(!sw)return;const t=e.changedTouches[
   if(dy<60){if(sw.mode==='open'&&dx>60)openDrawer();if(sw.mode==='close'&&dx<-60)closeDrawer()}sw=null},{passive:true});
 $('#back').onclick=()=>{try{history.back()}catch(e){back()}};
 function render(){
-  $('#ttl').textContent=TITLES[S.view]();
-  $('#back').hidden=S.view==='home'||S.view==='live';
-  menuBtn.hidden=S.view==='live';renderDrawer();
+  if(isClient()&&S.view==='home')clientRoot(); // el deportista no tiene lista de perfiles: su perfil es la portada
+  const tt=$('#ttl'),brandV=S.view==='home'||S.view==='welcome';tt.classList.toggle('brand',brandV);
+  if(brandV)tt.innerHTML='<span class="b1">IMDT</span><span class="b2">raining</span>';else tt.textContent=TITLES[S.view]();
+  $('#back').hidden=S.view==='home'||S.view==='live'||S.view==='welcome'||(isClient()&&!S.stack.length&&(S.view==='profile'||S.view==='edit'));
+  menuBtn.hidden=S.view==='live'||S.view==='welcome';renderDrawer();
   $('#app').innerHTML=V[S.view]();
   if(S.view==='edit'){updZprev();$('#pform').addEventListener('input',updZprev);$('#pform').addEventListener('submit',e=>{e.preventDefault();saveProfile()})}
   if(S.view==='profile')drawProfileCharts();
@@ -1337,14 +1397,19 @@ function render(){
 async function drawSummary(){const s=S.sessions.find(x=>x.id===S.arg);const tr=await DB.get('tracks',s.id);if(S.view!=='summary'||S.arg!==s.id)return;
   const sm=tr?.samples||[];drawHR($('#sc'),sm,s.zoneLimits,s.hrMax,s.startTime,s.endTime||sm.at(-1)?.[0]||s.startTime+1,false)}
 let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>{if(S.view==='profile')drawProfileCharts();if(S.view==='summary')drawSummary();if(S.view==='live')updLive();if(S.view==='test')drawTestChart()},150)});
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
-new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
 /* ================= Acciones ================= */
 function arm(btn,label,fn){if(btn.classList.contains('armed')){fn();return}const o=btn.textContent;btn.classList.add('armed');btn.textContent=label;setTimeout(()=>{if(btn.isConnected){btn.classList.remove('armed');btn.textContent=o}},4000)}
 const A={
   openProfile:id=>go('profile',id),
   newProfile:()=>go('edit',null),
+  invite:()=>inviteClient(),
+  import:()=>$('#importFile').click(),
+  importBackup:()=>$('#importFile').click(),
+  send:()=>sendToCoach(),
+  async chooseMode(b){const m=b.dataset.v;lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m;
+    if(m==='coach'){if(!S.profiles.length&&!lsGet('seeded')){await seedExample();lsSet('seedv','4');await loadAll()}S.stack=[];go('home',null,{push:false})}
+    else{S.stack=[];clientRoot();render()}},
   editProfile:()=>go('edit',S.arg),
   estimate(){const f=readForm(),a=age(f.birthDate);if(a==null){toast('Escribe primero la fecha de nacimiento');return}
     $('#fmax').value=tanaka(a);f.hrMax=tanaka(a);f.hrMaxEstimated=true;$('#estHint').textContent='Estimada con Tanaka (208 − 0,7 × edad). Cámbiala si tienes un valor medido.';updZprev()},
@@ -1478,8 +1543,8 @@ const A={
       else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Pulsómetro',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','',''];
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
-  async backup(){const data={app:'imdt-training',version:3,strength:await DB.all('strength'),tests:await DB.all('tests'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
-    download(`imdt-training_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
+  async backup(){const data={app:'imdtraining',version:3,strength:await DB.all('strength'),tests:await DB.all('tests'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
+    download(`imdtraining_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
   import(){$('#importFile').click()},
   async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
     const last=tr.samples.at(-1);m.endTime=last?last[0]:m.startTime;if(!m.activeMs)m.activeMs=m.endTime-m.startTime;
@@ -1492,6 +1557,7 @@ async function saveProfile(){
   const old=prof(f.id);
   delete f.example;await DB.put('profiles',f);
   const i=S.profiles.findIndex(p=>p.id===f.id);if(i<0)S.profiles.push(f);else S.profiles[i]=f;
+  if(!old&&isClient()){f.owner='client';await DB.put('profiles',f);S.stack=[];go('profile',f.id,{push:false});toast('Perfil creado');return}
   if(old)back();else go('profile',f.id);toast('Perfil guardado');
 }
 $('#app').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)});
@@ -1501,9 +1567,14 @@ $('#app').addEventListener('change',async e=>{if(e.target.id==='snotes2'){const 
 for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x,b)=>f(b||x))(A[k]);
 
 $('#importFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;
-  try{const d=JSON.parse(await file.text());if(d.app!=='imdt-training'&&d.app!=='pulsometro')throw 0; // acepta copias anteriores al cambio de nombre
-    for(const p of d.profiles||[])await DB.put('profiles',p);for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);for(const x of d.strength||[])await DB.put('strength',x);for(const x of d.tests||[])await DB.put('tests',x);
-    await loadAll();render();toast(`Importados ${d.profiles.length} perfiles y ${d.sessions.length+(d.strength||[]).length} sesiones`)}
+  try{const d=JSON.parse(await file.text());if(!['imdtraining','imdt-training','pulsometro'].includes(d.app))throw 0; // acepta copias anteriores al cambio de nombre
+    const had=new Set([...S.sessions,...S.strength,...S.tests].map(x=>x.id)),hadP=new Set(S.profiles.map(x=>x.id)),fromClient=d.kind==='client';
+    for(const p of d.profiles||[]){const q={...p};if(fromClient){q.remote=true;q.lastImport=Date.now();delete q.owner}await DB.put('profiles',q)}
+    for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);for(const x of d.strength||[])await DB.put('strength',x);for(const x of d.tests||[])await DB.put('tests',x);
+    const nNew=[...(d.sessions||[]),...(d.strength||[]),...(d.tests||[])].filter(x=>!had.has(x.id)).length;
+    await loadAll();
+    if(fromClient&&d.profiles?.[0]){const p=d.profiles[0];toast(`${hadP.has(p.id)?'Actualizado':'Añadido'} el perfil de ${p.name}: ${nNew} registro${nNew===1?'':'s'} nuevo${nNew===1?'':'s'}`);toRoot('profile',p.id)}
+    else{render();toast(`Importados ${d.profiles.length} perfiles · ${nNew} registros nuevos`)}}
   catch(err){toast('El archivo no es una copia válida de esta app')}});
 
 const slug=s=>String(s||'x').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
@@ -1566,13 +1637,22 @@ async function seedExample(){
 async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests')}
 (async()=>{
   await DB.open();await loadAll();
-  // Datos de ejemplo: se crean la primera vez y se renuevan si cambia su versión (solo el perfil marcado como ejemplo)
+  // Modo: enlace de invitación (#cliente), elección guardada o deducido de los datos que ya hay
+  let m=lsGet('mode');
+  if(!m){const own=S.profiles.filter(p=>!p.example&&!p.remote);
+    if(location.hash==='#cliente')m='client';
+    else if(own.length===1&&own[0].owner==='client'&&S.profiles.length===1)m='client';
+    else if(S.profiles.length||lsGet('seeded'))m='coach';
+    if(m){lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m}}
+  if(location.hash==='#cliente')try{history.replaceState({},'',location.pathname+location.search)}catch(e){}
+  // Datos de ejemplo (solo modo entrenador): se crean la primera vez y se renuevan si cambia su versión
   const ex=S.profiles.find(p=>p.example);
-  if((!S.profiles.length&&!lsGet('seeded'))||(ex&&lsGet('seedv')!=='4')){
+  if(m==='coach'&&((!S.profiles.length&&!lsGet('seeded'))||(ex&&lsGet('seedv')!=='4'))){
     if(ex){for(const s of S.sessions.filter(s=>s.userId===ex.id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
       for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.del('strength',s.id);for(const t of S.tests.filter(t=>t.userId===ex.id))await DB.del('tests',t.id);await DB.del('profiles',ex.id)}
     await seedExample();lsSet('seedv','4');await loadAll()}
   try{history.replaceState({},'')}catch(e){}
+  if(!m)S.view='welcome';else if(m==='client')clientRoot();
   syncDrawerMode();render();updChip();
 })();
 </script>
