@@ -151,8 +151,26 @@ canvas.scrub{touch-action:pan-y;cursor:crosshair;border-radius:6px}
 .ex-f{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chipset{font:500 13px var(--mono);background:var(--soft);padding:3px 8px;border-radius:6px}
+.ex-var{display:flex;gap:8px;align-items:center}
+.ex-var input:not([type]){font-size:15px;padding:8px 12px;flex:1;min-width:0}
+.uni{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer;padding:6px 4px}
+.uni input{width:18px;height:18px;accent-color:var(--accent)}
+.set-n small{font:600 11px var(--body);margin-left:2px;color:var(--accent)}
+.set.side-D{margin-top:-2px}
+.set.side-I{margin-top:4px}
+.uni-t td{padding:4px}
 details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 .st-bar{grid-template-columns:0 1fr 70px 22px}
+/* Test */
+.tabs{margin-bottom:-4px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.att{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.att input{text-align:center}
+.tag.up{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.tag.down{background:color-mix(in srgb,var(--z5) 14%,transparent);color:var(--z5)}
+.tbl{overflow-x:auto}
+.jt th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;text-align:right;padding:4px}
+.jt td:not(:first-child){text-align:right}
 /* Menú lateral de perfiles */
 .menu{border:0;background:none;color:var(--ink);width:36px;height:36px;border-radius:8px;cursor:pointer;display:grid;place-content:center;gap:4px;flex:none}
 .menu i{display:block;width:18px;height:2px;border-radius:2px;background:currentColor}
@@ -190,6 +208,7 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 <nav id="drawer" aria-label="Perfiles">
   <div class="d-head"><span class="d-brand">Pulsó<span>metro</span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
   <button class="d-item d-plain" data-d="home" id="dHome">Inicio</button>
+  <button class="d-item d-plain" data-d="tests" id="dTests">Test</button>
   <div class="d-sec"><span class="lbl">Perfiles</span><div id="dList"></div></div>
   <button class="btn small" data-d="new">Nuevo perfil</button>
   <div class="d-foot"><button class="d-item d-plain" data-d="backup">Copia de seguridad</button></div>
@@ -285,19 +304,109 @@ function acwrSeries(days,method){
     return {t:d.t,acute:a7,month:a28,ratio:ratio==null?null:Math.round(ratio*100)/100,enough:i>=27};
   });
 }
-/* Fuerza: volumen-carga = Σ reps × kg; RPE CR-10 por serie; 1RM estimado con Epley */
-function strengthStats(st){
+/* Fuerza: volumen-carga = Σ reps × kg; RPE CR-10 por serie; 1RM estimado con la fórmula elegida */
+// w = kg, r = repeticiones. Solo se usan series de 1 a 10 repeticiones.
+const RM_FORMULAS={
+  brzycki:{name:'Brzycki',f:(w,r)=>w*36/(37-r)},
+  epley:{name:'Epley',f:(w,r)=>r===1?w:w*(1+r/30)},
+  landers:{name:'Landers',f:(w,r)=>w/(1.013-0.0267123*r)},
+  mayhew:{name:'Mayhew et al.',f:(w,r)=>w/(0.522+0.419*Math.exp(-0.055*r))},
+  wathen:{name:'Wathen',f:(w,r)=>w/(0.488+0.538*Math.exp(-0.075*r))},
+  kemmler:{name:'Kemmler et al.',f:(w,r)=>w*(0.988+0.0104*r+0.0019*r*r-0.0000584*r*r*r)},
+  lombardi:{name:'Lombardi',f:(w,r)=>w*Math.pow(r,0.1)},
+  oconner:{name:"O'Conner et al.",f:(w,r)=>w*(1+0.025*r)},
+  media:{name:'Media de Brzycki, Epley, Landers, Mayhew y Wathen'}
+};
+function oneRM(w,r,key='brzycki'){
+  if(!(w>0)||!(r>=1)||r>10)return null;
+  if(r===1)return w; // una repetición: el propio peso
+  if(key==='media'){const ks=['brzycki','epley','landers','mayhew','wathen'];return ks.reduce((a,k)=>a+RM_FORMULAS[k].f(w,r),0)/ks.length}
+  return (RM_FORMULAS[key]||RM_FORMULAS.brzycki).f(w,r);
+}
+// Identidad de un ejercicio: nombre + variante, sin distinguir mayúsculas, tildes ni espacios de más
+const normTxt=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+// Unilateral forma parte de la identidad: no se compara con la versión bilateral
+const exKey=e=>normTxt(e.name)+'|'+normTxt(e.variant)+(e.unilateral?'|u':'');
+const exLabel=e=>(e.name||'').trim()+(normTxt(e.variant)?' · '+e.variant.trim():'')+(e.unilateral?' · unilateral':'');
+const SIDE={I:'Izq.',D:'Der.'};
+// Asimetría = (lado fuerte − lado débil) / lado fuerte × 100
+const asym=(a,b)=>{const hi=Math.max(a,b),lo=Math.min(a,b);return hi>0?(hi-lo)/hi*100:null};
+function strengthStats(st,formula='brzycki'){
   let vol=0,sets=0,reps=0,rs=0,rn=0;
-  const ex=(st.exercises||[]).map(e=>{let v=0,r=0,n=0,es=0,en=0,top=null,e1=0;
+  const ex=(st.exercises||[]).map(e=>{let v=0,r=0,n=0,es=0,en=0,top=null,e1=0,rmSet=null;
+    const sd={I:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null},D:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null}};
     for(const s of e.sets||[]){const rp=+s.reps,kg=+s.kg||0;if(!(rp>0))continue;
       n++;r+=rp;v+=rp*kg;
       if(s.rpe!=null&&s.rpe!==''){es+=+s.rpe;en++}
-      if(kg>0){const est=kg*(1+rp/30);if(est>e1)e1=est;if(!top||kg>+top.kg||(kg===+top.kg&&rp>+top.reps))top=s}}
-    vol+=v;sets+=n;reps+=r;rs+=es;rn+=en;
-    return {name:e.name,vol:Math.round(v*10)/10,sets:n,reps:r,rpe:en?es/en:null,top,e1rm:e1?Math.round(e1*2)/2:null}});
+      const est=kg>0?oneRM(kg,rp,formula):null;
+      if(kg>0){if(est!=null&&est>e1){e1=est;rmSet=s}if(!top||kg>+top.kg||(kg===+top.kg&&rp>+top.reps))top=s}
+      if(e.unilateral&&sd[s.side]){const x=sd[s.side];x.vol+=rp*kg;x.reps+=rp;x.sets++;if(est!=null&&est>x.e1rm){x.e1rm=est;x.rmSet=s}}}
+    const series=e.unilateral?Math.max(sd.I.sets,sd.D.sets):n;
+    vol+=v;sets+=series;reps+=r;rs+=es;rn+=en;
+    for(const k of ['I','D'])sd[k].e1rm=sd[k].e1rm?Math.round(sd[k].e1rm*2)/2:null;
+    const uni=e.unilateral?{sides:sd,asymVol:asym(sd.I.vol,sd.D.vol),asymRM:sd.I.e1rm&&sd.D.e1rm?asym(sd.I.e1rm,sd.D.e1rm):null}:{};
+    return {name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,label:exLabel(e),vol:Math.round(v*10)/10,sets:series,reps:r,rpe:en?es/en:null,top,e1rm:e1?Math.round(e1*2)/2:null,rmSet,...uni}});
   return {vol:Math.round(vol),sets,reps,rpe:rn?rs/rn:null,ex};
 }
 const stLoad=st=>st.rpePost==null||!(st.durationMin>0)?null:Math.round(st.rpePost*st.durationMin);
+/* ===== Test: cálculos ===== */
+function linreg(xs,ys){const n=xs.length;if(n<2)return null;
+  const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;let sxy=0,sxx=0,syy=0;
+  for(let i=0;i<n;i++){sxy+=(xs[i]-mx)*(ys[i]-my);sxx+=(xs[i]-mx)**2;syy+=(ys[i]-my)**2}
+  if(!sxx)return null;const b=sxy/sxx;return {a:my-b*mx,b,r2:syy?sxy*sxy/(sxx*syy):1}}
+// ACSM, cicloergómetro de piernas: VO2 = 1,8·WR/masa + 7, con WR en kg·m/min (1 W = 6,12 kg·m/min)
+const acsmCycleVO2=(w,kg)=>1.8*w*6.12/kg+7;
+// Protocolo YMCA: 25 W y, según la FC de la 1.ª etapa, 2.ª etapa a 125/100/75/50 W; después +25 W
+function ymcaNext(stages){const v=stages.filter(s=>+s.w>0);if(!v.length)return 25;
+  if(v.length===1){const hr=+v[0].hr;if(!hr)return null;return hr<80?125:hr<90?100:hr<=100?75:50}
+  return +v[v.length-1].w+25}
+function vo2Calc(t){
+  const st=(t.stages||[]).filter(s=>+s.w>0&&+s.hr>0).map(s=>({w:+s.w,hr:+s.hr}));
+  const hi=st.filter(s=>s.hr>=110),pts=hi.length>=2?hi:st;
+  const res={n:st.length,used:pts.length,low:hi.length<2&&st.length>=2};
+  const lr=pts.length>=2?linreg(pts.map(s=>s.w),pts.map(s=>s.hr)):null;
+  if(lr&&lr.b>0&&t.hrMax>0&&t.weight>0){const wMax=(t.hrMax-lr.a)/lr.b;res.hr={lr,wMax,vo2:acsmCycleVO2(wMax,t.weight)};res.hr.abs=res.hr.vo2*t.weight/1000}
+  else if(lr&&lr.b<=0)res.flat=true;
+  const rp=(t.stages||[]).filter(s=>+s.w>0&&s.rpe!=null&&s.rpe!=='').map(s=>({w:+s.w,r:+s.rpe}));
+  const lr2=rp.length>=2?linreg(rp.map(s=>s.w),rp.map(s=>s.r)):null;
+  if(lr2&&lr2.b>0&&t.weight>0){const w19=(19-lr2.a)/lr2.b,w20=(20-lr2.a)/lr2.b;res.rpe={lr:lr2,w19,w20,vo2_19:acsmCycleVO2(w19,t.weight),vo2_20:acsmCycleVO2(w20,t.weight)}}
+  res.over85=t.hrMax>0&&st.some(s=>s.hr>0.85*t.hrMax);
+  return res}
+// Ajuste polinómico por mínimos cuadrados (Gauss con pivote)
+function polyfit(xs,ys,deg){const m=deg+1,A=Array.from({length:m},()=>Array(m+1).fill(0));
+  for(let i=0;i<xs.length;i++){const p=[];for(let k=0;k<2*m;k++)p.push(xs[i]**k);
+    for(let r=0;r<m;r++){for(let c=0;c<m;c++)A[r][c]+=p[r+c];A[r][m]+=ys[i]*p[r]}}
+  for(let c=0;c<m;c++){let pv=c;for(let r=c+1;r<m;r++)if(Math.abs(A[r][c])>Math.abs(A[pv][c]))pv=r;[A[c],A[pv]]=[A[pv],A[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;
+    for(let r=0;r<m;r++){if(r===c)continue;const f=A[r][c]/A[c][c];for(let k=c;k<=m;k++)A[r][k]-=f*A[c][k]}}
+  return A.map((row,i)=>row[m]/row[i])}
+const polyval=(co,x)=>co.reduce((a,c,i)=>a+c*x**i,0);
+// Dmax: punto de la curva FC–potencia (ajuste cúbico) más alejado de la cuerda entre la primera y la última etapa
+function dmax(ws,hrs){
+  if(ws.length<5)return null;const S0=100,X=ws.map(w=>w/S0),co=polyfit(X,hrs,3);if(!co)return null;
+  const x0=Math.min(...X),x1=Math.max(...X),y0=polyval(co,x0),y1=polyval(co,x1),m=(y1-y0)/(x1-x0);
+  let best=null;for(let i=1;i<500;i++){const x=x0+(x1-x0)*i/500,d=polyval(co,x)-(y0+m*(x-x0));if(!best||d>best.d)best={x,d}}
+  return {w:best.x*S0,hr:polyval(co,best.x),d:best.d,co,S0,x0:x0*S0,x1:x1*S0,y0,y1,found:best.d>=1.5}}
+function interpAt(pts,x){const v=pts.filter(p=>p[1]!=null).sort((a,b)=>a[0]-b[0]);if(!v.length)return null;
+  if(x<=v[0][0])return v[0][1];for(let i=1;i<v.length;i++)if(x<=v[i][0]){const a=v[i-1],b=v[i];return a[1]+(b[1]-a[1])*(x-a[0])/((b[0]-a[0])||1)}return v[v.length-1][1]}
+function vt2Calc(t){
+  const st=(t.stages||[]).filter(s=>+s.w>0&&+s.hr>0).map(s=>({w:+s.w,hr:+s.hr,rpe:s.rpe===''||s.rpe==null?null:+s.rpe})).sort((a,b)=>a.w-b.w);
+  const res={n:st.length,wPeak:st.length?st[st.length-1].w:null,hrPeak:st.length?Math.max(...st.map(s=>s.hr)):null};
+  const d=dmax(st.map(s=>s.w),st.map(s=>s.hr));res.dmax=d;
+  const mw=+t.measured?.w,mh=+t.measured?.hr;
+  const src=mw>0?{w:mw,hr:mh>0?mh:(d?polyval(d.co,mw/d.S0):null),how:'medido'}:(d&&d.found?{w:d.w,hr:d.hr,how:'dmax'}:null);
+  if(src){src.pctHrMax=t.hrMax>0&&src.hr?src.hr/t.hrMax*100:null;src.pctWpeak=res.wPeak?src.w/res.wPeak*100:null;
+    src.rpe=interpAt(st.map(s=>[s.w,s.rpe]),src.w);res.vt2=src}
+  return res}
+// Saltos: altura en cm. Potencia pico de Sayers et al. (1999) = 60,7·h + 45,3·masa − 2055
+const sayers=(hcm,kg)=>60.7*hcm+45.3*kg-2055;
+function jumpCalc(t){const out={};
+  for(const k of ['cmj','sj','abk']){const v=(t.jumps?.[k]||[]).map(Number).filter(x=>x>0);
+    out[k]=v.length?{best:Math.max(...v),mean:v.reduce((a,b)=>a+b,0)/v.length,n:v.length,cv:v.length>1?Math.sqrt(v.reduce((a,b)=>a+(b-v.reduce((x,y)=>x+y,0)/v.length)**2,0)/(v.length-1))/(v.reduce((a,b)=>a+b,0)/v.length)*100:null}:null;
+    if(out[k]&&t.weight>0&&k!=='abk'){out[k].pp=sayers(out[k].best,t.weight);out[k].ppkg=out[k].pp/t.weight}}
+  if(out.cmj&&out.sj)out.elastic=(out.cmj.best-out.sj.best)/out.sj.best*100;
+  if(out.abk&&out.cmj)out.arms=(out.abk.best-out.cmj.best)/out.cmj.best*100;
+  return out}
 function acwrStatus(r){
   if(r==null)return{txt:'Sin datos',z:0};
   if(r<0.8)return{txt:'Carga baja',z:2};
@@ -311,14 +420,15 @@ const DB={db:null,mem:null,
   async open(){
     if(this.db||this.mem)return;
     try{
-      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',2);
+      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',3);
         r.onupgradeneeded=()=>{const d=r.result,has=n=>d.objectStoreNames.contains(n);
           if(!has('profiles'))d.createObjectStore('profiles',{keyPath:'id'});
           if(!has('sessions'))d.createObjectStore('sessions',{keyPath:'id'}).createIndex('userId','userId');
           if(!has('tracks'))d.createObjectStore('tracks',{keyPath:'id'});
-          if(!has('strength'))d.createObjectStore('strength',{keyPath:'id'})}; // v2: sesiones de fuerza
+          if(!has('strength'))d.createObjectStore('strength',{keyPath:'id'}); // v2: sesiones de fuerza
+          if(!has('tests'))d.createObjectStore('tests',{keyPath:'id'})}; // v3: test
         r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))});
-    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map(),strength:new Map()};S.memOnly=true}
+    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map(),strength:new Map(),tests:new Map()};S.memOnly=true}
   },
   tx(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);let out;const r=fn(t.objectStore(store));if(r)r.onsuccess=()=>{out=r.result};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error)})},
   all(s){return this.mem?Promise.resolve([...this.mem[s].values()]):this.tx(s,'readonly',o=>o.getAll())},
@@ -328,7 +438,7 @@ const DB={db:null,mem:null,
 };
 
 /* ================= Estado ================= */
-const S={profiles:[],sessions:[],strength:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
+const S={profiles:[],sessions:[],strength:[],tests:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
 let inFrame=false;try{inFrame=window.top!==window.self}catch(e){inFrame=true}
 const btOK=!!navigator.bluetooth&&!inFrame;
 const prof=id=>S.profiles.find(p=>p.id===id);
@@ -342,7 +452,7 @@ const loadOfAny=s=>s.kind==='st'?stLoad(s):srpe(s);
 /* ================= Bluetooth ================= */
 const BLE={dev:null,status:'off',bpm:null,bat:null,contact:null,last:0,manual:false,timer:null,tries:0,sim:null,h:null,
   name(){return this.status==='sim'?'Simulador':(this.dev?.name||'Pulsómetro')},
-  set(st){this.status=st;updChip();if(S.view==='pre'||S.view==='live')updDevice()},
+  set(st){this.status=st;updChip();if(S.view==='pre'||S.view==='live')updDevice();if(S.view==='test')updTestDevice()},
   async pick(){
     if(!navigator.bluetooth)throw new Error('Este navegador no tiene Web Bluetooth. Usa Chrome en Android.');
     const d=await navigator.bluetooth.requestDevice({filters:[{services:['heart_rate']}],optionalServices:['battery_service']});
@@ -439,6 +549,7 @@ function onHR(p){
   if(S.rec)recAdd(p,t);
   if(S.view==='live')updLive();
   if(S.view==='pre'){const e=$('#preHr');if(e)e.textContent=p.bpm}
+  if(S.view==='test'){const e=$('#tHr');if(e)e.textContent=p.bpm}
 }
 
 /* ================= Pantalla encendida ================= */
@@ -623,6 +734,7 @@ V.edit=()=>{
     <div class="field"><label for="fbirth">Fecha de nacimiento</label><input id="fbirth" type="date" value="${esc(f.birthDate)}"></div>
     <div class="g2">
       <div class="field"><label for="fmax">FC máxima</label><input id="fmax" type="number" inputmode="numeric" value="${f.hrMax}" placeholder="ppm"><span class="hint" id="estHint">${f.hrMaxEstimated?'Estimada con Tanaka (208 − 0,7 × edad). Cámbiala si tienes un valor medido.':'Valor medido o de una prueba.'}</span><button type="button" class="link" data-act="estimate">Estimar con la edad</button></div>
+      <div class="field"><label for="fweight">Peso (kg)</label><input id="fweight" type="number" inputmode="decimal" step="0.1" value="${f.weight??''}" placeholder="kg"><span class="hint">Se usa como valor inicial en los test.</span></div>
       <div class="field"><label for="frest">FC en reposo</label><input id="frest" type="number" inputmode="numeric" value="${f.hrRest}" placeholder="ppm"><span class="hint">Mejor medida al despertar. Necesaria para Karvonen.</span></div>
     </div>
   </div>
@@ -644,7 +756,7 @@ V.edit=()=>{
 function readForm(){
   const f=S.form.p;
   f.name=$('#fname').value.trim();f.birthDate=$('#fbirth').value;
-  f.hrMax=parseInt($('#fmax').value)||'';f.hrRest=parseInt($('#frest').value)||'';
+  f.hrMax=parseInt($('#fmax').value)||'';f.weight=parseFloat($('#fweight').value)||'';f.hrRest=parseInt($('#frest').value)||'';
   f.percents=[0,1,2,3,4].map(i=>parseFloat($('#pc'+i).value));
   f.manual=[0,1,2,3,4].map(i=>parseInt($('#mz'+i).value));
   return f;
@@ -653,6 +765,7 @@ function validate(f){
   if(!f.name)return'Escribe un nombre.';
   if(!(f.hrMax>=100&&f.hrMax<=240))return'La FC máxima debe estar entre 100 y 240 ppm.';
   if(f.hrRest&&!(f.hrRest>=25&&f.hrRest<f.hrMax-20))return'Revisa la FC en reposo.';
+  if(f.weight&&!(f.weight>=20&&f.weight<=250))return'Revisa el peso.';
   if(f.method==='karvonen'&&!f.hrRest)return'Karvonen necesita la FC en reposo. Escríbela o elige % FCmáx.';
   const arr=f.method==='manual'?f.manual:f.percents;
   if(arr.some(x=>isNaN(x)))return'Completa el inicio de las cinco zonas.';
@@ -669,7 +782,7 @@ V.profile=()=>{
   const ser=acwrSeries(dailyLoads(loadItems(p.id)),method),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio);
   const nDays=ser.length,all=allOf(p.id),sts=stOf(p.id),open=S.strength.filter(s=>s.userId===p.id&&s.status==='open');
   const wk7=Date.now()-7*864e5,v7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)});
-  let h=`<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
+  let h=`${profileTabs(p.id,'train')}<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${p.weight?fmtKg(p.weight)+' kg · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
   <div class="stats">${stat(p.hrMax+(p.hrMaxEstimated?'*':''),'FC máx')}${stat(p.hrRest||'—','FC reposo')}${stat(all.length,'Sesiones')}</div>
   ${p.hrMaxEstimated?'<span class="hint">* FC máxima estimada con la fórmula de Tanaka.</span>':''}
   ${zoneTable(lim,p.hrMax)}</div>
@@ -774,15 +887,33 @@ V.summary=()=>{
 const EXERCISES=['Sentadilla','Peso muerto','Peso muerto rumano','Press banca','Press militar','Dominadas','Remo con barra','Hip thrust','Zancadas','Prensa','Fondos','Curl de bíceps','Extensión de tríceps','Elevaciones laterales','Jalón al pecho','Sentadilla búlgara','Plancha'];
 const ST_TYPES=['Fuerza','Tren inferior','Tren superior','Full body','Potencia','Hipertrofia','Prevención de lesiones'];
 const toLocalInput=t=>{const d=new Date(t);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`};
-const setsText=sets=>(sets||[]).filter(s=>+s.reps>0).map(s=>`${s.reps}×${fmtKg(s.kg)}`).join(' · ')+' kg';
+const setsText=(sets,uni)=>{const v=(sets||[]).filter(s=>+s.reps>0);
+  if(!uni)return v.map(s=>`${s.reps}×${fmtKg(s.kg)}`).join(' · ')+' kg';
+  const out=[];for(let i=0;i<v.length;i++){const a=v[i],b=v[i+1];
+    if(a.side==='I'&&b&&b.side==='D'&&+a.kg===+b.kg){out.push(`${a.reps}/${b.reps}×${fmtKg(a.kg)}`);i++}else out.push(`${SIDE[a.side]||''} ${a.reps}×${fmtKg(a.kg)}`)}
+  return out.join(' · ')+' kg (izq./der.)'};
 function exerciseNames(uid){const set=new Set(EXERCISES);for(const s of S.strength)if(s.userId===uid)for(const e of s.exercises)if(e.name.trim())set.add(e.name.trim());return [...set].sort((a,b)=>a.localeCompare(b,'es'))}
 // Última vez que el perfil hizo cada ejercicio (antes de esta sesión)
-function lastTimes(st){const m={};
+// Se empareja por nombre + variante (sin mayúsculas, tildes ni espacios de más)
+function lastTimes(st){const m={},byName={};
   for(const s of stOf(st.userId)){if(s.id===st.id||s.startTime>=st.startTime)continue;
-    for(const e of s.exercises){const k=e.name.trim().toLowerCase();if(k&&!m[k]&&e.sets.some(x=>+x.reps>0))m[k]={t:s.startTime,sets:e.sets}}}
-  return m}
+    for(const e of s.exercises){if(!normTxt(e.name)||!e.sets.some(x=>+x.reps>0))continue;const k=exKey(e);
+      if(!m[k])m[k]={t:s.startTime,sets:e.sets,variant:e.variant||'',unilateral:!!e.unilateral};
+      const n=normTxt(e.name);(byName[n]||(byName[n]=[]));if(!byName[n].some(x=>normTxt(x.variant)===normTxt(e.variant)&&x.uni===!!e.unilateral))byName[n].push({variant:e.variant||'',uni:!!e.unilateral,t:s.startTime})}}
+  return {m,byName}}
+function variantsOf(uid,name){const n=normTxt(name),set=new Map();if(!n)return[];
+  for(const s of S.strength)if(s.userId===uid)for(const e of s.exercises)if(normTxt(e.name)===n&&normTxt(e.variant))set.set(normTxt(e.variant),e.variant.trim());
+  return [...set.values()].sort((a,b)=>a.localeCompare(b,'es'))}
+function prevHint(prev,e){
+  const pv=prev.m[exKey(e)];
+  if(pv)return `<span class="hint num">Última vez (${fmtDate(pv.t)}): ${setsText(pv.sets,e.unilateral)}</span>`;
+  const others=(prev.byName[normTxt(e.name)]||[]).filter(x=>normTxt(x.variant)!==normTxt(e.variant)||x.uni!==!!e.unilateral);
+  if(others.length)return `<span class="hint">Primera vez con ${normTxt(e.variant)||e.unilateral?'esta variante':'el ejercicio sin variante'}. Registrado antes como: ${others.map(o=>esc((o.variant.trim()||'sin variante')+(o.uni?' (unilateral)':''))).join(', ')}.</span>`;
+  return '';
+}
 const rpeOpts=v=>`<option value=""${v==null||v===''?' selected':''}>—</option>`+[0,1,2,3,4,5,6,7,8,9,10].map(i=>`<option value="${i}"${+v===i&&v!==''&&v!=null?' selected':''}>${i}</option>`).join('');
-function exSummary(k){return k.sets?`${k.sets} series · ${k.reps} reps · ${fmtKg(k.vol)} kg${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}`:'Sin series válidas todavía'}
+function exSummary(k){if(!k.sets)return 'Sin series válidas todavía';
+  return `${k.sets} series${k.unilateral?' por lado':''} · ${k.reps} reps · ${fmtKg(k.vol)} kg${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}${k.unilateral&&k.asymVol!=null?' · asimetría '+dec(k.asymVol,1)+' %':''}`}
 V.strength=()=>{
   const st=stById(S.arg);if(!st)return'';const prev=lastTimes(st),tot=strengthStats(st);
   let h=`<div class="card"><div class="g2">
@@ -790,18 +921,20 @@ V.strength=()=>{
     <div class="field"><label for="stStart">Inicio</label><input id="stStart" data-sf="startTime" type="datetime-local" value="${toLocalInput(st.startTime)}"></div></div>
     ${st.status==='open'?`<span class="hint">En curso · <b class="num" id="stClock">${fmtDur(Date.now()-st.startTime)}</b>. Si registras una sesión pasada, cambia la hora de inicio.</span>`:''}</div>
   <details class="card"${st.rpePre!=null?'':''}><summary>RPE pre · ¿cómo llegas?${st.rpePre!=null?` <span class="tag">${st.rpePre}</span>`:' <span class="hint">(opcional)</span>'}</summary>${rpeScale('stRpePre','pre',st.rpePre)}</details>`;
-  st.exercises.forEach((e,i)=>{const k=strengthStats({exercises:[e]}).ex[0],pv=prev[e.name.trim().toLowerCase()];
+  st.exercises.forEach((e,i)=>{const k=strengthStats({exercises:[e]}).ex[0],vars=variantsOf(st.userId,e.name);
     h+=`<div class="card ex">
     <div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
-    ${pv?`<span class="hint num">Última vez (${fmtDate(pv.t)}): ${setsText(pv.sets)}</span>`:''}
+    <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+      <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label></div>
+    ${prevHint(prev,e)}
     <div class="sets"><div class="set-h"><span>Serie</span><span>Reps</span><span>Kg</span><span>RPE</span><span></span></div>
-    ${e.sets.map((s,j)=>`<div class="set"><span class="set-n">${j+1}</span>
+    ${e.sets.map((s,j)=>`<div class="set${e.unilateral?' side-'+s.side:''}"><span class="set-n">${e.unilateral?`${Math.floor(j/2)+1}<small>${s.side}</small>`:j+1}</span>
       <input type="number" inputmode="numeric" min="0" data-ex="${i}" data-set="${j}" data-f="reps" value="${s.reps??''}" aria-label="Repeticiones serie ${j+1}">
       <input type="number" inputmode="decimal" min="0" step="0.5" data-ex="${i}" data-set="${j}" data-f="kg" value="${s.kg??''}" aria-label="Kg serie ${j+1}">
       <select data-ex="${i}" data-set="${j}" data-f="rpe" aria-label="RPE serie ${j+1}">${rpeOpts(s.rpe)}</select>
-      <button class="icon-btn" data-act="stDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${j+1}">×</button></div>`).join('')}
+      ${e.unilateral&&s.side==='D'?'<span></span>':`<button class="icon-btn" data-act="stDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${e.unilateral?Math.floor(j/2)+1+' (ambos lados)':j+1}">×</button>`}</div>`).join('')}
     </div>
-    <div class="ex-f"><button class="btn small" data-act="stAddSet" data-i="${i}">+ Serie</button><span class="hint num" id="exs${i}">${exSummary(k)}</span></div></div>`});
+    <div class="ex-f"><button class="btn small" data-act="stAddSet" data-i="${i}">+ Serie</button><span class="hint num" id="exs${i}">${exSummary(k)}</span></div>${e.unilateral?`<span class="hint">I = izquierda · D = derecha. «+ Serie» añade una serie para cada lado.</span>`:''}</div>`});
   if(!st.exercises.length)h+=`<div class="empty">Añade el primer ejercicio. Cada serie guarda repeticiones, kg y RPE (CR-10).</div>`;
   h+=`<datalist id="exlist">${exerciseNames(st.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
   <button class="btn wide" data-act="stAddEx">+ Añadir ejercicio</button>
@@ -810,6 +943,7 @@ V.strength=()=>{
   ${st.status==='open'?`<button class="btn primary wide" data-act="stFinish">Terminar sesión</button>`:`<button class="btn primary wide" data-act="stDone">Guardar cambios</button>`}`;
   return h;
 };
+const rmKey=()=>{const k=lsGet('rmFormula');return RM_FORMULAS[k]?k:'brzycki'};
 const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series')+stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio');
 let stSaveT=null;
 function saveStSoon(st){clearTimeout(stSaveT);stSaveT=setTimeout(()=>DB.put('strength',st),400)}
@@ -822,19 +956,25 @@ V.stpost=()=>{const st=stById(S.arg);const t=strengthStats(st);if(S.form.rpePost
   <button class="btn primary wide" data-act="stSavePost">Guardar RPE</button>
   <div class="ctrls"><button class="btn" data-act="stLater">Anotar más tarde</button><button class="btn" data-act="remind">Avisarme en 30 min</button></div>`};
 V.ssum=()=>{
-  const st=stById(S.arg);if(!st)return'';const t=strengthStats(st),l=stLoad(st),p=prof(st.userId);
+  const st=stById(S.arg);if(!st)return'';const fk=rmKey(),t=strengthStats(st,fk),l=stLoad(st),p=prof(st.userId);
   const maxV=Math.max(1,...t.ex.map(e=>e.vol));
   let h=`<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(st.startTime)} · ${esc(p?.name||'')}</span>${st.example?'<span class="tag ex">Ejemplo</span>':''}</div>
   <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series')}${stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie')}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
   ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}</div>
-  <section class="sec"><h3>Ejercicios</h3>`;
-  for(const e of t.ex){const src=st.exercises.find(x=>x.name===e.name);
-    h+=`<div class="card ex"><div class="sec-h"><b>${esc(e.name||'Sin nombre')}</b><span class="hint num">${e.e1rm?'1RM est. '+fmtKg(e.e1rm)+' kg':''}</span></div>
+  <section class="sec"><h3>Ejercicios</h3>
+  <div class="field"><label for="rmF">Fórmula del 1RM estimado</label><select id="rmF">${Object.entries(RM_FORMULAS).map(([k,v])=>`<option value="${k}"${k===fk?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>`;
+  t.ex.forEach((e,i)=>{const src=st.exercises[i];
+    const rm=e.unilateral?'':e.e1rm?`1RM est. ${fmtKg(e.e1rm)} kg <span class="muted">(${e.rmSet.reps}×${fmtKg(e.rmSet.kg)})</span>`:(e.top?'Sin serie de ≤ 10 reps para estimar el 1RM':'');
+    const sideRow=k=>{const x=e.sides[k];return `<tr><td><b>${SIDE[k]}</b></td><td class="num">${fmtKg(x.vol)} kg</td><td class="num">${x.reps} reps</td><td class="num">${x.e1rm?'1RM '+fmtKg(x.e1rm)+' kg':'—'}</td></tr>`};
+    const uniTbl=e.unilateral?`<table class="ztable uni-t">${sideRow('I')}${sideRow('D')}</table>
+      <span class="hint num">Asimetría: ${e.asymVol!=null?dec(e.asymVol,1)+' % en volumen':'—'}${e.asymRM!=null?' · '+dec(e.asymRM,1)+' % en 1RM est.':''}${e.asymVol!=null?` (lado ${e.sides.I.vol>=e.sides.D.vol?'izquierdo':'derecho'} más fuerte)`:''}</span>`:'';
+    h+=`<div class="card ex"><div class="sec-h"><b>${esc(e.name||'Sin nombre')}${normTxt(e.variant)?` <span class="muted" style="font-weight:400">· ${esc(e.variant)}</span>`:''}</b><span class="hint num" style="text-align:right">${rm}</span></div>
     <div class="zb-r st-bar"><span class="k"></span><div class="zb-t"><div class="zb-f" style="width:${e.vol/maxV*100}%;background:var(--accent)"></div></div><span class="v">${fmtKg(e.vol)}</span><span class="p">kg</span></div>
-    <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${s.reps}×${fmtKg(s.kg)}${s.rpe!=null&&s.rpe!==''?' @'+s.rpe:''}</span>`).join('')}</div>
-    <span class="hint num">${exSummary(e)}</span></div>`}
+    ${uniTbl}
+    <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${e.unilateral?s.side+' ':''}${s.reps}×${fmtKg(s.kg)}${s.rpe!=null&&s.rpe!==''?' @'+s.rpe:''}</span>`).join('')}</div>
+    <span class="hint num">${exSummary(e)}</span></div>`});
   if(!t.ex.length)h+=`<div class="empty">Esta sesión no tiene ejercicios.</div>`;
-  h+=`<span class="hint">1RM estimado con Epley a partir de la mejor serie: kg × (1 + reps/30). Orientativo, menos fiable por encima de 10 repeticiones.</span></section>
+  h+=`<span class="hint">1RM estimado con ${esc(RM_FORMULAS[fk].name)} a partir de la serie que da el valor más alto, usando solo series de 1 a 10 repeticiones. Las fórmulas suponen series cercanas al fallo: si la serie quedó lejos del fallo (RPE bajo), el 1RM real será mayor. Error habitual del ±10 %.</span></section>
   ${st.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="stSavePending">Guardar RPE</button></section>`:''}
   <div class="card"><div class="field"><label for="stNotes2">Notas</label><textarea id="stNotes2">${esc(st.notes)}</textarea></div></div>
   <div class="row"><button class="btn" data-act="stEdit">Editar sesión</button><button class="btn" data-act="stExport">Exportar CSV</button><button class="btn danger" data-act="stDel">Borrar sesión</button></div>`;
@@ -847,18 +987,189 @@ $('#app').addEventListener('input',e=>{
     if(f==='startTime'){const t=new Date(el.value).getTime();if(!isNaN(t))st.startTime=t}else st[f]=el.value;
     saveStSoon(st);return}
   if(el.dataset.ex==null)return;const ex=st.exercises[+el.dataset.ex];if(!ex)return;
-  if(el.dataset.f==='name')ex.name=el.value;
+  if(el.dataset.f==='unilateral')return; // se gestiona en 'change'
+  if(el.dataset.f==='name'||el.dataset.f==='variant')ex[el.dataset.f]=el.value;
   else{const s=ex.sets[+el.dataset.set];const v=el.value;s[el.dataset.f]=v===''?null:+v}
   const k=strengthStats({exercises:[ex]}).ex[0],x=$('#exs'+el.dataset.ex);if(x)x.textContent=exSummary(k);
   const tt=$('#stTot');if(tt)tt.innerHTML=stTotHTML(strengthStats(st));
   saveStSoon(st);
 });
-$('#app').addEventListener('change',e=>{if(S.view==='strength'&&e.target.dataset.f==='name'){const st=stById(S.arg);DB.put('strength',st).then(()=>{const y=scrollY;render();scrollTo(0,y)})}
+$('#app').addEventListener('change',e=>{
+  if(S.view==='strength'&&e.target.dataset.f==='unilateral'){const st=stById(S.arg),ex=st.exercises[+e.target.dataset.ex];
+    if(e.target.checked){ex.unilateral=true;ex.sets=ex.sets.flatMap(x=>[{...x,side:'I'},{...x,side:'D'}])}
+    else{ex.unilateral=false;ex.sets=ex.sets.filter(x=>x.side!=='D').map(({side,...x})=>x)}
+    if(!ex.sets.length)ex.sets=ex.unilateral?[{side:'I',reps:null,kg:null,rpe:null},{side:'D',reps:null,kg:null,rpe:null}]:[{reps:null,kg:null,rpe:null}];
+    saveSt(st).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
+  if(S.view==='strength'&&(e.target.dataset.f==='name'||e.target.dataset.f==='variant')){const st=stById(S.arg);DB.put('strength',st).then(()=>{const y=scrollY;render();scrollTo(0,y)})}
+  if(e.target.id==='rmF'){lsSet('rmFormula',e.target.value);const y=scrollY;render();scrollTo(0,y)}
   if(e.target.id==='stNotes2'){const st=stById(S.arg);st.notes=e.target.value;saveSt(st);toast('Notas guardadas')}});
 setInterval(()=>{const c=$('#stClock');const st=S.view==='strength'&&stById(S.arg);if(c&&st)c.textContent=fmtDur(Date.now()-st.startTime)},1000);
 
+/* ================= Test ================= */
+const TEST_TYPES={
+  vo2:{short:'VO2máx',name:'VO2máx · cicloergómetro',desc:'Submáximo por etapas (YMCA o libre). Estima el VO2máx con la FC y con el RPE.'},
+  vt2:{short:'VT2',name:'VT2 · segundo umbral',desc:'Incremental hasta el agotamiento. Estima el VT2 por la deflexión de la FC o usa el medido.'},
+  jump:{short:'Saltos',name:'Saltos · CMJ, SJ y Abalakov',desc:'Alturas de My Jump Lab. Potencia pico (Sayers) e índices de elasticidad y brazos.'}};
+const JUMPS={cmj:{n:'CMJ',d:'Contramovimiento con las manos en la cadera'},sj:{n:'SJ',d:'Squat jump: desde 90° de rodilla, sin contramovimiento'},abk:{n:'Abalakov',d:'Contramovimiento con impulso de brazos'}};
+const testById=id=>S.tests.find(t=>t.id===id);
+const testsOf=uid=>S.tests.filter(t=>t.userId===uid).sort((a,b)=>b.date-a.date);
+const borgOpts=v=>`<option value=""${v==null||v===''?' selected':''}>—</option>`+Array.from({length:15},(_,i)=>i+6).map(i=>`<option value="${i}"${+v===i&&v!==''&&v!=null?' selected':''}>${i}</option>`).join('');
+const BORG_HINT='RPE en escala de Borg 6–20, la usada por los métodos de extrapolación: 9 muy ligero · 11 ligero · 13 algo duro · 15 duro · 17 muy duro · 19 extremadamente duro · 20 máximo.';
+function profileTabs(uid,on){return `<div class="seg two tabs" role="tablist" aria-label="Secciones del perfil">
+  <button type="button" role="tab" aria-selected="${on==='train'}" class="${on==='train'?'on':''}" data-act="tabTrain" data-id="${uid}">Entrenamiento</button>
+  <button type="button" role="tab" aria-selected="${on==='test'}" class="${on==='test'?'on':''}" data-act="tabTest" data-id="${uid}">Test</button></div>`}
+function testHeadline(t){
+  if(t.type==='vo2'){const r=vo2Calc(t);return r.hr?`${dec(r.hr.vo2,1)} ml/kg/min`:'Sin resultado todavía'}
+  if(t.type==='vt2'){const r=vt2Calc(t);return r.vt2?`${Math.round(r.vt2.w)} W${r.vt2.hr?' · '+Math.round(r.vt2.hr)+' ppm':''}${r.vt2.how==='medido'?' (medido)':''}`:'Sin resultado todavía'}
+  const j=jumpCalc(t),parts=['cmj','sj','abk'].filter(k=>j[k]).map(k=>`${JUMPS[k].n} ${dec(j[k].best,1)}`);return parts.length?parts.join(' · ')+' cm':'Sin datos todavía'}
+function testValue(t){if(t.type==='vo2')return vo2Calc(t).hr?.vo2??null;if(t.type==='vt2')return vt2Calc(t).vt2?.w??null;return jumpCalc(t).cmj?.best??null}
+const TEST_UNIT={vo2:' ml/kg/min',vt2:' W',jump:' cm CMJ'};
+
+V.tests=()=>{
+  const ps=[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
+  if(!ps.length)return `<div class="empty">Crea primero un perfil para registrar sus test.</div><button class="btn primary wide" data-act="newProfile">Nuevo perfil</button>`;
+  const p=prof(S.arg)||ps[0];S.arg=p.id;const ts=testsOf(p.id),a=age(p.birthDate);
+  let h=profileTabs(p.id,'test')+`<div class="card"><div class="field"><label for="tUser">Usuario</label><select id="tUser">${ps.map(x=>`<option value="${x.id}"${x.id===p.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+    <span class="hint num">${a!=null?a+' años · ':''}FCmáx ${p.hrMax}${p.hrMaxEstimated?' (estimada)':''} · ${p.weight?fmtKg(p.weight)+' kg':'sin peso en el perfil'}. Los cálculos usan estos datos; puedes ajustarlos en cada test.</span></div>
+  <section class="sec"><h3>Nuevo test</h3><div class="list">${Object.entries(TEST_TYPES).map(([k,v])=>`<button class="item" data-act="newTest" data-v="${k}"><span class="grow"><span class="t">${v.name}</span><br><span class="s">${v.desc}</span></span><span class="tag str">Empezar</span></button>`).join('')}</div></section>
+  <section class="sec"><div class="sec-h"><h3>Historial</h3>${ts.length?'<button class="btn small" data-act="tExport">Exportar CSV</button>':''}</div>`;
+  if(!ts.length)h+=`<div class="empty">Todavía no hay test de ${esc(p.name)}.</div>`;
+  else for(const [k,v] of Object.entries(TEST_TYPES)){const list=ts.filter(t=>t.type===k);if(!list.length)continue;
+    h+=`<span class="lbl" style="margin-top:4px">${v.name}</span><div class="list">`;
+    list.forEach((t,i)=>{const val=testValue(t),pv=list.slice(i+1).map(testValue).find(x=>x!=null),dl=val!=null&&pv!=null?val-pv:null;
+      h+=`<button class="item" data-act="openTest" data-id="${t.id}"><span class="grow"><span class="t num">${testHeadline(t)}</span><br><span class="s">${fmtDT(t.date)}${t.example?' · ejemplo':''}</span></span>${dl!=null?`<span class="tag num ${dl>=0?'up':'down'}">${dl>=0?'+':''}${dec(dl,1)}${TEST_UNIT[k]}</span>`:''}</button>`});
+    h+='</div>'}
+  return h+'</section>';
+};
+V.test=()=>{
+  const t=testById(S.arg);if(!t)return'';const p=prof(t.userId),a=age(p?.birthDate),cyc=t.type!=='jump';
+  let h=`<div class="card"><span class="lbl">${esc(TEST_TYPES[t.type].name)} · ${esc(p?.name||'')}${a!=null?' · '+a+' años':''}</span>
+    <div class="g2"><div class="field"><label for="tDate">Fecha</label><input id="tDate" type="datetime-local" data-t="date" value="${toLocalInput(t.date)}"></div>
+    <div class="field"><label for="tW">Peso (kg)</label><input id="tW" type="number" inputmode="decimal" step="0.1" data-t="weight" value="${t.weight??''}" placeholder="kg"></div></div>
+    ${cyc?`<div class="field"><label for="tHrMax">FC máxima para el cálculo</label><input id="tHrMax" type="number" inputmode="numeric" data-t="hrMax" value="${t.hrMax??''}"><span class="hint">${p?.hrMaxEstimated?'Tomada del perfil, donde está estimada con Tanaka. Si tienes la FCmáx medida, escríbela aquí: el resultado depende mucho de este valor.':'Tomada del perfil.'}</span></div>`:''}</div>`;
+  if(cyc)h+=`<div class="card" id="tDev"></div>`;
+  if(t.type==='vo2')h+=vo2Form(t);else if(t.type==='vt2')h+=vt2Form(t);else h+=jumpForm(t);
+  h+=`<section class="sec"><h3>Resultados</h3><div class="card" id="tRes" aria-live="polite"></div></section>
+  <div class="card"><div class="field"><label for="tNotes">Notas</label><textarea id="tNotes" data-t="notes" placeholder="${cyc?'Ergómetro, cadencia, condiciones, sensaciones…':'Superficie, calzado, calentamiento, sensaciones…'}">${esc(t.notes||'')}</textarea></div></div>
+  <div class="row"><button class="btn primary" data-act="tSave">Guardar y volver</button><button class="btn danger" data-act="tDel">Borrar test</button></div>`;
+  return h;
+};
+function stageRows(t,first){return (t.stages||[]).map((s,i)=>`<div class="set"><span class="set-n">${first==='min'?i+1+'′':i+1}</span>
+  <input type="number" inputmode="numeric" min="0" data-row="${i}" data-k="w" value="${s.w??''}" aria-label="Potencia etapa ${i+1} (W)">
+  <input type="number" inputmode="numeric" min="0" data-row="${i}" data-k="hr" value="${s.hr??''}" aria-label="FC etapa ${i+1}">
+  <select data-row="${i}" data-k="rpe" aria-label="RPE etapa ${i+1}">${borgOpts(s.rpe)}</select>
+  <button class="icon-btn" data-act="tDelRow" data-i="${i}" aria-label="Borrar etapa ${i+1}">×</button></div>`).join('')}
+function vo2Form(t){const h85=t.hrMax?Math.round(t.hrMax*0.85):null;
+  return `<div class="card"><span class="lbl">Protocolo</span><div class="seg two" role="radiogroup">
+    <button type="button" role="radio" aria-checked="${t.protocol==='ymca'}" class="${t.protocol==='ymca'?'on':''}" data-act="tProto" data-v="ymca">YMCA</button>
+    <button type="button" role="radio" aria-checked="${t.protocol!=='ymca'}" class="${t.protocol!=='ymca'?'on':''}" data-act="tProto" data-v="free">Libre</button></div>
+    <span class="hint">${t.protocol==='ymca'?`Cadencia de 50 rpm y etapas de 3 min. 1.ª etapa a 25 W. La 2.ª depende de la FC al final de la 1.ª: &lt; 80 → 125 W · 80–89 → 100 W · 90–100 → 75 W · &gt; 100 → 50 W. Después, +25 W por etapa. Anota la FC de los minutos 2 y 3; si difieren más de 6 ppm, alarga la etapa un minuto. Termina cuando dos etapas seguidas queden entre 110 y ${h85??'el 85 % de la FCmáx'} ppm (85 % de la FCmáx).`:'Etapas de 2–3 min a cargas crecientes y cadencia constante. Anota la FC estable del final de cada etapa y el RPE. Para antes de superar el 85 % de la FCmáx.'}</span></div>
+  <section class="sec"><h3>Etapas</h3><div class="card"><div class="sets stg"><div class="set-h"><span>Etapa</span><span>W</span><span>FC</span><span>RPE</span><span></span></div>${stageRows(t)}</div>
+    <div class="ex-f"><button class="btn small" data-act="tAddRow">+ Etapa</button><span class="hint num" id="tNext"></span></div>
+    <span class="hint">${BORG_HINT}</span></div></section>`}
+function vt2Form(t){const g=t.gen||{start:50,inc:25,n:10};
+  return `<div class="card"><span class="lbl">Protocolo</span><span class="hint">Incremental en cicloergómetro a cadencia constante (70–90 rpm): 5 min de calentamiento, empezar a 50–100 W y subir 20–25 W por minuto hasta el agotamiento. Anota la FC al final de cada minuto y, si puedes, el RPE. Hacen falta al menos 5 etapas; cuantas más por encima del umbral, mejor.</span>
+    <div class="g3"><div class="field"><label for="gS">Inicio (W)</label><input id="gS" type="number" inputmode="numeric" data-g="start" value="${g.start}"></div>
+    <div class="field"><label for="gI">+W/etapa</label><input id="gI" type="number" inputmode="numeric" data-g="inc" value="${g.inc}"></div>
+    <div class="field"><label for="gN">Etapas</label><input id="gN" type="number" inputmode="numeric" data-g="n" value="${g.n}"></div></div>
+    <button class="btn small" data-act="tGen">Crear etapas con estas cargas</button></div>
+  <section class="sec"><h3>Etapas</h3><div class="card"><div class="sets stg"><div class="set-h"><span>Min</span><span>W</span><span>FC</span><span>RPE</span><span></span></div>${stageRows(t,'min')}</div>
+    <div class="ex-f"><button class="btn small" data-act="tAddRow">+ Etapa</button></div><span class="hint">${BORG_HINT}</span></div></section>
+  <div class="card"><span class="lbl">VT2 medido (opcional)</span><span class="hint">Si el test se hizo con analizador de gases (VE/VCO2, PetCO2), escribe aquí el VT2 y se usará en lugar de la estimación por FC.</span>
+    <div class="g2"><div class="field"><label for="mW">Potencia (W)</label><input id="mW" type="number" inputmode="numeric" data-m="w" value="${t.measured?.w??''}"></div>
+    <div class="field"><label for="mH">FC (ppm)</label><input id="mH" type="number" inputmode="numeric" data-m="hr" value="${t.measured?.hr??''}"></div></div></div>`}
+function jumpForm(t){
+  return Object.entries(JUMPS).map(([k,v])=>`<div class="card"><div class="sec-h"><b>${v.n}</b><span class="hint">${v.d}</span></div>
+    <div class="att">${(t.jumps[k]||[]).map((x,i)=>`<div class="field"><label for="j${k}${i}">Intento ${i+1}</label><input id="j${k}${i}" type="number" inputmode="decimal" step="0.1" min="0" data-jk="${k}" data-a="${i}" value="${x??''}" placeholder="cm"></div>`).join('')}</div>
+    <button class="btn small" data-act="tAddAtt" data-v="${k}">+ Intento</button></div>`).join('')+
+  `<span class="hint">Copia de My Jump Lab la altura en cm de cada intento. Se usa el mejor intento para la potencia y los índices; la media y el CV sirven para ver la consistencia.</span>`}
+function testResultsHTML(t){
+  if(t.type==='vo2'){const r=vo2Calc(t);let h='';
+    if(r.hr)h+=`<div class="stats">${stat(dec(r.hr.vo2,1),'VO2máx ml/kg/min')}${stat(dec(r.hr.abs,2),'VO2máx L/min')}${stat(Math.round(r.hr.wMax),'W a FCmáx')}</div>
+      <span class="hint num">Recta FC–potencia con ${r.used} etapa${r.used>1?'s':''} (r² = ${dec(r.hr.lr.r2,3)}), extrapolada a ${t.hrMax} ppm. VO2 con la ecuación ACSM de cicloergómetro: 1,8 × (W × 6,12) / kg + 7.</span>`;
+    else h+=`<p class="hint" style="margin:0">${!(t.weight>0)?'Falta el peso. ':''}${!(t.hrMax>0)?'Falta la FC máxima. ':''}${r.flat?'La FC no sube con la carga: revisa los datos. ':''}Introduce al menos 2 etapas con potencia y FC para estimar el VO2máx.</p>`;
+    if(r.rpe)h+=`<div class="stats">${stat(dec(r.rpe.vo2_19,1),'Por RPE a 19')}${stat(dec(r.rpe.vo2_20,1),'Por RPE a 20')}${stat(dec(r.rpe.lr.r2,2),'r² RPE')}</div><span class="hint">Estimación alternativa: recta RPE–potencia extrapolada a RPE 19 y 20 (Borg 6–20) y pasada a VO2 con la misma ecuación.</span>`;
+    const w=[];if(r.low)w.push('Menos de 2 etapas con FC ≥ 110 ppm: se han usado todas, la estimación será menos fiable.');
+    if(r.over85)w.push(`Alguna etapa supera el 85 % de la FCmáx (${Math.round(t.hrMax*0.85)} ppm).`);
+    if(w.length)h+=`<div class="note">${w.map(x=>`<span class="hint">${x}</span>`).join('')}</div>`;
+    h+=`<div class="chart"><canvas id="tChart" style="height:210px" role="img" aria-label="FC frente a potencia con la recta extrapolada a la FC máxima"></canvas></div>
+      <span class="hint">Orientativo: los métodos submáximos dependen de que la FCmáx usada sea la real y suelen tener errores del 10–20 %.</span>`;
+    return h}
+  if(t.type==='vt2'){const r=vt2Calc(t),v=r.vt2;let h='';
+    if(v)h+=`<span class="acwr-pill" style="background:${v.how==='medido'?zc(2):zc(4)}">${v.how==='medido'?'VT2 medido':'VT2 estimado por deflexión de la FC (Dmax)'}</span>
+      <div class="stats">${stat(Math.round(v.w),'W en VT2')}${stat(v.hr?Math.round(v.hr):'—','FC en VT2')}${stat(v.pctHrMax!=null?Math.round(v.pctHrMax)+' %':'—','% FCmáx')}${stat(v.pctWpeak!=null?Math.round(v.pctWpeak)+' %':'—','% W pico')}${stat(v.rpe!=null?dec(v.rpe,0):'—','RPE en VT2')}${stat(r.wPeak??'—','W pico')}</div>`;
+    else if(r.n<5)h+=`<p class="hint" style="margin:0">Hacen falta al menos 5 etapas con potencia y FC (llevas ${r.n}).</p>`;
+    else h+=`<div class="note"><b>No se detecta deflexión de la FC</b><span class="hint">Pasa en una parte de las personas, sobre todo si el test termina pronto o la FC sube de forma lineal hasta el final. Usa el VT2 medido si lo tienes, o repite el test con más etapas por encima del umbral.</span></div>`;
+    if(r.n>=2)h+=`<div class="chart"><canvas id="tChart" style="height:210px" role="img" aria-label="FC frente a potencia con el ajuste cúbico y el punto de deflexión"></canvas></div>`;
+    h+=`<span class="hint">El método Dmax busca el punto de la curva FC–potencia (ajuste cúbico) más alejado de la recta entre la primera y la última etapa. Es una estimación de campo; el VT2 con analizador de gases es la referencia.</span>`;
+    return h}
+  const j=jumpCalc(t),row=k=>{const x=j[k];return `<tr><td><b>${JUMPS[k].n}</b></td><td class="num">${x?dec(x.best,1):'—'}</td><td class="num">${x?dec(x.mean,1):'—'}</td><td class="num">${x?.cv!=null?dec(x.cv,1):'—'}</td><td class="num">${x?.pp!=null?Math.round(x.pp):'—'}</td><td class="num">${x?.ppkg!=null?dec(x.ppkg,1):'—'}</td></tr>`};
+  const prev=testsOf(t.userId).filter(x=>x.type==='jump'&&x.id!==t.id&&x.date<t.date)[0],pj=prev?jumpCalc(prev):null;
+  return `<div class="tbl"><table class="ztable jt"><thead><tr><th></th><th>Mejor cm</th><th>Media</th><th>CV %</th><th>Pot. W</th><th>W/kg</th></tr></thead><tbody>${row('cmj')}${row('sj')}${row('abk')}</tbody></table></div>
+    <div class="stats">${stat(j.elastic!=null?dec(j.elastic,1):'—','Elasticidad %')}${stat(j.arms!=null?dec(j.arms,1):'—','Brazos %')}${stat(pj?.cmj&&j.cmj?(j.cmj.best-pj.cmj.best>=0?'+':'')+dec(j.cmj.best-pj.cmj.best,1):'—','Δ CMJ cm')}</div>
+    <span class="hint">Potencia pico con Sayers et al. (1999): 60,7 × altura (cm) + 45,3 × masa (kg) − 2055, para CMJ y SJ${t.weight>0?'':' (falta el peso)'}. Índice de elasticidad = (CMJ − SJ) / SJ. Índice de brazos = (Abalakov − CMJ) / CMJ.${pj?` Δ frente al test del ${fmtDate(prev.date)}.`:''}</span>`;
+}
+function drawXY(el,o){
+  if(!el)return;const {c,w,h}=cv(el);const L=38,R=10,T=10,B=26,pw=w-L-R,ph=h-T-B;
+  const X=x=>L+(x-o.x0)/(o.x1-o.x0)*pw,Y=y=>T+(1-(y-o.y0)/(o.y1-o.y0))*ph;
+  const muted=css('--muted'),line=css('--line'),ink=css('--ink'),acc=css('--accent');
+  c.font='10px '+css('--mono');c.fillStyle=muted;c.strokeStyle=line;c.lineWidth=1;
+  const tick=(a,b,n)=>{const st=[5,10,20,25,50,100].find(s=>(b-a)/s<=n)||200;const out=[];for(let v=Math.ceil(a/st)*st;v<=b;v+=st)out.push(v);return out};
+  c.textAlign='right';c.textBaseline='middle';for(const v of tick(o.y0,o.y1,5)){const y=Math.round(Y(v))+.5;c.beginPath();c.moveTo(L,y);c.lineTo(L+pw,y);c.stroke();c.fillText(v,L-5,y)}
+  c.textAlign='center';c.textBaseline='top';for(const v of tick(o.x0,o.x1,6))c.fillText(v,X(v),h-B+5);
+  c.fillText(o.xLabel||'W',L+pw-8,h-12);
+  c.save();c.beginPath();c.rect(L,T,pw,ph);c.clip();
+  if(o.hline){c.strokeStyle=zc(5);c.setLineDash([5,4]);c.beginPath();c.moveTo(L,Y(o.hline.y));c.lineTo(L+pw,Y(o.hline.y));c.stroke();c.setLineDash([]);
+    c.fillStyle=zc(5);c.textAlign='left';c.textBaseline='bottom';c.fillText(o.hline.label,L+4,Y(o.hline.y)-2)}
+  for(const ln of o.lines||[]){c.strokeStyle=ln.color||ink;c.lineWidth=ln.width||2;c.setLineDash(ln.dash||[]);c.beginPath();ln.pts.forEach(([x,y],i)=>i?c.lineTo(X(x),Y(y)):c.moveTo(X(x),Y(y)));c.stroke()}
+  c.setLineDash([]);
+  for(const [x,y] of o.points||[]){c.fillStyle=acc;c.beginPath();c.arc(X(x),Y(y),4.5,0,7);c.fill();c.strokeStyle=css('--surface');c.lineWidth=1.5;c.stroke()}
+  c.restore();
+  if(o.marker){const {x,y,label}=o.marker;c.fillStyle=zc(4);c.beginPath();c.arc(X(x),Y(y),6,0,7);c.fill();c.strokeStyle=css('--surface');c.lineWidth=2;c.stroke();
+    c.font='700 13px '+css('--display');const tw=c.measureText(label).width+10,right=X(x)+tw+12<=L+pw;
+    const bx=right?X(x)+10:X(x)-10-tw,by=Math.min(T+ph-20,Y(y)+10);
+    c.fillStyle=css('--surface');c.strokeStyle=css('--line');c.lineWidth=1;c.beginPath();c.roundRect?c.roundRect(bx,by,tw,20,5):c.rect(bx,by,tw,20);c.fill();c.stroke();
+    c.fillStyle=ink;c.textAlign='left';c.textBaseline='middle';c.fillText(label,bx+5,by+10.5)}
+}
+function drawTestChart(){
+  const t=testById(S.arg),el=$('#tChart');if(!t||!el)return;
+  const st=(t.stages||[]).filter(s=>+s.w>0&&+s.hr>0).map(s=>[+s.w,+s.hr]);if(!st.length)return;
+  const maxW=Math.max(...st.map(p=>p[0])),minHr=Math.min(...st.map(p=>p[1]));
+  if(t.type==='vo2'){const r=vo2Calc(t);const wEnd=r.hr?Math.max(r.hr.wMax,maxW):maxW;
+    drawXY(el,{x0:0,x1:Math.ceil(wEnd*1.08/25)*25||100,y0:Math.max(40,Math.floor((minHr-15)/10)*10),y1:Math.max(t.hrMax||0,...st.map(p=>p[1]))+10,points:st,
+      lines:r.hr?[{pts:[[Math.min(...st.map(p=>p[0])),r.hr.lr.a+r.hr.lr.b*Math.min(...st.map(p=>p[0]))],[r.hr.wMax,t.hrMax]],color:css('--ink'),dash:[6,4],width:1.6}]:[],
+      hline:t.hrMax?{y:t.hrMax,label:'FCmáx '+t.hrMax}:null,marker:r.hr?{x:r.hr.wMax,y:t.hrMax,label:Math.round(r.hr.wMax)+' W'}:null})}
+  else{const r=vt2Calc(t),d=r.dmax,lines=[];
+    if(d){const curve=[];for(let i=0;i<=60;i++){const w=d.x0+(d.x1-d.x0)*i/60;curve.push([w,polyval(d.co,w/d.S0)])}
+      lines.push({pts:curve,color:css('--ink'),width:1.8},{pts:[[d.x0,d.y0],[d.x1,d.y1]],color:css('--muted'),dash:[4,4],width:1.2})}
+    const v=r.vt2;
+    drawXY(el,{x0:Math.max(0,Math.floor((Math.min(...st.map(p=>p[0]))-25)/25)*25),x1:Math.ceil((maxW+15)/25)*25,y0:Math.max(40,Math.floor((minHr-10)/10)*10),y1:Math.max(t.hrMax||0,...st.map(p=>p[1]))+8,
+      points:st,lines,hline:t.hrMax?{y:t.hrMax,label:'FCmáx '+t.hrMax}:null,marker:v&&v.hr?{x:v.w,y:v.hr,label:'VT2 '+Math.round(v.w)+' W'}:null})}
+}
+function updTestResults(){const t=testById(S.arg),box=$('#tRes');if(!t||!box)return;box.innerHTML=testResultsHTML(t);drawTestChart();
+  const n=$('#tNext');if(n&&t.type==='vo2'){const nx=t.protocol==='ymca'?ymcaNext(t.stages||[]):null;
+    n.textContent=t.protocol==='ymca'?(nx==null?'Anota la FC de la etapa 1 para saber la carga de la 2.ª':`Siguiente etapa: ${nx} W`):''}}
+function updTestDevice(){const b=$('#tDev');if(!b)return;const st=BLE.status,on=st==='on'||st==='sim';
+  b.innerHTML=on?`<div class="row" style="justify-content:space-between"><span><b>${esc(BLE.name())}</b><br><span class="hint">Puedes anotar la FC actual en la etapa en curso</span></span><span class="num" style="font:700 40px var(--display)"><span id="tHr">${BLE.bpm??'—'}</span> <span class="unit">ppm</span></span></div>
+    <div class="row"><button class="btn small primary" data-act="tCurHr">Anotar FC actual</button><button class="btn small" data-act="disconnect">Desconectar</button></div>`
+   :(st==='conn'||st==='re')?`<b>${st==='re'?'Reconectando…':'Conectando…'}</b>`
+   :`<span class="hint">Conecta el pulsómetro para anotar la FC de cada etapa con un toque, o escríbela a mano.</span><div class="row"><button class="btn small" data-act="connect" ${btOK?'':'disabled'}>Conectar pulsómetro</button><button class="btn small" data-act="sim">Usar simulador</button></div>`}
+let tSaveT=null;const saveTestSoon=t=>{clearTimeout(tSaveT);tSaveT=setTimeout(()=>DB.put('tests',t),400)};
+async function saveTest(t){clearTimeout(tSaveT);await DB.put('tests',t);const i=S.tests.findIndex(x=>x.id===t.id);if(i<0)S.tests.push(t);else S.tests[i]=t}
+$('#app').addEventListener('input',e=>{
+  if(S.view!=='test')return;const t=testById(S.arg),el=e.target;if(!t)return;const num=v=>v===''?'':+v;
+  if(el.dataset.t){const f=el.dataset.t;if(f==='date'){const d=new Date(el.value).getTime();if(!isNaN(d))t.date=d}else if(f==='notes')t.notes=el.value;else t[f]=num(el.value)}
+  else if(el.dataset.row!=null){t.stages[+el.dataset.row][el.dataset.k]=num(el.value)}
+  else if(el.dataset.jk){t.jumps[el.dataset.jk][+el.dataset.a]=num(el.value)}
+  else if(el.dataset.m){t.measured=t.measured||{};t.measured[el.dataset.m]=num(el.value)}
+  else if(el.dataset.g){t.gen=t.gen||{start:50,inc:25,n:10};t.gen[el.dataset.g]=num(el.value);saveTestSoon(t);return}
+  else return;
+  saveTestSoon(t);updTestResults();
+});
+$('#app').addEventListener('change',e=>{if(e.target.id==='tUser')go('tests',e.target.value,{push:false})});
+
 /* ================= Navegación ================= */
-const TITLES={home:()=> 'Pulsómetro',edit:()=>S.arg?'Editar perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza'};
+const TITLES={home:()=> 'Pulsómetro',edit:()=>S.arg?'Editar perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
 function go(view,arg,{push=true,keepForm=false}={}){
   if(push)S.stack.push([S.view,S.arg]);
   S.view=view;S.arg=arg??null;if(!keepForm)S.form={};render();window.scrollTo(0,0);
@@ -869,6 +1180,7 @@ function back(){
   const prev=S.stack.pop();if(!prev){go('home',null,{push:false});return}
   let [v,a]=prev;if(v==='live'||v==='pre'||v==='post'||v==='stpost'||(v==='edit'&&S.view!=='edit'))return back();
   if((v==='strength'||v==='ssum')&&!stById(a)){v='home';a=null}
+  if(v==='test'&&!testById(a)){v='home';a=null}
   if((v==='profile'&&!prof(a))||(v==='summary'&&!S.sessions.find(x=>x.id===a))){v='home';a=null}
   go(v,a,{push:false});
 }
@@ -888,10 +1200,11 @@ function activeProfileId(){
   if(S.view==='profile'||S.view==='pre'||(S.view==='edit'&&S.arg))return S.arg;
   if(S.view==='summary'||S.view==='post')return S.sessions.find(x=>x.id===S.arg)?.userId;
   if(S.view==='strength'||S.view==='stpost'||S.view==='ssum')return stById(S.arg)?.userId;
+  if(S.view==='tests')return S.arg;if(S.view==='test')return testById(S.arg)?.userId;
   if(S.view==='live')return S.rec?.userId;return null}
 function renderDrawer(){
   const act=activeProfileId();
-  $('#dHome').classList.toggle('on',S.view==='home');
+  $('#dHome').classList.toggle('on',S.view==='home');$('#dTests').classList.toggle('on',S.view==='tests'||S.view==='test');
   const ps=[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
   $('#dList').innerHTML=ps.length?ps.map(p=>{const ss=allOf(p.id),last=ss[0],pend=ss.some(s=>s.rpePost==null);
     return `<button class="d-item${p.id===act?' on':''}" data-d="profile" data-id="${p.id}"${p.id===act?' aria-current="page"':''}><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${S.rec?.userId===p.id?' · grabando':''}</span><span class="s">${last?'Última: '+fmtDate(last.startTime):'Sin sesiones'} · ${ss.length} ses.</span></span>${pend?'<span class="d-pend" title="RPE post pendiente"></span>':''}</button>`}).join('')
@@ -906,6 +1219,7 @@ const toRoot=(v,a)=>{S.stack=v==='home'?[]:[['home',null]];go(v,a,{push:false});
 drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)return;const d=b.dataset.d;
   if(d==='close')return closeDrawer();
   if(d==='home')return navFromDrawer(()=>toRoot('home'));
+  if(d==='tests')return navFromDrawer(()=>toRoot('tests',activeProfileId()||[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))[0]?.id||null));
   if(d==='profile')return navFromDrawer(()=>toRoot('profile',b.dataset.id));
   if(d==='new')return navFromDrawer(()=>toRoot('edit',null));
   if(d==='backup')return navFromDrawer(()=>{toRoot('home');setTimeout(()=>$('[data-act="backup"]')?.scrollIntoView({behavior:'smooth',block:'center'}),50)});
@@ -929,10 +1243,11 @@ function render(){
   if(S.view==='pre'||S.view==='live')updDevice();
   if(S.view==='live'){attachScrub($('#lc'));updLive()}
   if(S.view==='summary'){attachScrub($('#sc'));drawSummary()}
+  if(S.view==='test'){updTestDevice();updTestResults()}
 }
 async function drawSummary(){const s=S.sessions.find(x=>x.id===S.arg);const tr=await DB.get('tracks',s.id);if(S.view!=='summary'||S.arg!==s.id)return;
   const sm=tr?.samples||[];drawHR($('#sc'),sm,s.zoneLimits,s.hrMax,s.startTime,s.endTime||sm.at(-1)?.[0]||s.startTime+1,false)}
-let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>{if(S.view==='profile')drawProfileCharts();if(S.view==='summary')drawSummary();if(S.view==='live')updLive()},150)});
+let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>{if(S.view==='profile')drawProfileCharts();if(S.view==='summary')drawSummary();if(S.view==='live')updLive();if(S.view==='test')drawTestChart()},150)});
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
 new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
@@ -948,6 +1263,7 @@ const A={
   async delProfile(b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;
     for(const s of S.sessions.filter(s=>s.userId===id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
     for(const s of S.strength.filter(s=>s.userId===id))await DB.del('strength',s.id);S.strength=S.strength.filter(s=>s.userId!==id);
+    for(const t of S.tests.filter(t=>t.userId===id))await DB.del('tests',t.id);S.tests=S.tests.filter(t=>t.userId!==id);
     await DB.del('profiles',id);S.sessions=S.sessions.filter(s=>s.userId!==id);S.profiles=S.profiles.filter(p=>p.id!==id);
     S.stack=[];go('home',null,{push:false});toast('Perfil borrado')})},
   newSession(){go('pre',S.arg)},
@@ -984,6 +1300,39 @@ const A={
   async savePending(){const s=S.sessions.find(x=>x.id===S.arg);if(S.form.rpePost==null){toast('Elige un valor de la escala');return}
     s.rpePost=S.form.rpePost;s.rpePostTime=Date.now();await DB.put('sessions',s);render();toast('RPE guardado')},
   openSession:id=>go('summary',id),
+  /* --- Test --- */
+  tabTrain:id=>go('profile',id,{push:false}),
+  tabTest:id=>go('tests',id,{push:false}),
+  openTest:id=>go('test',id),
+  async newTest(_,b){const p=prof(S.arg),type=b.dataset.v;
+    const t={id:uid(),userId:p.id,type,date:Date.now(),weight:p.weight||'',hrMax:p.hrMax,protocol:'ymca',
+      stages:type==='vo2'?[{w:25,hr:'',rpe:''}]:[],measured:{w:'',hr:''},gen:{start:50,inc:25,n:10},
+      jumps:{cmj:['','',''],sj:['','',''],abk:['','','']},notes:''};
+    await saveTest(t);go('test',t.id)},
+  async tProto(_,b){const t=testById(S.arg);t.protocol=b.dataset.v;await saveTest(t);const y=scrollY;render();scrollTo(0,y)},
+  async tAddRow(){const t=testById(S.arg),v=(t.stages||[]).filter(x=>+x.w>0),last=v[v.length-1];
+    let w=t.type==='vo2'&&t.protocol==='ymca'?ymcaNext(t.stages):null;
+    if(w==null)w=last?+last.w+(t.type==='vt2'?(+t.gen?.inc||25):25):(t.type==='vt2'?(+t.gen?.start||50):50);
+    t.stages.push({w,hr:'',rpe:''});await saveTest(t);const y=scrollY;render();scrollTo(0,y);
+    const hrs=document.querySelectorAll('input[data-k="hr"]');hrs[hrs.length-1]?.focus({preventScroll:true})},
+  async tDelRow(_,b){const t=testById(S.arg);t.stages.splice(+b.dataset.i,1);await saveTest(t);const y=scrollY;render();scrollTo(0,y)},
+  async tGen(_,b){const t=testById(S.arg),g=t.gen||{},st=+g.start,inc=+g.inc,n=Math.min(40,+g.n);
+    if(!(st>=0&&inc>0&&n>0)){toast('Revisa inicio, incremento y número de etapas');return}
+    const run=async()=>{t.stages=Array.from({length:n},(_,i)=>({w:st+i*inc,hr:'',rpe:''}));await saveTest(t);render()};
+    if(t.stages.some(x=>x.hr!==''&&x.hr!=null))arm(b,'Se borrarán las FC anotadas. Pulsa otra vez',run);else run()},
+  async tCurHr(){const t=testById(S.arg);if(!BLE.bpm||Date.now()-BLE.last>5000){toast('No llega FC del pulsómetro');return}
+    let i=t.stages.findIndex(x=>x.hr===''||x.hr==null);if(i<0){toast('Todas las etapas tienen FC. Añade una etapa nueva.');return}
+    t.stages[i].hr=BLE.bpm;await saveTest(t);const y=scrollY;render();scrollTo(0,y);toast(`FC ${BLE.bpm} anotada en la etapa ${i+1}`)},
+  async tAddAtt(_,b){const t=testById(S.arg);(t.jumps[b.dataset.v]||(t.jumps[b.dataset.v]=[])).push('');await saveTest(t);const y=scrollY;render();scrollTo(0,y)},
+  async tSave(){const t=testById(S.arg);await saveTest(t);back();toast('Test guardado')},
+  async tDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;await DB.del('tests',id);S.tests=S.tests.filter(x=>x.id!==id);back();toast('Test borrado')})},
+  tExport(){const p=prof(S.arg),rows=['usuario;fecha;test;peso_kg;fcmax;vo2max_fc_mlkgmin;vo2max_fc_lmin;w_a_fcmax;vo2max_rpe19;vo2max_rpe20;vt2_w;vt2_fc;vt2_pct_fcmax;vt2_pct_wpico;vt2_metodo;cmj_cm;sj_cm;abk_cm;potencia_cmj_w;potencia_sj_w;ind_elasticidad_pct;ind_brazos_pct'];
+    for(const t of [...testsOf(p.id)].reverse()){const r=Array(22).fill('');r[0]=p.name;r[1]=new Date(t.date).toLocaleString('es-ES');r[2]=TEST_TYPES[t.type].short;r[3]=t.weight?dec(t.weight,1):'';
+      if(t.type==='vo2'){const v=vo2Calc(t);r[4]=t.hrMax||'';if(v.hr){r[5]=dec(v.hr.vo2,1);r[6]=dec(v.hr.abs,2);r[7]=Math.round(v.hr.wMax)}if(v.rpe){r[8]=dec(v.rpe.vo2_19,1);r[9]=dec(v.rpe.vo2_20,1)}}
+      else if(t.type==='vt2'){const v=vt2Calc(t).vt2;r[4]=t.hrMax||'';if(v){r[10]=Math.round(v.w);r[11]=v.hr?Math.round(v.hr):'';r[12]=v.pctHrMax!=null?dec(v.pctHrMax,1):'';r[13]=v.pctWpeak!=null?dec(v.pctWpeak,1):'';r[14]=v.how}}
+      else{const j=jumpCalc(t);r[15]=j.cmj?dec(j.cmj.best,1):'';r[16]=j.sj?dec(j.sj.best,1):'';r[17]=j.abk?dec(j.abk.best,1):'';r[18]=j.cmj?.pp!=null?Math.round(j.cmj.pp):'';r[19]=j.sj?.pp!=null?Math.round(j.sj.pp):'';r[20]=j.elastic!=null?dec(j.elastic,1):'';r[21]=j.arms!=null?dec(j.arms,1):''}
+      rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
+    download(`${slug(p.name)}_test_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
   /* --- Fuerza --- */
   async newStrength(){const p=prof(S.arg);
     const st={id:uid(),userId:p.id,kind:'strength',type:lsGet('lastStType_'+p.id)||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,
@@ -996,13 +1345,16 @@ const A={
     if(e.sets.some(s=>s.reps!=null||s.kg!=null)&&!b.classList.contains('armed')){b.classList.add('armed');b.textContent='¿?';b.setAttribute('aria-label','Pulsa otra vez para quitar el ejercicio');setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='×'}},3000);return}
     st.exercises.splice(i,1);await saveSt(st);const y=scrollY;render();scrollTo(0,y)},
   async stAddSet(_,b){const st=stById(S.arg),e=st.exercises[+b.dataset.i],l=e.sets[e.sets.length-1];
-    e.sets.push({reps:l?.reps??null,kg:l?.kg??null,rpe:null});await saveSt(st);const y=scrollY;render();scrollTo(0,y);
+    if(e.unilateral){const li=[...e.sets].reverse().find(x=>x.side==='I'),ld=[...e.sets].reverse().find(x=>x.side==='D');
+      e.sets.push({side:'I',reps:li?.reps??null,kg:li?.kg??null,rpe:null},{side:'D',reps:ld?.reps??null,kg:ld?.kg??null,rpe:null})}
+    else e.sets.push({reps:l?.reps??null,kg:l?.kg??null,rpe:null});await saveSt(st);const y=scrollY;render();scrollTo(0,y);
     const sel=document.querySelectorAll(`select[data-ex="${b.dataset.i}"]`);sel[sel.length-1]?.focus({preventScroll:true})},
-  async stDelSet(_,b){const st=stById(S.arg),e=st.exercises[+b.dataset.i];e.sets.splice(+b.dataset.j,1);await saveSt(st);const y=scrollY;render();scrollTo(0,y)},
+  async stDelSet(_,b){const st=stById(S.arg),e=st.exercises[+b.dataset.i],j=+b.dataset.j;
+    if(e.unilateral&&e.sets[j]?.side==='I'&&e.sets[j+1]?.side==='D')e.sets.splice(j,2);else e.sets.splice(j,1);await saveSt(st);const y=scrollY;render();scrollTo(0,y)},
   async stFinish(_,b){const st=stById(S.arg);
     if(!strengthStats(st).sets){toast('Anota al menos una serie con repeticiones');return}
     arm(b,'Pulsa otra vez para terminar',async()=>{
-      st.exercises=st.exercises.filter(e=>e.name.trim()||e.sets.some(s=>+s.reps>0)).map(e=>({...e,name:e.name.trim()||'Ejercicio',sets:e.sets.filter(s=>+s.reps>0)}));
+      st.exercises=st.exercises.filter(e=>e.name.trim()||e.sets.some(s=>+s.reps>0)).map(e=>({...e,name:e.name.trim()||'Ejercicio',variant:(e.variant||'').trim(),unilateral:!!e.unilateral,sets:e.sets.filter(s=>+s.reps>0)}));
       st.endTime=Date.now();const m=Math.round((st.endTime-st.startTime)/60000);st.durationMin=m>=1&&m<=240?m:null;st.status='done';
       lsSet('lastStType_'+st.userId,st.type);await saveSt(st);go('stpost',st.id,{push:false})})},
   async stDone(){const st=stById(S.arg);st.exercises=st.exercises.filter(e=>e.name.trim()||e.sets.some(s=>+s.reps>0));await saveSt(st);back();toast('Cambios guardados')},
@@ -1016,8 +1368,8 @@ const A={
     st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);render();toast('RPE guardado')},
   stEdit(){go('strength',S.arg)},
   async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
-  stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;serie;reps;kg;rpe;volumen_kg'];
-    for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,j+1,s.reps,dec(+s.kg||0,1),s.rpe??'',dec(s.reps*(+s.kg||0),1)].map(v=>String(v).replace(/;/g,',')).join(';')));
+  stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;variante;unilateral;lado;serie;reps;kg;rpe;volumen_kg'];
+    for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,e.variant||'',e.unilateral?'sí':'no',e.unilateral?(s.side==='I'?'izquierda':'derecha'):'',e.unilateral?Math.floor(j/2)+1:j+1,s.reps,dec(+s.kg||0,1),s.rpe??'',dec(s.reps*(+s.kg||0),1)].map(v=>String(v).replace(/;/g,',')).join(';')));
     download(`${slug(p.name)}_${fileDate(st.startTime)}_fuerza.csv`,rows.join('\r\n'),'text/csv')},
   acwrMethod(b){lsSet('acwrMethod',b.dataset.v);render()},
   loadView(b){lsSet('loadView',b.dataset.v);render()},
@@ -1031,7 +1383,7 @@ const A={
       else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Pulsómetro',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','',''];
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
-  async backup(){const data={app:'pulsometro',version:2,strength:await DB.all('strength'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
+  async backup(){const data={app:'pulsometro',version:3,strength:await DB.all('strength'),tests:await DB.all('tests'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
     download(`pulsometro_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
   import(){$('#importFile').click()},
   async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
@@ -1055,7 +1407,7 @@ for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x
 
 $('#importFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;
   try{const d=JSON.parse(await file.text());if(d.app!=='pulsometro')throw 0;
-    for(const p of d.profiles||[])await DB.put('profiles',p);for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);for(const x of d.strength||[])await DB.put('strength',x);
+    for(const p of d.profiles||[])await DB.put('profiles',p);for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);for(const x of d.strength||[])await DB.put('strength',x);for(const x of d.tests||[])await DB.put('tests',x);
     await loadAll();render();toast(`Importados ${d.profiles.length} perfiles y ${d.sessions.length+(d.strength||[]).length} sesiones`)}
   catch(err){toast('El archivo no es una copia válida de esta app')}});
 
@@ -1084,7 +1436,7 @@ function genSession(p,start,mins,kind){
 }
 async function seedExample(){
   const birth=new Date();birth.setFullYear(birth.getFullYear()-22);
-  const p={id:uid(),name:'Ejemplo',birthDate:birth.toISOString().slice(0,10),hrMax:tanaka(22),hrMaxEstimated:true,hrRest:58,method:'karvonen',percents:[...DEF_PC],manual:[],createdAt:Date.now(),example:true};
+  const p={id:uid(),name:'Ejemplo',birthDate:birth.toISOString().slice(0,10),hrMax:tanaka(22),hrMaxEstimated:true,hrRest:58,weight:72,method:'karvonen',percents:[...DEF_PC],manual:[],createdAt:Date.now(),example:true};
   await DB.put('profiles',p);
   // 6 semanas: 3 sesiones por semana y una última semana más cargada (ACWR al alza)
   const plan=[],types=[['Carrera','cont'],['Intervalos','int'],['Recuperación','rec'],['Carrera','cont']];
@@ -1104,19 +1456,27 @@ async function seedExample(){
       {name:'Peso muerto rumano',sets:sets(3,10,60+2.5*pr,5)},{name:'Dominadas',sets:sets(3,7+Math.floor(pr/3),0,7)}];
     await DB.put('strength',{id:uid(),userId:p.id,kind:'strength',type:w%2?'Tren inferior':'Full body',startTime:st.getTime(),endTime:st.getTime()+55*60000,durationMin:52+Math.round(R()*8),
       rpePre:3,rpePost:w===0?8:7,rpePostTime:st.getTime()+85*60000,notes:'',status:'done',exercises:ex,example:true})}
+  // Test de ejemplo
+  const ago=(d,h=10)=>{const x=new Date();x.setDate(x.getDate()-d);x.setHours(h,0,0,0);return x.getTime()};
+  const T=(type,d,extra)=>DB.put('tests',{id:uid(),userId:p.id,type,date:ago(d),weight:72,hrMax:p.hrMax,protocol:'ymca',stages:[],measured:{w:'',hr:''},gen:{start:50,inc:25,n:12},jumps:{cmj:[],sj:[],abk:[]},notes:'',example:true,...extra});
+  await T('vo2',38,{weight:73,stages:[{w:25,hr:96,rpe:8},{w:75,hr:124,rpe:11},{w:100,hr:137,rpe:13},{w:125,hr:150,rpe:14}]});
+  await T('vo2',4,{stages:[{w:25,hr:92,rpe:7},{w:75,hr:118,rpe:10},{w:100,hr:130,rpe:12},{w:125,hr:143,rpe:13}]});
+  await T('vt2',11,{stages:Array.from({length:12},(_,i)=>{const w=50+25*i;return {w,hr:Math.round(w<=250?92+0.29*w:164.5+0.09*(w-250)+(i%2?1:0)),rpe:Math.min(20,7+i)}})});
+  await T('jump',33,{weight:73,jumps:{cmj:[36.1,37.4,36.8],sj:[32.5,33,32.1],abk:[42,43.1,42.6]}});
+  await T('jump',3,{jumps:{cmj:[38.2,37.6,38.9],sj:[33.8,34.4,33.9],abk:[44.5,45.2,44]}});
   lsSet('seeded','1');
 }
 
 /* ================= Arranque ================= */
-async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength')}
+async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests')}
 (async()=>{
   await DB.open();await loadAll();
   // Datos de ejemplo: se crean la primera vez y se renuevan si cambia su versión (solo el perfil marcado como ejemplo)
   const ex=S.profiles.find(p=>p.example);
-  if((!S.profiles.length&&!lsGet('seeded'))||(ex&&lsGet('seedv')!=='3')){
+  if((!S.profiles.length&&!lsGet('seeded'))||(ex&&lsGet('seedv')!=='4')){
     if(ex){for(const s of S.sessions.filter(s=>s.userId===ex.id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
-      for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.del('strength',s.id);await DB.del('profiles',ex.id)}
-    await seedExample();lsSet('seedv','3');await loadAll()}
+      for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.del('strength',s.id);for(const t of S.tests.filter(t=>t.userId===ex.id))await DB.del('tests',t.id);await DB.del('profiles',ex.id)}
+    await seedExample();lsSet('seedv','4');await loadAll()}
   try{history.replaceState({},'')}catch(e){}
   syncDrawerMode();render();updChip();
 })();
