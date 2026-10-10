@@ -240,7 +240,7 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
   <span class="chip" id="chip"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
 </div></header>
 <main class="wrap" id="app"></main>
-<input type="file" id="importFile" accept="application/json,.json,text/plain,.txt" hidden>
+<input type="file" id="importFile" multiple hidden>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -261,7 +261,7 @@ function ago(t){const m=Math.round((Date.now()-t)/60000);if(m<1)return'hace un m
 function age(b){if(!b)return null;const d=new Date(b),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a}
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,Math.max(2600,msg.length*55))}
 
 /* ================= Constantes del dominio ================= */
 const ZNAME=['Reposo','Muy suave','Suave','Moderada','Intensa','Máxima'];
@@ -1566,16 +1566,32 @@ $('#app').addEventListener('change',async e=>{if(e.target.id==='snotes2'){const 
 // Ajuste: los handlers que reciben botón esperan el elemento
 for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x,b)=>f(b||x))(A[k]);
 
-$('#importFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;
-  try{const d=JSON.parse(await file.text());if(!['imdtraining','imdt-training','pulsometro'].includes(d.app))throw 0; // acepta copias anteriores al cambio de nombre
-    const had=new Set([...S.sessions,...S.strength,...S.tests].map(x=>x.id)),hadP=new Set(S.profiles.map(x=>x.id)),fromClient=d.kind==='client';
-    for(const p of d.profiles||[]){const q={...p};if(fromClient){q.remote=true;q.lastImport=Date.now();delete q.owner}await DB.put('profiles',q)}
-    for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);for(const x of d.strength||[])await DB.put('strength',x);for(const x of d.tests||[])await DB.put('tests',x);
-    const nNew=[...(d.sessions||[]),...(d.strength||[]),...(d.tests||[])].filter(x=>!had.has(x.id)).length;
-    await loadAll();
-    if(fromClient&&d.profiles?.[0]){const p=d.profiles[0];toast(`${hadP.has(p.id)?'Actualizado':'Añadido'} el perfil de ${p.name}: ${nNew} registro${nNew===1?'':'s'} nuevo${nNew===1?'':'s'}`);toRoot('profile',p.id)}
-    else{render();toast(`Importados ${d.profiles.length} perfiles · ${nNew} registros nuevos`)}}
-  catch(err){toast('El archivo no es una copia válida de esta app')}});
+// Importación: archivos que envían los clientes o copias de seguridad. Sin filtro de tipo: Android no reconoce bien los .json
+async function importFiles(files){
+  const res={profiles:[],nNew:0,errors:[]};
+  for(const file of files){let d;
+    try{let txt=await file.text();txt=txt.replace(/^﻿/,'').trim();
+      if(!txt.startsWith('{'))throw new Error('formato');d=JSON.parse(txt)}
+    catch(e){res.errors.push(`«${file.name}» no se puede leer como archivo de datos`);continue}
+    if(!['imdtraining','imdt-training','pulsometro'].includes(d.app)){res.errors.push(`«${file.name}» no es un archivo de IMDTraining`);continue}
+    // Las copias completas traen el perfil de ejemplo del otro móvil: se ignora junto con sus datos
+    const exIds=new Set((d.profiles||[]).filter(p=>p.example).map(p=>p.id)),keep=x=>!exIds.has(x.userId)&&!x.example;
+    const profiles=(d.profiles||[]).filter(p=>!p.example),sessions=(d.sessions||[]).filter(keep),strength=(d.strength||[]).filter(keep),tests=(d.tests||[]).filter(keep);
+    const sesIds=new Set(sessions.map(x=>x.id)),tracks=(d.tracks||[]).filter(t=>sesIds.has(t.id));
+    const had=new Set([...S.sessions,...S.strength,...S.tests].map(x=>x.id)),hadP=new Set(S.profiles.map(x=>x.id));
+    const fromOther=d.kind==='client'||profiles.some(p=>p.owner==='client');
+    for(const p of profiles){const q={...p};if(fromOther){q.remote=true;q.lastImport=Date.now();delete q.owner}await DB.put('profiles',q);res.profiles.push({name:p.name,id:p.id,isNew:!hadP.has(p.id)})}
+    for(const x of sessions)await DB.put('sessions',x);for(const x of tracks)await DB.put('tracks',x);
+    for(const x of strength)await DB.put('strength',x);for(const x of tests)await DB.put('tests',x);
+    res.nNew+=[...sessions,...strength,...tests].filter(x=>!had.has(x.id)).length}
+  await loadAll();
+  if(res.profiles.length===1){const p=res.profiles[0];toRoot('profile',p.id);toast(`${p.isNew?'Añadido':'Actualizado'} el perfil de ${p.name}: ${res.nNew} registro${res.nNew===1?'':'s'} nuevo${res.nNew===1?'':'s'}${res.errors.length?'. '+res.errors.join('. '):''}`)}
+  else if(res.profiles.length){toRoot('home');toast(`Importados ${res.profiles.length} perfiles (${res.profiles.map(p=>p.name).join(', ')}) · ${res.nNew} registros nuevos${res.errors.length?'. '+res.errors.join('. '):''}`)}
+  else toast(res.errors.join('. ')||'El archivo no contiene perfiles')}
+$('#importFile').addEventListener('change',async e=>{const files=[...e.target.files];e.target.value='';if(files.length)await importFiles(files)});
+// En ordenador: arrastrar los archivos a la ventana
+document.addEventListener('dragover',e=>{if(e.dataTransfer?.types?.includes('Files')&&!isClient())e.preventDefault()});
+document.addEventListener('drop',e=>{if(!e.dataTransfer?.files?.length||isClient())return;e.preventDefault();importFiles([...e.dataTransfer.files])});
 
 const slug=s=>String(s||'x').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
 const fileDate=t=>{const d=new Date(t);return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`};
