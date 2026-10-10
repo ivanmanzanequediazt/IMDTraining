@@ -370,6 +370,26 @@ body.has-rest .wrap{padding-bottom:90px}
 }
 @media (max-width:380px){.stats{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.wk-nav{display:flex;align-items:center;gap:8px;margin-top:8px}
+.wk-nav .icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 22px var(--body);cursor:pointer;flex:none}
+.wk-lab{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}
+.wk-lab span{font-size:12px}
+.wk-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:10px 0 12px}
+.wk-d{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 0 7px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ink);cursor:pointer;font:500 11px var(--body);text-transform:capitalize;min-width:0}
+.wk-d b{font:700 17px var(--mono)}
+.wk-d.past{color:var(--muted)}
+.wk-d.today{border-color:var(--accent);border-width:2px}
+.wk-d.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.wk-d .dots{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;min-height:6px;max-width:34px}
+.wk-d .dots i{width:6px;height:6px;border-radius:50%;background:var(--warn)}
+.wk-d .dots i.done{background:var(--ok)}.wk-d .dots i.prog{background:var(--accent)}.wk-d .dots i.ses{background:var(--muted)}
+.wk-d.sel .dots i{box-shadow:0 0 0 1.5px var(--accent-ink)}
+.wk-sel h4{margin:0 0 8px;font:600 15px var(--body)}
+.wk-sel .btn.wide{width:100%;margin-top:10px}
+.empty.small{padding:14px;font-size:14px}
+.wk-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.wk-acts .btn{font-size:15px;padding:10px 8px}
+.seg.four{grid-template-columns:repeat(4,1fr)}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
@@ -1628,13 +1648,71 @@ const planKg=(uid,e,x)=>{if(e.load!=='pct'||!x.pct)return x.kg??null;const rm=pl
 const PSTATUS={pending:['Pendiente','pend'],inprogress:['En curso','str'],done:['Hecho','up']};
 function planItem(pl){const [t,c]=PSTATUS[pl.status]||PSTATUS.pending;
   return `<button class="item" data-act="openPlan" data-id="${pl.id}"><span class="kind ${pl.kind==='hr'?'hr':'st'} plan">${ic(pl.kind==='hr'?'heart':'dumbbell')}</span><span class="grow"><span class="t">${esc(pl.title||'Entrenamiento')}</span><span class="s">${planDateTxt(pl.date)} · ${planSummary(pl)}</span></span><span class="tag ${c}">${t}</span></button>`}
-// Lista de programados en el resumen del perfil
+// Lista de programados en el resumen del perfil (deportista) / calendario semanal (entrenador)
+const dsOf=t=>{const d=new Date(t);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
 function plansSection(p){const cl=isClient(),wk=Date.now()-7*864e5;
+  if(!cl)return planCalendar(p);
   const list=plansOf(p.id).filter(x=>x.status!=='done'||(x.doneAt||0)>=wk).sort((a,b)=>(a.status==='done')-(b.status==='done')||(a.date||'').localeCompare(b.date||''));
-  if(cl&&!list.length)return '';
-  return `<section class="sec"><div class="sec-h"><h3>${cl?'Programado por tu entrenador':'Entrenamientos programados'}</h3>${cl?'':`<button class="btn small" data-act="newPlan">${ic('plus')}Programar</button>`}</div>
-    ${list.length?`<div class="list">${list.map(planItem).join('')}</div>`:`<div class="empty">Programa un entrenamiento y envíaselo por WhatsApp. Lo abrirá en su app y lo registrará al hacerlo.</div>`}</section>`}
-async function newPlanFor(pid){const pl={id:uid(),userId:pid,title:'Entrenamiento de fuerza',kind:'strength',date:todayStr(),notes:'',status:'pending',createdAt:Date.now(),
+  if(!list.length)return '';
+  return `<section class="sec"><div class="sec-h"><h3>Programado por tu entrenador</h3></div><div class="list">${list.map(planItem).join('')}</div></section>`}
+const dsAdd=(ds,n)=>{const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return dsOf(d)};
+// Días (YYYY-MM-DD) y rango de texto de la semana desplazada 'off' semanas respecto a la actual
+function weekInfo(off){const mon=new Date(weekStart(Date.now()));mon.setDate(mon.getDate()+off*7);const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  const f=(d,o)=>d.toLocaleDateString('es-ES',o),dss=[...Array(7)].map((_,i)=>dsAdd(dsOf(mon),i));
+  return {dss,range:mon.getMonth()===sun.getMonth()?`${mon.getDate()}–${sun.getDate()} ${f(sun,{month:'short'})}`:`${f(mon,{day:'numeric',month:'short'})} – ${f(sun,{day:'numeric',month:'short'})}`}}
+const planValid=pl=>!!pl.title&&(pl.kind==='hr'||(pl.exercises||[]).some(e=>normTxt(e.name)));
+// Calendario semanal: navegar semana a semana, tocar un día y programar ahí
+function planCalendar(p){const off=S.calOff||0,mon=new Date(weekStart(Date.now()));mon.setDate(mon.getDate()+off*7);
+  const days=[...Array(7)].map((_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d}),dss=days.map(dsOf),today=todayStr();
+  let sel=S.calDay;if(!dss.includes(sel))sel=dss.includes(today)?today:dss[0];
+  const plans=plansOf(p.id),ses=allOf(p.id);
+  const pOn=ds=>plans.filter(x=>x.date===ds).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  const sOn=ds=>ses.filter(s=>dsOf(s.startTime)===ds&&!(s.planId&&plans.some(x=>x.id===s.planId&&x.date===ds)));
+  const fmt=(d,o)=>d.toLocaleDateString('es-ES',o);
+  const sun=days[6],range=mon.getMonth()===sun.getMonth()?`${mon.getDate()}–${sun.getDate()} ${fmt(sun,{month:'short'})}`:`${fmt(mon,{day:'numeric',month:'short'})} – ${fmt(sun,{day:'numeric',month:'short'})}`;
+  const wkLabel=off===0?'Esta semana':off===1?'Semana que viene':off===-1?'Semana pasada':range;
+  const strip=days.map((d,i)=>{const ds=dss[i],pl=pOn(ds),ss=sOn(ds);
+    const dots=pl.map(x=>`<i class="${x.status==='done'?'done':x.status==='inprogress'?'prog':''}"></i>`).join('')+ss.map(()=>'<i class="ses"></i>').join('');
+    return `<button class="wk-d${ds===today?' today':''}${ds===sel?' sel':''}${ds<today?' past':''}" data-act="calDay" data-d="${ds}"><span>${fmt(d,{weekday:'short'}).replace('.','')}</span><b>${d.getDate()}</b><span class="dots">${dots}</span></button>`}).join('');
+  const selD=days[dss.indexOf(sel)],dayName=fmt(selD,{weekday:'long',day:'numeric',month:'long'}),pl=pOn(sel),ss=sOn(sel);
+  const nP=dss.reduce((a,ds)=>a+pOn(ds).length,0),nD=dss.reduce((a,ds)=>a+pOn(ds).filter(x=>x.status==='done').length,0);
+  const late=plans.filter(x=>x.status!=='done'&&x.date&&x.date<today&&!dss.includes(x.date)).sort((a,b)=>a.date.localeCompare(b.date));
+  return `<section class="sec"><div class="sec-h"><h3>Planificación semanal</h3>${off!==0?`<button class="btn small" data-act="calNav" data-v="0">Hoy</button>`:''}</div>
+    <div class="wk-nav"><button class="icon-btn" data-act="calNav" data-v="-1" aria-label="Semana anterior">‹</button><div class="wk-lab"><b>${wkLabel}</b><span class="muted num">${off===0||Math.abs(off)===1?range+' · ':''}${nP?`${nP} programado${nP===1?'':'s'}${nD?` · ${nD} hecho${nD===1?'':'s'}`:''}`:'Nada programado'}</span></div><button class="icon-btn" data-act="calNav" data-v="1" aria-label="Semana siguiente">›</button></div>
+    <div class="wk-days">${strip}</div>
+    <div class="wk-sel"><div class="sec-h"><h4>${dayName.charAt(0).toUpperCase()+dayName.slice(1)}</h4></div>
+      ${pl.length||ss.length?`<div class="list">${pl.map(planItem).join('')}${ss.map(sessItem).join('')}</div>`:`<div class="empty small">${sel<today?'Nada programado ni registrado este día.':'Día libre. Programa un entrenamiento y envíaselo por WhatsApp.'}</div>`}
+      <button class="btn wide" data-act="newPlanDay" data-d="${sel}">${ic('plus')}Programar para el ${fmt(selD,{weekday:'long',day:'numeric'})}</button></div>
+    ${nP?`<div class="wk-acts"><button class="btn" data-act="calCopy">${ic('copy')}Copiar semana</button><button class="btn" data-act="calSend">${ic('send')}Enviar semana</button></div>`:''}
+    ${late.length?`<details class="rec-grp"><summary><span>Atrasados sin hacer</span><span class="muted num">${late.length}</span></summary><div class="list">${late.map(planItem).join('')}</div></details>`:''}
+    ${info('Muévete de semana con ‹ ›, toca un día para ver lo que tiene y programa ahí. Puntos: naranja pendiente, morado en curso, verde hecho, gris sesión registrada sin programar. «Copiar semana» repite los entrenamientos de la semana en las siguientes (útil si el microciclo se repite) y «Enviar semana» manda todos los pendientes en un solo archivo.','Cómo funciona')}</section>`}
+// Copiar la semana mostrada a las N semanas siguientes
+function openCopyWeek(){const pid=S.arg,off=S.calOff||0,w=weekInfo(off),src=plansOf(pid).filter(x=>w.dss.includes(x.date));
+  if(!src.length){toast('No hay nada programado esta semana');return}
+  const n=S.copyN||1,busy=[...Array(n)].map((_,i)=>weekInfo(off+i+1)).map(x=>[x.range,plansOf(pid).filter(y=>x.dss.includes(y.date)).length]).filter(x=>x[1]);
+  S.modalKind='copy';$('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true"><div class="sec-h"><h2>Copiar semana</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
+    <p class="hint">${src.length} entrenamiento${src.length===1?'':'s'} de la semana del ${w.range}: ${src.sort((a,b)=>a.date.localeCompare(b.date)).map(x=>`${new Date(x.date+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short'}).replace('.','')} ${esc(x.title||'Entrenamiento')}`).join(' · ')}.</p>
+    <label class="lbl">Repetir en las siguientes</label>
+    <div class="seg four">${[1,2,3,4].map(k=>`<button class="${k===n?'on':''}" data-act="copyN" data-v="${k}">${k} sem.</button>`).join('')}</div>
+    ${busy.length?`<div class="note info slim">${ic('info')}<span class="hint">Ya hay entrenamientos en ${busy.map(x=>`${x[0]} (${x[1]})`).join(', ')}. Se añadirán a los que ya hay.</span></div>`:''}
+    <span class="hint">Se copian el mismo día de la semana, como pendientes y con las mismas cargas. Si usas %1RM, los kg se recalculan solos con sus últimos registros.</span>
+    <button class="btn primary wide" data-act="copyGo">${ic('copy')}Copiar a ${n===1?'la semana siguiente':`las ${n} semanas siguientes`}</button></div>`;
+  $('#modal').hidden=false;document.body.classList.add('modal-open')}
+async function copyWeek(){const pid=S.arg,off=S.calOff||0,w=weekInfo(off),n=S.copyN||1,src=plansOf(pid).filter(x=>w.dss.includes(x.date));let c=0;
+  for(let k=1;k<=n;k++)for(const pl of src){const q=JSON.parse(JSON.stringify(pl));
+    Object.assign(q,{id:uid(),date:dsAdd(pl.date,7*k),status:'pending',createdAt:Date.now()+c,doneId:null,doneAt:null,sentAt:null,receivedAt:null,copiedFrom:pl.id});await savePlan(q);c++}
+  closeModal();S.calOff=off+1;S.calDay=null;render();toast(`${c} entrenamiento${c===1?'':'s'} copiado${c===1?'':'s'}. Revísalos y envíaselos con «Enviar semana»`)}
+// Enviar todos los pendientes de la semana mostrada en un solo archivo
+async function sendWeek(){const pid=S.arg,p=prof(pid),w=weekInfo(S.calOff||0);
+  const all=plansOf(pid).filter(x=>w.dss.includes(x.date)&&x.status!=='done').sort((a,b)=>a.date.localeCompare(b.date)),ok=all.filter(planValid);
+  if(!ok.length){toast(all.length?'Completa los entrenamientos (título y ejercicios) antes de enviarlos':'No hay entrenamientos pendientes esta semana');return}
+  const day=ds=>new Date(ds+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric'}).replace('.','');
+  const data={app:'imdtraining',kind:'plan',version:4,exported:new Date().toISOString(),forProfileId:pid,forName:p?.name||'',plans:ok.map(pl=>({...pl,status:'pending',doneId:null,doneAt:null}))};
+  const r=await shareFile(data,`imdtraining_semana_${slug(p?.name)}_${ok[0].date}`,`Semana ${w.range} · ${p?.name||''}`,
+    `Tu semana (${w.range}):\n${ok.map(x=>`· ${day(x.date)}: ${x.title}`).join('\n')}\nÁbrela con IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
+  if(r==='cancel')return;for(const pl of ok){pl.sentAt=Date.now();await savePlan(pl)}render();
+  const skip=all.length-ok.length;toast((r==='shared'?`Semana enviada: ${ok.length} entrenamiento${ok.length===1?'':'s'}`:'Archivo guardado en Descargas: envíaselo por WhatsApp')+(skip?` · ${skip} sin completar no se ha${skip===1?'':'n'} enviado`:''))}
+async function newPlanFor(pid,ds){const pl={id:uid(),userId:pid,title:'Entrenamiento de fuerza',kind:'strength',date:ds||todayStr(),notes:'',status:'pending',createdAt:Date.now(),
   exercises:[{name:'',variant:'',unilateral:false,sets:[{reps:8,kg:null,rpe:7},{reps:8,kg:null,rpe:7},{reps:8,kg:null,rpe:7}]}],hr:{type:'Carrera',minutes:40,zone:2}};
   await savePlan(pl);go('plan',pl.id)}
 // Ejercicios de una sesión anterior → objetivos del plan (en unilaterales, una serie por par izq.-der.)
@@ -1786,7 +1864,7 @@ const BORG_HINT='RPE en escala de Borg 6–20, la usada por los métodos de extr
 const ICONS={pulse:'M22 12h-4l-3 9L9 3l-3 9H2',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z',
   dumbbell:'M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11',chart:'M3 3v18h18M8 17v-5M13 17V8M18 17v-9',list:'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
   test:'M9 3h6v4H9zM16 5h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2M9 14l2 2 4-4',user:'M20 21a8 8 0 0 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
-  plus:'M12 5v14M5 12h14',download:'M12 3v12M7 10l5 5 5-5M5 21h14',send:'M22 2 11 13M22 2l-7 20-4-9-9-4z',userPlus:'M15 21a6 6 0 0 0-12 0M9 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M16 11h6',
+  plus:'M12 5v14M5 12h14',copy:'M9 9h11v11H9zM5 15H4V4h11v1',download:'M12 3v12M7 10l5 5 5-5M5 21h14',send:'M22 2 11 13M22 2l-7 20-4-9-9-4z',userPlus:'M15 21a6 6 0 0 0-12 0M9 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M16 11h6',
   info:'M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',clock:'M12 7v5l3 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',chev:'M9 6l6 6-6 6',save:'M5 3h11l3 3v15H5zM8 3v6h7M8 21v-7h8v7',trophy:'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3'};
 const ic=(n,c='')=>`<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n]}"/></svg>`;
 // Explicación plegada: el texto largo no ocupa pantalla hasta que se pide
@@ -2057,6 +2135,13 @@ const A={
   wSkip(){lsSet('wellSkip_'+S.wellFor,todayStr());closeModal()},
   wClose(){if(S.modalKind==='well')lsSet('wellSkip_'+S.wellFor,todayStr());closeModal()},
   newPlan(){newPlanFor(S.arg)},
+  newPlanDay(_,b){S.calDay=b.dataset.d;newPlanFor(S.arg,b.dataset.d)},
+  calCopy(){S.copyN=1;openCopyWeek()},
+  copyN(_,b){S.copyN=+b.dataset.v;openCopyWeek()},
+  copyGo(){copyWeek()},
+  calSend(){sendWeek()},
+  calDay(_,b){S.calDay=b.dataset.d;const y=scrollY;render();scrollTo(0,y)},
+  calNav(_,b){const v=+b.dataset.v;S.calOff=v===0?0:(S.calOff||0)+v;S.calDay=null;const y=scrollY;render();scrollTo(0,y)},
   openPlan:id=>go('plan',id),
   async plKind(_,b){const pl=planById(S.arg);pl.kind=b.dataset.v;if(pl.kind==='hr'&&(!pl.title||pl.title==='Entrenamiento de fuerza'))pl.title='Sesión aeróbica';if(pl.kind==='strength'&&pl.title==='Sesión aeróbica')pl.title='Entrenamiento de fuerza';await savePlan(pl);render()},
   async plAddEx(){const pl=planById(S.arg);pl.exercises.push({name:'',variant:'',unilateral:false,sets:[{reps:8,kg:null,rpe:7}]});await savePlan(pl);render();const n=document.querySelectorAll('.ex-name');n[n.length-1]?.focus();n[n.length-1]?.scrollIntoView({block:'center'})},
@@ -2297,7 +2382,7 @@ async function importFiles(files){
   if(res.athlete.length&&!res.profiles.length){const a=res.athlete;
     if(a.length===1){const x=a[0];if(x.type==='plan')toRoot('plan',x.id);else if(x.type==='st')toRoot('ssum',x.id);else if(x.type==='hr')toRoot('summary',x.id);else toRoot('test',x.id);
       toast((x.type==='plan'?`Nuevo entrenamiento: ${x.name}`:`Sesión guardada: ${x.name}`)+errs)}
-    else{const me=myProfile()||prof(a[0].uid);if(me){S.ptab='res';toRoot('profile',me.id)}toast(`Recibidos ${a.length} elementos: ${a.map(x=>x.name).join(', ')}${errs}`)}
+    else{const me=myProfile()||prof(a[0].uid);if(me){S.ptab='res';toRoot('profile',me.id)}toast((a.every(x=>x.type==='plan')?`${a.length} entrenamientos nuevos: `:`Recibidos ${a.length} elementos: `)+a.map(x=>x.name).join(', ')+errs)}
     return}
   const pd=res.plansDone?` · ${res.plansDone} entrenamiento${res.plansDone===1?'':'s'} programado${res.plansDone===1?'':'s'} hecho${res.plansDone===1?'':'s'}`:'';
   if(res.profiles.length===1){const p=res.profiles[0];toRoot('profile',p.id);toast(`${p.isNew?'Añadido':'Actualizado'} el perfil de ${p.name}: ${res.nNew} registro${res.nNew===1?'':'s'} nuevo${res.nNew===1?'':'s'}${pd}${res.errors.length?'. '+res.errors.join('. '):''}`)}
