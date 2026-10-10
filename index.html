@@ -2,6 +2,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>IMDTraining</title>
 <meta name="theme-color" content="#0E150F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
@@ -766,6 +769,7 @@ function alertsHTML(uid){let h='';const mine=x=>uid?x.userId===uid:!prof(x.userI
 V.home=()=>{
   let h=alertsHTML();
   h+=`<div class="card"><span class="lbl">Clientes</span><span class="hint">Pásale a cada cliente el enlace de invitación. Crea su perfil en su móvil y te envía sus datos en un archivo, que importas aquí: se añade su perfil o se actualiza si ya lo tenías.</span>
+    <span class="hint">En el móvil, lo más cómodo: instala la app (Chrome ⋮ → Instalar aplicación) y, en WhatsApp, comparte el archivo recibido a IMDTraining. Se importa solo.</span>
     <div class="row"><button class="btn small primary" data-act="invite">Invitar a un cliente</button><button class="btn small" data-act="import">Importar datos de un cliente</button></div></div>`;
   h+=`<section class="sec"><div class="sec-h"><h2>Perfiles</h2><button class="btn small" data-act="newProfile">Nuevo perfil</button></div>`;
   if(!S.profiles.length)h+=`<div class="empty">Crea un perfil por cada persona que vaya a usar el pulsómetro. Cada uno guarda sus zonas y sus sesiones.</div>`;
@@ -1566,6 +1570,12 @@ $('#app').addEventListener('change',async e=>{if(e.target.id==='snotes2'){const 
 // Ajuste: los handlers que reciben botón esperan el elemento
 for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x,b)=>f(b||x))(A[k]);
 
+async function importShared(){
+  try{const cache=await caches.open('imdt-share'),keys=await cache.keys(),files=[];
+    for(const k of keys){const r=await cache.match(k);files.push(new File([await r.blob()],decodeURIComponent(r.headers.get('x-name')||'datos.json')));await cache.delete(k)}
+    if(files.length){if(isClient()){toast('Para importar datos de otros, cambia a modo entrenador desde el menú');return}await importFiles(files)}
+    else toast('No ha llegado ningún archivo. Prueba a compartirlo otra vez')}
+  catch(e){toast('No se pudo leer el archivo compartido')}}
 // Importación: archivos que envían los clientes o copias de seguridad. Sin filtro de tipo: Android no reconoce bien los .json
 async function importFiles(files){
   const res={profiles:[],nNew:0,errors:[]};
@@ -1668,7 +1678,13 @@ async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB
       for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.del('strength',s.id);for(const t of S.tests.filter(t=>t.userId===ex.id))await DB.del('tests',t.id);await DB.del('profiles',ex.id)}
     await seedExample();lsSet('seedv','4');await loadAll()}
   try{history.replaceState({},'')}catch(e){}
+  // Archivos compartidos a la app desde WhatsApp u otra app (llegan por el service worker)
+  const sharedN=new URLSearchParams(location.search).get('shared');
+  if(sharedN!=null&&!m){m='coach';lsSet('mode','coach')}
   if(!m)S.view='welcome';else if(m==='client')clientRoot();
   syncDrawerMode();render();updChip();
+  if(sharedN!=null){try{history.replaceState({},'',location.pathname)}catch(e){}await importShared()}
+  // Instalación como app (solo desde su propio enlace https)
+  if('serviceWorker' in navigator&&!inFrame&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
