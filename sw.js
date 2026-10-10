@@ -34,7 +34,7 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     try {
       const res = await fetch(req);
-      if (res.ok && (req.mode === 'navigate' || /\.(png|webmanifest|js)$/.test(url.pathname))) {
+      if (res.ok && (req.mode === 'navigate' || /\.(png|json|js)$/.test(url.pathname))) {
         const cache = await caches.open(APP_CACHE);
         cache.put(req.mode === 'navigate' ? new URL('./', self.registration.scope).href : req, res.clone());
       }

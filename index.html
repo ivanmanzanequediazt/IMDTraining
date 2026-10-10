@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>IMDTraining</title>
 <meta name="theme-color" content="#0E150F">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -177,6 +177,7 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 .welcome{display:flex;flex-direction:column;gap:12px;padding-block:24px}
 .big-brand{font:700 44px/1 var(--display);letter-spacing:.02em}
 .share{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.diag{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--warn)}
 /* Test */
 .tabs{margin-bottom:-4px}
 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -767,7 +768,7 @@ function alertsHTML(uid){let h='';const mine=x=>uid?x.userId===uid:!prof(x.userI
     h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Fuerza en curso · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · empezó ${ago(s.startTime)}</span></span><span class="tag str">Continuar</span></button>`;
   return h}
 V.home=()=>{
-  let h=alertsHTML();
+  let h=alertsHTML()+installCardHTML();
   h+=`<div class="card"><span class="lbl">Clientes</span><span class="hint">Pásale a cada cliente el enlace de invitación. Crea su perfil en su móvil y te envía sus datos en un archivo, que importas aquí: se añade su perfil o se actualiza si ya lo tenías.</span>
     <span class="hint">En el móvil, lo más cómodo: instala la app (Chrome ⋮ → Instalar aplicación) y, en WhatsApp, comparte el archivo recibido a IMDTraining. Se importa solo.</span>
     <div class="row"><button class="btn small primary" data-act="invite">Invitar a un cliente</button><button class="btn small" data-act="import">Importar datos de un cliente</button></div></div>`;
@@ -839,7 +840,7 @@ V.profile=()=>{
   const ser=acwrSeries(dailyLoads(loadItems(p.id)),method),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio);
   const nDays=ser.length,all=allOf(p.id),sts=stOf(p.id),open=S.strength.filter(s=>s.userId===p.id&&s.status==='open');
   const wk7=Date.now()-7*864e5,v7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)});
-  let h=`${isClient()?alertsHTML(p.id):''}${profileTabs(p.id,'train')}${shareCard(p)}<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${p.weight?fmtKg(p.weight)+' kg · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
+  let h=`${isClient()?alertsHTML(p.id)+installCardHTML():''}${profileTabs(p.id,'train')}${shareCard(p)}<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${p.weight?fmtKg(p.weight)+' kg · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
   <div class="stats">${stat(p.hrMax+(p.hrMaxEstimated?'*':''),'FC máx')}${stat(p.hrRest||'—','FC reposo')}${stat(all.length,'Sesiones')}</div>
   ${p.hrMaxEstimated?'<span class="hint">* FC máxima estimada con la fórmula de Tanaka.</span>':''}
   ${zoneTable(lim,p.hrMax)}</div>
@@ -1149,6 +1150,30 @@ async function switchMode(){
   if(own.length>1){toast('En modo deportista solo puede haber un perfil propio en este móvil');return}
   if(own[0]){own[0].owner='client';await DB.put('profiles',own[0])}
   lsSet('mode','client');S.stack=[];clientRoot();render();toast('Modo deportista')}
+/* ================= Instalación como app ================= */
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;refreshInstall()});
+window.addEventListener('appinstalled',()=>{installEvt=null;refreshInstall();toast('App instalada. Ya puedes compartirle archivos desde WhatsApp')});
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+// Comprueba qué impide instalar la app y lo explica
+async function installDiag(){
+  const out=[],ua=navigator.userAgent;
+  if(/; wv\)|FBAN|FBAV|Instagram|WhatsApp|Line\//i.test(ua))out.push('Estás en el navegador interno de otra app (WhatsApp, Instagram…). Ábrela en Chrome: ⋮ → «Abrir en Chrome».');
+  else if(/SamsungBrowser/i.test(ua))out.push('Estás en Samsung Internet. Abre el enlace en Google Chrome para instalarla y poder compartirle archivos.');
+  else if(!/Chrome\//.test(ua)||/Edg\/|OPR\/|Firefox/i.test(ua))out.push('Abre el enlace en Google Chrome para instalar la app.');
+  if(location.protocol!=='https:'&&location.hostname!=='localhost')out.push('La app tiene que abrirse desde su enlace https (GitHub Pages).');
+  try{const r=await fetch('manifest.json',{cache:'no-store'});if(!r.ok)throw 0;const m=await r.json();if(!m.share_target)out.push('El archivo manifest.json es antiguo: vuelve a subirlo.')}
+  catch(e){out.push('Falta manifest.json en el repositorio de GitHub (o tiene otro nombre, como manifest.json.txt o manifest(1).json). Súbelo junto a index.html con ese nombre exacto.')}
+  for(const f of ['sw.js','icon-192.png','icon-512.png']){try{const r=await fetch(f,{cache:'no-store'});if(!r.ok)throw 0}catch(e){out.push(`Falta ${f} en el repositorio de GitHub. Súbelo junto a index.html.`)}}
+  if(!out.length){try{const reg=await navigator.serviceWorker?.getRegistration();if(!reg)out.push('La app todavía se está preparando: recarga la página una vez.')}catch(e){}}
+  return out}
+const installCardHTML=()=>inFrame||isStandalone()?'':`<div class="card" id="installCard"><span class="lbl">Instalar la app</span><div id="installBody" class="sec"><span class="hint">Comprobando…</span></div></div>`;
+async function refreshInstall(){const b=$('#installBody');if(!b)return;
+  if(isStandalone()){$('#installCard').hidden=true;return}
+  if(installEvt){b.innerHTML=`<span class="hint">Instálala para abrirla como una app, usarla sin conexión y compartirle desde WhatsApp los archivos de tus clientes.</span><button class="btn primary" data-act="installApp">Instalar IMDTraining</button>`;return}
+  const d=await installDiag();const b2=$('#installBody');if(!b2||installEvt)return;
+  b2.innerHTML=d.length?`<span class="hint">Todavía no se puede instalar:</span><ul class="diag">${d.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`
+    :`<span class="hint">Todo está listo para instalarla. Si no aparece aquí el botón, abre el menú de Chrome (⋮) y busca «Instalar aplicación», o «Añadir a pantalla de inicio» y después «Instalar». Si ya tenías un acceso directo de la web, bórralo antes y recarga la página.</span>`}
 /* ================= Test ================= */
 const TEST_TYPES={
   vo2:{short:'VO2máx',name:'VO2máx · cicloergómetro',desc:'Submáximo por etapas (YMCA o libre). Estima el VO2máx con la FC y con el RPE.'},
@@ -1397,6 +1422,7 @@ function render(){
   if(S.view==='live'){attachScrub($('#lc'));updLive()}
   if(S.view==='summary'){attachScrub($('#sc'));drawSummary()}
   if(S.view==='test'){updTestDevice();updTestResults()}
+  if($('#installBody'))refreshInstall();
 }
 async function drawSummary(){const s=S.sessions.find(x=>x.id===S.arg);const tr=await DB.get('tracks',s.id);if(S.view!=='summary'||S.arg!==s.id)return;
   const sm=tr?.samples||[];drawHR($('#sc'),sm,s.zoneLimits,s.hrMax,s.startTime,s.endTime||sm.at(-1)?.[0]||s.startTime+1,false)}
@@ -1408,6 +1434,7 @@ const A={
   openProfile:id=>go('profile',id),
   newProfile:()=>go('edit',null),
   invite:()=>inviteClient(),
+  async installApp(){if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;refreshInstall()},
   import:()=>$('#importFile').click(),
   importBackup:()=>$('#importFile').click(),
   send:()=>sendToCoach(),
