@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Pulsómetro HW9</title>
+<title>IMDT training</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
@@ -161,6 +161,21 @@ canvas.scrub{touch-action:pan-y;cursor:crosshair;border-radius:6px}
 .uni-t td{padding:4px}
 details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 .st-bar{grid-template-columns:0 1fr 70px 22px}
+.mg{display:flex;flex-wrap:wrap;gap:6px}
+.mg-c{border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 13px var(--body);padding:6px 10px;border-radius:999px;cursor:pointer;min-height:32px}
+.mg-c.p{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mg-c.s{background:color-mix(in srgb,var(--accent) 16%,transparent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--accent)}
+.mg-c:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mg-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mg-nav b{font:600 17px var(--display)}
+.icon-btn:disabled{opacity:.3;cursor:default}
+.mg-list{display:flex;flex-direction:column;gap:10px}
+.mgr{display:flex;flex-direction:column;gap:4px}
+.mgr-h{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.mgr-h .muted{font-size:13px}
+.mgr-t{display:flex;height:12px;background:var(--soft);border-radius:4px;overflow:hidden}
+.mgr-d{background:var(--accent)}
+.mgr-i{background:var(--accent);opacity:.4}
 /* Test */
 .tabs{margin-bottom:-4px}
 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -206,7 +221,7 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
-  <div class="d-head"><span class="d-brand">Pulsó<span>metro</span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
+  <div class="d-head"><span class="d-brand">IMDT <span>training</span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
   <button class="d-item d-plain" data-d="home" id="dHome">Inicio</button>
   <button class="d-item d-plain" data-d="tests" id="dTests">Test</button>
   <div class="d-sec"><span class="lbl">Perfiles</span><div id="dList"></div></div>
@@ -218,7 +233,7 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 <header class="bar"><div class="bar-in">
   <button class="menu" id="menuBtn" aria-label="Abrir menú de perfiles" aria-controls="drawer" aria-expanded="false"><i></i><i></i><i></i></button>
   <button class="back" id="back" aria-label="Volver" hidden>‹</button>
-  <h1 id="ttl">Pulsómetro</h1>
+  <h1 id="ttl">IMDT training</h1>
   <span class="chip" id="chip"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
 </div></header>
 <main class="wrap" id="app"></main>
@@ -349,6 +364,36 @@ function strengthStats(st,formula='brzycki'){
   return {vol:Math.round(vol),sets,reps,rpe:rn?rs/rn:null,ex};
 }
 const stLoad=st=>st.rpePost==null||!(st.durationMin>0)?null:Math.round(st.rpePost*st.durationMin);
+/* ===== Grupos musculares ===== */
+const MG=[['back','Espalda','Espalda'],['shoulders','Hombros','Hombros'],['chest','Pecho','Pecho'],['quads','Muslo anterior','Muslo ant.'],
+  ['post','Muslo posterior y glúteo','Post. y glúteo'],['arms','Brazos','Brazos'],['core','Core','Core'],['calves','Pantorrillas','Pantorrillas']];
+// Asignación propuesta por palabras clave (el orden importa: lo más específico primero). p = principal, s = secundario
+const MG_RULES=[
+  [['curl femoral','nordic','isquio','good morning','buenos dias','hip thrust','puente de gluteo','patada de gluteo','abduc','gluteo'],{post:'p'}],
+  [['peso muerto rumano','rumano','stiff','piernas rigidas'],{post:'p',back:'s'}],
+  [['peso muerto','deadlift','trap bar'],{post:'p',quads:'s',back:'s'}],
+  [['gemelo','pantorrilla','talones','soleo','calf'],{calves:'p'}],
+  [['extension de cuadriceps','extension de pierna','sissy'],{quads:'p'}],
+  [['sentadilla','squat','prensa','zancada','lunge','step up','subida al cajon','pistol'],{quads:'p',post:'s'}],
+  [['extension de triceps','press frances','triceps','curl','martillo','biceps','antebrazo'],{arms:'p'}],
+  [['fondos','dips'],{chest:'p',arms:'s',shoulders:'s'}],
+  [['press inclinado'],{chest:'p',shoulders:'s',arms:'s'}],
+  [['press banca','banca','press de pecho','aperturas','cruce de poleas','flexiones','push up','pec deck'],{chest:'p',arms:'s'}],
+  [['landmine'],{shoulders:'p',chest:'s',arms:'s'}],
+  [['press militar','press de hombro','press arnold','push press','elevaciones laterales','elevacion lateral','elevaciones frontales','pajaro','face pull','hombro'],{shoulders:'p',arms:'s'}],
+  [['dominada','pull up','chin up','jalon','remo','pull over','pullover','encogimiento'],{back:'p',arms:'s'}],
+  [['plancha','crunch','rueda','pallof','dead bug','abdominal','core','rotacion','lenador','hollow','rueda abdominal','farmer','paseo del granjero'],{core:'p'}]];
+function suggestMuscles(name){const n=normTxt(name);if(!n)return null;
+  for(const [keys,m] of MG_RULES)if(keys.some(k=>n.includes(k)))return {...m};return {}}
+const musclesOf=e=>e.muscles||suggestMuscles(e.name)||{};
+// Series y kg por grupo: principal cuenta 1 y secundario 0,5 (recuento fraccional)
+function muscleVolume(sessions){
+  const out={},un={sets:0,kg:0};for(const [g] of MG)out[g]={sets:0,setsD:0,kg:0,kgD:0};
+  for(const st of sessions){const k=strengthStats(st);
+    st.exercises.forEach((e,i)=>{const x=k.ex[i];if(!x||!x.sets)return;const m=musclesOf(e),gs=Object.keys(m).filter(g=>out[g]);
+      if(!gs.length){un.sets+=x.sets;un.kg+=x.vol;return}
+      for(const g of gs){const f=m[g]==='p'?1:0.5;out[g].sets+=x.sets*f;out[g].kg+=x.vol*f;if(m[g]==='p'){out[g].setsD+=x.sets;out[g].kgD+=x.vol}}})}
+  return {groups:out,unassigned:un}}
 /* ===== Test: cálculos ===== */
 function linreg(xs,ys){const n=xs.length;if(n<2)return null;
   const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;let sxy=0,sxx=0,syy=0;
@@ -812,7 +857,7 @@ V.profile=()=>{
     <div class="stats">${stat(fmtKg(v7.vol),'Kg últ. 7 días')}${stat(v7.sets,'Series 7 días')}${stat(v7.rpe!=null?dec(v7.rpe,1):'—','RPE medio serie')}</div>
     <canvas id="stv" style="height:150px" role="img" aria-label="Volumen-carga de fuerza por ${view==='week'?'semana':'mes'}"></canvas>
     <span class="hint">Volumen-carga = series × repeticiones × kg. Se muestra aparte y no entra en el ACWR; ahí cuenta el sRPE de cada sesión de fuerza.</span>
-  </div>`:''}</section>
+  </div>`:''}${sts.length?mgCard(p.id):''}</section>
   <section class="sec"><div class="sec-h"><h3>Sesiones</h3>${all.length?'<button class="btn small" data-act="exportSummary">Exportar CSV</button>':''}</div>`;
   if(!all.length)h+=`<div class="empty">Todavía no hay sesiones. Empieza una con pulsómetro o registra una sesión de fuerza.</div>`;
   else{h+='<div class="list">';for(const s of all){const l=loadOfAny(s),right=l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`;
@@ -921,11 +966,13 @@ V.strength=()=>{
     <div class="field"><label for="stStart">Inicio</label><input id="stStart" data-sf="startTime" type="datetime-local" value="${toLocalInput(st.startTime)}"></div></div>
     ${st.status==='open'?`<span class="hint">En curso · <b class="num" id="stClock">${fmtDur(Date.now()-st.startTime)}</b>. Si registras una sesión pasada, cambia la hora de inicio.</span>`:''}</div>
   <details class="card"${st.rpePre!=null?'':''}><summary>RPE pre · ¿cómo llegas?${st.rpePre!=null?` <span class="tag">${st.rpePre}</span>`:' <span class="hint">(opcional)</span>'}</summary>${rpeScale('stRpePre','pre',st.rpePre)}</details>`;
+  if(autoMuscles(st))saveStSoon(st);
   st.exercises.forEach((e,i)=>{const k=strengthStats({exercises:[e]}).ex[0],vars=variantsOf(st.userId,e.name);
     h+=`<div class="card ex">
     <div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
       <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label></div>
+    ${mgChips(e,i)}
     ${prevHint(prev,e)}
     <div class="sets"><div class="set-h"><span>Serie</span><span>Reps</span><span>Kg</span><span>RPE</span><span></span></div>
     ${e.sets.map((s,j)=>`<div class="set${e.unilateral?' side-'+s.side:''}"><span class="set-n">${e.unilateral?`${Math.floor(j/2)+1}<small>${s.side}</small>`:j+1}</span>
@@ -939,11 +986,52 @@ V.strength=()=>{
   h+=`<datalist id="exlist">${exerciseNames(st.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
   <button class="btn wide" data-act="stAddEx">+ Añadir ejercicio</button>
   <div class="card"><span class="lbl">Total de la sesión</span><div class="stats" id="stTot">${stTotHTML(tot)}</div>
-  <span class="hint">RPE de cada serie en escala CR-10: 3 moderado · 5 duro · 7 muy duro · 10 máximo. Para peso corporal deja 0 kg o pon el lastre.</span></div>
+  <span class="hint">RPE de cada serie en escala CR-10: 3 moderado · 5 duro · 7 muy duro · 10 máximo. Para peso corporal deja 0 kg o pon el lastre.</span>
+  <span class="hint">Grupos musculares: un toque lo marca como principal, otro como secundario (cuenta ½ serie) y otro lo quita. Se propone una asignación según el nombre y se recuerda la tuya para la próxima vez.</span></div>
   ${st.status==='open'?`<button class="btn primary wide" data-act="stFinish">Terminar sesión</button>`:`<button class="btn primary wide" data-act="stDone">Guardar cambios</button>`}`;
   return h;
 };
 const rmKey=()=>{const k=lsGet('rmFormula');return RM_FORMULAS[k]?k:'brzycki'};
+// Grupos musculares en el registro: toque = principal, otro toque = secundario, otro = quitar
+function autoMuscles(st){let ch=false;
+  for(const e of st.exercises){const n=normTxt(e.name);if(!n)continue;
+    if(e.muscles&&!(e.mAuto&&e.mFor!==n))continue;
+    let m=null;for(const s2 of [...S.strength].filter(x=>x.userId===st.userId&&x.id!==st.id).sort((a,b)=>b.startTime-a.startTime)){
+      const f=s2.exercises.find(x=>normTxt(x.name)===n&&x.muscles&&!x.mAuto);if(f){m={...f.muscles};break}}
+    e.muscles=m||suggestMuscles(e.name)||{};e.mAuto=true;e.mFor=n;ch=true}
+  return ch}
+function mgChips(e,i){const m=e.muscles||{};
+  return `<div class="mg" role="group" aria-label="Grupos musculares del ejercicio ${i+1}">${MG.map(([g,,sh])=>`<button type="button" class="mg-c ${m[g]||''}" data-act="mgToggle" data-i="${i}" data-g="${g}" aria-pressed="${!!m[g]}" title="${m[g]==='p'?'Principal':m[g]==='s'?'Secundario':'Sin asignar'}">${sh}${m[g]==='s'?' ½':''}</button>`).join('')}</div>
+  ${normTxt(e.name)&&!Object.keys(m).length?'<span class="hint">Asigna al menos un grupo para que cuente en el reparto de volumen.</span>':''}`}
+function mgPeriod(per,off){const now=new Date(),mo=d=>d.toLocaleDateString('es-ES',{month:'short'}).replace('.','');
+  if(per==='month'){const a=new Date(now.getFullYear(),now.getMonth()+off,1),b=new Date(now.getFullYear(),now.getMonth()+off+1,1);
+    return {a:a.getTime(),b:b.getTime(),label:a.toLocaleDateString('es-ES',{month:'long',year:'numeric'})}}
+  const ws=new Date(weekStart(Date.now()));ws.setDate(ws.getDate()+7*off);const we=new Date(ws);we.setDate(we.getDate()+7);const l=new Date(we);l.setDate(l.getDate()-1);
+  return {a:ws.getTime(),b:we.getTime(),label:`${ws.getDate()} ${mo(ws)} – ${l.getDate()} ${mo(l)}`}}
+function mgCard(uid){
+  const per=lsGet('mgPer')==='month'?'month':'week',met=lsGet('mgMetric')==='kg'?'kg':'sets',off=S.mgOff||0;
+  const P=mgPeriod(per,off),Pp=mgPeriod(per,off-1),sts=stOf(uid),inP=sts.filter(s=>s.startTime>=P.a&&s.startTime<P.b);
+  const cur=muscleVolume(inP),prv=muscleVolume(sts.filter(s=>s.startTime>=Pp.a&&s.startTime<Pp.b));
+  const K=met==='kg'?'kg':'sets',KD=met==='kg'?'kgD':'setsD',fmt=v=>met==='kg'?fmtKg(Math.round(v)):dec(v,Number.isInteger(v)?0:1);
+  const tot=MG.reduce((a,[g])=>a+cur.groups[g][K],0),max=Math.max(1e-9,...MG.map(([g])=>cur.groups[g][K]));
+  const rows=MG.map(([g,label])=>{const x=cur.groups[g],v=x[K],d=x[KD],pv=prv.groups[g][K];
+    return `<div class="mgr"><div class="mgr-h"><span>${label}</span><span class="num"><b>${fmt(v)}</b><span class="muted"> · ${tot?Math.round(v/tot*100):0} %${pv||v?` · ant. ${fmt(pv)}`:''}</span></span></div>
+      <div class="mgr-t" aria-hidden="true"><div class="mgr-d" style="width:${v?d/max*100:0}%"></div><div class="mgr-i" style="width:${v?(v-d)/max*100:0}%"></div></div></div>`}).join('');
+  return `<div class="card">
+    <div class="sec-h"><span class="lbl">Volumen por grupo muscular</span></div>
+    <div class="g2"><div class="seg two" role="radiogroup" aria-label="Periodo">
+      <button type="button" role="radio" aria-checked="${per==='week'}" class="${per==='week'?'on':''}" data-act="mgPer" data-v="week">Semana</button>
+      <button type="button" role="radio" aria-checked="${per==='month'}" class="${per==='month'?'on':''}" data-act="mgPer" data-v="month">Mes</button></div>
+    <div class="seg two" role="radiogroup" aria-label="Medida">
+      <button type="button" role="radio" aria-checked="${met==='sets'}" class="${met==='sets'?'on':''}" data-act="mgMetric" data-v="sets">Series</button>
+      <button type="button" role="radio" aria-checked="${met==='kg'}" class="${met==='kg'?'on':''}" data-act="mgMetric" data-v="kg">Kg</button></div></div>
+    <div class="mg-nav"><button class="icon-btn" data-act="mgMove" data-v="-1" aria-label="Periodo anterior">‹</button><b>${P.label.charAt(0).toUpperCase()+P.label.slice(1)}</b><button class="icon-btn" data-act="mgMove" data-v="1" aria-label="Periodo siguiente" ${off>=0?'disabled':''}>›</button></div>
+    <span class="hint num">${inP.length} sesi${inP.length===1?'ón':'ones'} de fuerza · total ${fmt(tot)} ${met==='kg'?'kg':'series'}</span>
+    <div class="mg-list">${rows}</div>
+    ${cur.unassigned.sets?`<span class="hint">${fmt(met==='kg'?cur.unassigned.kg:cur.unassigned.sets)} ${met==='kg'?'kg':'series'} sin grupo asignado. Asígnalo en la sesión para que cuente.</span>`:''}
+    <div class="acwr-key"><span><i style="background:var(--accent)"></i>Como grupo principal</span><span><i style="background:var(--accent);opacity:.4"></i>Como secundario (cuenta ½)</span></div>
+    <span class="hint">Recuento fraccional: cada serie suma 1 al grupo principal del ejercicio y 0,5 a los secundarios. En unilaterales cuenta una serie por cada par izquierda-derecha.</span>
+  </div>`}
 const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series')+stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio');
 let stSaveT=null;
 function saveStSoon(st){clearTimeout(stSaveT);stSaveT=setTimeout(()=>DB.put('strength',st),400)}
@@ -960,7 +1048,8 @@ V.ssum=()=>{
   const maxV=Math.max(1,...t.ex.map(e=>e.vol));
   let h=`<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(st.startTime)} · ${esc(p?.name||'')}</span>${st.example?'<span class="tag ex">Ejemplo</span>':''}</div>
   <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series')}${stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie')}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
-  ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}</div>
+  ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}
+  ${(()=>{const mv=muscleVolume([st]),c=MG.filter(([g])=>mv.groups[g].sets>0).map(([g,l])=>`<span class="chipset">${l} ${dec(mv.groups[g].sets,Number.isInteger(mv.groups[g].sets)?0:1)}</span>`);return c.length?`<span class="lbl">Series por grupo</span><div class="chips">${c.join('')}</div>`:''})()}</div>
   <section class="sec"><h3>Ejercicios</h3>
   <div class="field"><label for="rmF">Fórmula del 1RM estimado</label><select id="rmF">${Object.entries(RM_FORMULAS).map(([k,v])=>`<option value="${k}"${k===fk?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>`;
   t.ex.forEach((e,i)=>{const src=st.exercises[i];
@@ -1169,7 +1258,7 @@ $('#app').addEventListener('input',e=>{
 $('#app').addEventListener('change',e=>{if(e.target.id==='tUser')go('tests',e.target.value,{push:false})});
 
 /* ================= Navegación ================= */
-const TITLES={home:()=> 'Pulsómetro',edit:()=>S.arg?'Editar perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
+const TITLES={home:()=> 'IMDT training',edit:()=>S.arg?'Editar perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
 function go(view,arg,{push=true,keepForm=false}={}){
   if(push)S.stack.push([S.view,S.arg]);
   S.view=view;S.arg=arg??null;if(!keepForm)S.form={};render();window.scrollTo(0,0);
@@ -1333,6 +1422,12 @@ const A={
       else{const j=jumpCalc(t);r[15]=j.cmj?dec(j.cmj.best,1):'';r[16]=j.sj?dec(j.sj.best,1):'';r[17]=j.abk?dec(j.abk.best,1):'';r[18]=j.cmj?.pp!=null?Math.round(j.cmj.pp):'';r[19]=j.sj?.pp!=null?Math.round(j.sj.pp):'';r[20]=j.elastic!=null?dec(j.elastic,1):'';r[21]=j.arms!=null?dec(j.arms,1):''}
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_test_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
+  async mgToggle(_,b){const st=stById(S.arg),e=st.exercises[+b.dataset.i],g=b.dataset.g;e.muscles={...(e.muscles||{})};
+    e.muscles[g]=e.muscles[g]==='p'?'s':e.muscles[g]==='s'?undefined:'p';if(!e.muscles[g])delete e.muscles[g];e.mAuto=false;
+    await saveSt(st);const y=scrollY;render();scrollTo(0,y)},
+  mgPer(b){lsSet('mgPer',b.dataset.v);S.mgOff=0;const y=scrollY;render();scrollTo(0,y)},
+  mgMetric(b){lsSet('mgMetric',b.dataset.v);const y=scrollY;render();scrollTo(0,y)},
+  mgMove(b){S.mgOff=Math.min(0,(S.mgOff||0)+(+b.dataset.v));const y=scrollY;render();scrollTo(0,y)},
   /* --- Fuerza --- */
   async newStrength(){const p=prof(S.arg);
     const st={id:uid(),userId:p.id,kind:'strength',type:lsGet('lastStType_'+p.id)||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,
@@ -1383,8 +1478,8 @@ const A={
       else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Pulsómetro',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','',''];
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
-  async backup(){const data={app:'pulsometro',version:3,strength:await DB.all('strength'),tests:await DB.all('tests'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
-    download(`pulsometro_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
+  async backup(){const data={app:'imdt-training',version:3,strength:await DB.all('strength'),tests:await DB.all('tests'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
+    download(`imdt-training_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
   import(){$('#importFile').click()},
   async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
     const last=tr.samples.at(-1);m.endTime=last?last[0]:m.startTime;if(!m.activeMs)m.activeMs=m.endTime-m.startTime;
@@ -1406,7 +1501,7 @@ $('#app').addEventListener('change',async e=>{if(e.target.id==='snotes2'){const 
 for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x,b)=>f(b||x))(A[k]);
 
 $('#importFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;
-  try{const d=JSON.parse(await file.text());if(d.app!=='pulsometro')throw 0;
+  try{const d=JSON.parse(await file.text());if(d.app!=='imdt-training'&&d.app!=='pulsometro')throw 0; // acepta copias anteriores al cambio de nombre
     for(const p of d.profiles||[])await DB.put('profiles',p);for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);for(const x of d.strength||[])await DB.put('strength',x);for(const x of d.tests||[])await DB.put('tests',x);
     await loadAll();render();toast(`Importados ${d.profiles.length} perfiles y ${d.sessions.length+(d.strength||[]).length} sesiones`)}
   catch(err){toast('El archivo no es una copia válida de esta app')}});
