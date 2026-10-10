@@ -272,6 +272,14 @@ details.more:not([open]),details.danger-zone:not([open]){gap:0}
 .rec-g .s{font-size:12px;color:var(--muted);line-height:1.3}
 .rec-hint{color:var(--accent)}
 .rec-hint .ic{color:var(--accent)}
+.plan-hint{color:var(--z2)}
+.plan-hint .ic{color:var(--z2)}
+.kind.plan{border:1.5px dashed currentColor}
+.ex-n.sm{font-size:16px;min-width:0}
+.pre-wrap{white-space:pre-wrap;margin:0;line-height:1.5}
+.plan-actions{display:grid;grid-template-columns:1fr;gap:10px}
+.big-btn{min-height:58px;font-size:18px}
+.plan-head .pname{margin-top:2px}
 /* Test */
 .tabs{margin-bottom:-4px}
 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -568,15 +576,16 @@ const DB={db:null,mem:null,
   async open(){
     if(this.db||this.mem)return;
     try{
-      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',3);
+      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',4);
         r.onupgradeneeded=()=>{const d=r.result,has=n=>d.objectStoreNames.contains(n);
           if(!has('profiles'))d.createObjectStore('profiles',{keyPath:'id'});
           if(!has('sessions'))d.createObjectStore('sessions',{keyPath:'id'}).createIndex('userId','userId');
           if(!has('tracks'))d.createObjectStore('tracks',{keyPath:'id'});
           if(!has('strength'))d.createObjectStore('strength',{keyPath:'id'}); // v2: sesiones de fuerza
-          if(!has('tests'))d.createObjectStore('tests',{keyPath:'id'})}; // v3: test
+          if(!has('tests'))d.createObjectStore('tests',{keyPath:'id'}); // v3: test
+          if(!has('plans'))d.createObjectStore('plans',{keyPath:'id'})}; // v4: entrenamientos programados
         r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))});
-    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map(),strength:new Map(),tests:new Map()};S.memOnly=true}
+    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map(),strength:new Map(),tests:new Map(),plans:new Map()};S.memOnly=true}
   },
   tx(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);let out;const r=fn(t.objectStore(store));if(r)r.onsuccess=()=>{out=r.result};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error)})},
   all(s){return this.mem?Promise.resolve([...this.mem[s].values()]):this.tx(s,'readonly',o=>o.getAll())},
@@ -586,7 +595,7 @@ const DB={db:null,mem:null,
 };
 
 /* ================= Estado ================= */
-const S={profiles:[],sessions:[],strength:[],tests:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
+const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
 let inFrame=false;try{inFrame=window.top!==window.self}catch(e){inFrame=true}
 const btOK=!!navigator.bluetooth&&!inFrame;
 const prof=id=>S.profiles.find(p=>p.id===id);
@@ -691,6 +700,7 @@ async function finishRec(){
   r.endTime=now;r.activeMs=r.acc;
   const meta=sessMeta(r);meta.activeMs=r.acc;
   await finalize(meta,{id:r.id,samples:r.samples,rr:r.rr,pauses:r.pauses});
+  if(meta.planId)await markPlanDone(meta.planId,meta.id);
   clearInterval(S.autosave);S.rec=null;keepAwake(false);
   return meta.id;
 }
@@ -978,8 +988,8 @@ function recordsHTML(p){
 // Elemento de la lista de sesiones (pulsómetro o fuerza)
 function sessItem(s){const l=loadOfAny(s),right=l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`;
   if(s.kind==='st'){const k=strengthStats(s);
-    return `<button class="item" data-act="openStrength" data-id="${s.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(s.type)}</span><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
-  return `<button class="item" data-act="openSession" data-id="${s.id}"><span class="kind hr">${ic('heart')}</span><span class="grow"><span class="t">${esc(s.type)}</span><span class="s num">${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm</span></span>${right}</button>`}
+    return `<button class="item" data-act="openStrength" data-id="${s.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
+  return `<button class="item" data-act="openSession" data-id="${s.id}"><span class="kind hr">${ic('heart')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm</span></span>${right}</button>`}
 const kpi=(val,label,act,tab,extra='')=>`<button class="kpi" data-act="${act}" data-v="${tab}">${extra}<b class="num">${val}</b><span>${label}</span></button>`;
 V.profile=()=>{
   const p=prof(S.arg);if(!p)return'';const tab=PTABS.some(t=>t[0]===S.ptab)&&S.ptab!=='test'?S.ptab:'res';
@@ -989,10 +999,11 @@ V.profile=()=>{
     const open=S.strength.filter(s=>s.userId===p.id&&s.status==='open'),last=all[0];
     h+=isClient()?'':alertsHTML(p.id,true);
     h+=open.map(o=>`<button class="item hl" data-act="openStrength" data-id="${o.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(o.type)} en curso</span><span class="s">Empezó ${ago(o.startTime)} · ${strengthStats(o).sets} series anotadas</span></span><span class="tag str">Continuar</span></button>`).join('');
-    h+=`<div class="starts"><button class="start" data-act="newSession">${ic('heart')}<b>Sesión con pulsómetro</b><span>FC en directo y zonas</span></button><button class="start" data-act="newStrength">${ic('dumbbell')}<b>Sesión de fuerza</b><span>Ejercicios, series y RPE</span></button></div>
+    h+=(isClient()?plansSection(p):'')+`<div class="starts"><button class="start" data-act="newSession">${ic('heart')}<b>Sesión con pulsómetro</b><span>FC en directo y zonas</span></button><button class="start" data-act="newStrength">${ic('dumbbell')}<b>Sesión de fuerza</b><span>Ejercicios, series y RPE</span></button></div>
     <div class="kpis">${kpi(cur?.ratio!=null?dec(cur.ratio,2):'—','ACWR','ptab','load',`<i class="dot" style="background:${zc(st.z)}"></i>`)}${kpi(cur?cur.acute:0,'UA últimos 7 días','ptab','load')}${kpi(last?ago(last.startTime).replace('hace ',''):'—','Última sesión','ptab','ses')}</div>
     ${all.length?`<div class="card"><div class="sec-h"><span class="lbl">Carga semanal</span><button class="link" data-act="ptab" data-v="load">Ver carga ${ic('chev','sm')}</button></div><canvas id="wkMini" style="height:120px" role="img" aria-label="Carga de las últimas 8 semanas"></canvas></div>`:''}
     ${isClient()?shareCard(p):''}
+    ${isClient()?`<button class="link" data-act="openReceived">${ic('download','sm')} Abrir entrenamiento o sesión recibida</button>`:plansSection(p)}
     <section class="sec"><div class="sec-h"><h3>Últimas sesiones</h3>${all.length>3?`<button class="link" data-act="ptab" data-v="ses">Ver todas (${all.length}) ${ic('chev','sm')}</button>`:''}</div>
     ${all.length?`<div class="list">${all.slice(0,3).map(sessItem).join('')}</div>`:`<div class="empty">Todavía no hay sesiones. Empieza una con los botones de arriba.</div>`}</section>`}
   else if(tab==='ses'){
@@ -1049,7 +1060,8 @@ V.profile=()=>{
 };
 V.pre=()=>{
   const p=prof(S.arg);const f=S.form;if(f.rpePre===undefined)f.rpePre=null;if(!f.type)f.type=lsGet('lastType_'+p.id)||'Carrera';
-  return `<div class="card"><div class="field"><label for="stype">Tipo de sesión</label><input id="stype" list="types" value="${esc(f.type)}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div></div>
+  const pl=f.planId&&planById(f.planId);
+  return `${pl?`<div class="note info slim">${ic('clock')}<span class="hint"><b>Programado:</b> ${esc(pl.title)} · ${planSummary(pl)}${pl.notes?'<br>'+esc(pl.notes):''}</span></div>`:''}<div class="card"><div class="field"><label for="stype">Tipo de sesión</label><input id="stype" list="types" value="${esc(f.type)}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div></div>
   <section class="sec"><div class="sec-h"><h3>RPE pre · ¿cómo llegas?</h3><button class="link" data-act="clearPre">Omitir</button></div><span class="hint">Fatiga o cansancio percibido ahora mismo, escala CR-10.</span>${rpeScale('rpePre','pre',f.rpePre)}</section>
   <section class="sec"><h3>Pulsómetro</h3><div class="card" id="devBox"></div></section>
   <button class="btn primary wide" id="startBtn" data-act="start">Empezar sesión</button>`;
@@ -1067,7 +1079,8 @@ function updDevice(){
 }
 V.live=()=>{
   const r=S.rec;
-  return `<div class="note" hidden><b id="liveSt"></b><button class="btn small" data-act="connect" ${btOK?'':'hidden'}>Volver a conectar</button></div>
+  const pl=r.planId&&planById(r.planId);
+  return `${pl?`<div class="note info slim plan-live">${ic('clock')}<span class="hint"><b>Objetivo:</b> ${pl.hr?.minutes||'—'} min${pl.hr?.zone?' en Z'+pl.hr.zone:''} · <span id="lPlan" class="num"></span></span></div>`:''}<div class="note" hidden><b id="liveSt"></b><button class="btn small" data-act="connect" ${btOK?'':'hidden'}>Volver a conectar</button></div>
   <div class="live-hr"><span class="big" id="lBpm">—</span><span class="unit">PPM</span><span class="zpill" id="lZone">—</span></div>
   <div class="stats">${stat('00:00','Tiempo','lTime')}${stat('—','FC media','lAvg')}${stat('—','FC máx','lMax')}</div>
   <div class="card"><div class="chart"><canvas id="lc" role="img" aria-label="FC de los últimos 3 minutos. Desliza o usa las flechas para leer cada momento."></canvas></div></div>
@@ -1090,6 +1103,7 @@ function updLive(){
   const now=Date.now(),t0=now-180000;let k=r.samples.length;while(k>0&&r.samples[k-1][0]>=t0-2000)k--;
   drawHR($('#lc'),r.samples.slice(k),r.zoneLimits,r.hrMax,t0,now,true);
   $('#pauseBtn').textContent=r.running?'Pausar':'Reanudar';
+  const lp=$('#lPlan');if(lp){const pl=planById(r.planId),z=+pl?.hr?.zone;lp.textContent=`llevas ${fmtDur(recActive(r))}${z?' · '+fmtDur(r.inc.zoneMs[z])+' en Z'+z:''}`}
 }
 V.post=()=>{const f=S.form;if(f.rpePost===undefined)f.rpePost=null;const s=S.sessions.find(x=>x.id===S.arg);
   return `<div class="card"><span class="lbl">Sesión terminada</span><div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}</div></div>
@@ -1106,7 +1120,7 @@ V.summary=()=>{
   <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(s.zoneMs,s.noSignalMs)}<span class="hint num">Zonas aplicadas: ${s.zoneLimits.join(' · ')} ppm (FCmáx ${s.hrMax})</span></div>
   ${s.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="savePending">Guardar RPE</button></section>`:''}
   <div class="card"><div class="field"><label for="snotes2">Notas</label><textarea id="snotes2" data-act="notes">${esc(s.notes)}</textarea></div><span class="hint">${esc(s.deviceName)}</span></div>
-  <div class="row"><button class="btn" data-act="exportSession">Exportar CSV de la sesión</button><button class="btn danger" data-act="delSession">Borrar sesión</button></div>`;
+  <div class="row">${athleteBtn('hr',s.id,s)}<button class="btn" data-act="exportSession">Exportar CSV de la sesión</button><button class="btn danger" data-act="delSession">Borrar sesión</button></div>`;
 };
 
 /* ================= Fuerza ================= */
@@ -1155,7 +1169,7 @@ V.strength=()=>{
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
       <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label></div>
     ${mgChips(e,i)}
-    ${prevHint(prev,e)}${(()=>{const r=recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
+    ${e.plan?`<span class="hint num plan-hint">${ic('clock','sm')} Programado: ${planSetsText(e.plan,e.unilateral)}</span>`:''}${prevHint(prev,e)}${(()=>{const r=recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
     <div class="sets"><div class="set-h"><span>Serie</span><span>Reps</span><span>Kg</span><span>RPE</span><span></span></div>
     ${e.sets.map((s,j)=>`<div class="set${e.unilateral?' side-'+s.side:''}"><span class="set-n">${e.unilateral?`${Math.floor(j/2)+1}<small>${s.side}</small>`:j+1}</span>
       <input type="number" inputmode="numeric" min="0" data-ex="${i}" data-set="${j}" data-f="reps" value="${s.reps??''}" aria-label="Repeticiones serie ${j+1}">
@@ -1247,7 +1261,7 @@ V.ssum=()=>{
   h+=`<span class="hint">1RM estimado con ${esc(RM_FORMULAS[fk].name)} a partir de la serie que da el valor más alto, usando solo series de 1 a 10 repeticiones. Las fórmulas suponen series cercanas al fallo: si la serie quedó lejos del fallo (RPE bajo), el 1RM real será mayor. Error habitual del ±10 %.</span></section>
   ${st.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="stSavePending">Guardar RPE</button></section>`:''}
   <div class="card"><div class="field"><label for="stNotes2">Notas</label><textarea id="stNotes2">${esc(st.notes)}</textarea></div></div>
-  <div class="row"><button class="btn" data-act="stEdit">Editar sesión</button><button class="btn" data-act="stExport">Exportar CSV</button><button class="btn danger" data-act="stDel">Borrar sesión</button></div>`;
+  <div class="row">${athleteBtn('st',st.id,st)}<button class="btn" data-act="stEdit">Editar sesión</button><button class="btn" data-act="stExport">Exportar CSV</button><button class="btn danger" data-act="stDel">Borrar sesión</button></div>`;
   return h;
 };
 // Edición en vivo de ejercicios y series (sin redibujar la pantalla mientras se escribe)
@@ -1270,7 +1284,7 @@ $('#app').addEventListener('change',e=>{
     else{ex.unilateral=false;ex.sets=ex.sets.filter(x=>x.side!=='D').map(({side,...x})=>x)}
     if(!ex.sets.length)ex.sets=ex.unilateral?[{side:'I',reps:null,kg:null,rpe:null},{side:'D',reps:null,kg:null,rpe:null}]:[{reps:null,kg:null,rpe:null}];
     saveSt(st).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
-  if(S.view==='strength'&&(e.target.dataset.f==='name'||e.target.dataset.f==='variant')){const st=stById(S.arg);DB.put('strength',st).then(()=>{const y=scrollY;render();scrollTo(0,y)})}
+  if(S.view==='strength'&&(e.target.dataset.f==='name'||e.target.dataset.f==='variant')){const st=stById(S.arg);DB.put('strength',st).then(rerenderKeepFocus)}
   if(e.target.id==='rmF'){lsSet('rmFormula',e.target.value);const y=scrollY;render();scrollTo(0,y)}
   if(e.target.id==='stNotes2'){const st=stById(S.arg);st.notes=e.target.value;saveSt(st);toast('Notas guardadas')}});
 setInterval(()=>{const c=$('#stClock');const st=S.view==='strength'&&stById(S.arg);if(c&&st)c.textContent=fmtDur(Date.now()-st.startTime)},1000);
@@ -1324,10 +1338,149 @@ async function deleteProfile(id){const p=prof(id);if(!p)return;
   for(const s of S.sessions.filter(s=>s.userId===id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
   for(const s of S.strength.filter(s=>s.userId===id))await DB.del('strength',s.id);
   for(const t of S.tests.filter(t=>t.userId===id))await DB.del('tests',t.id);
+  for(const x of S.plans.filter(x=>x.userId===id))await DB.del('plans',x.id);S.plans=S.plans.filter(x=>x.userId!==id);
   await DB.del('profiles',id);
   S.sessions=S.sessions.filter(s=>s.userId!==id);S.strength=S.strength.filter(s=>s.userId!==id);S.tests=S.tests.filter(t=>t.userId!==id);S.profiles=S.profiles.filter(x=>x.id!==id);
   for(const k of ['lastSent_','lastType_','lastStType_'])lsSet(k+id,'');
   S.stack=[];go('home',null,{push:false});toast(`Perfil de ${p.name} borrado`)}
+// Redibuja la pantalla manteniendo el scroll y la casilla activa (con lo que ya se haya escrito)
+function rerenderKeepFocus(){const a=document.activeElement,keys=['ex','set','f','pe','ps','pk'];
+  const sel=a&&a.closest&&a.closest('#app')&&keys.some(k=>a.dataset[k]!=null)?keys.filter(k=>a.dataset[k]!=null).map(k=>`[data-${k}="${a.dataset[k]}"]`).join(''):null;
+  const val=sel?a.value:null,pos=sel&&a.selectionStart!=null?a.selectionStart:null,y=scrollY;
+  render();scrollTo(0,y);
+  if(sel){const n=$('#app '+sel);if(n){if(n.value!==val&&val!=null){n.value=val;n.dispatchEvent(new Event('input',{bubbles:true}))}n.focus({preventScroll:true});try{if(pos!=null)n.setSelectionRange(pos,pos)}catch(e){}}}}
+/* ================= Entrenamientos programados ================= */
+const planById=id=>S.plans.find(x=>x.id===id);
+const plansOf=uid=>S.plans.filter(x=>x.userId===uid);
+const todayStr=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
+let plSaveT=null;const savePlanSoon=pl=>{clearTimeout(plSaveT);plSaveT=setTimeout(()=>DB.put('plans',pl),400)};
+async function savePlan(pl){clearTimeout(plSaveT);await DB.put('plans',pl);const i=S.plans.findIndex(x=>x.id===pl.id);if(i<0)S.plans.push(pl);else S.plans[i]=pl}
+function planDateTxt(ds){if(!ds)return'Sin fecha';const d=new Date(ds+'T12:00:00'),t=new Date();t.setHours(12,0,0,0);const n=Math.round((d-t)/864e5);
+  return n===0?'Hoy':n===1?'Mañana':n===-1?'Ayer':n<-1?`${d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · atrasado`:d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}
+function planSummary(pl){if(pl.kind==='hr'){const h=pl.hr||{};return `${h.minutes||'—'} min${h.zone?' · Z'+h.zone:''}${h.type?' · '+h.type:''}`}
+  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name));return `${ex.length} ejercicio${ex.length===1?'':'s'} · ${ex.reduce((a,e)=>a+e.sets.length,0)} series`}
+function planSetsText(sets,uni){const v=(sets||[]).filter(x=>x.reps||x.kg);if(!v.length)return'';
+  const f=x=>`${x.reps??'—'}${x.kg?' × '+fmtKg(x.kg)+' kg':''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}`;
+  const same=v.every(x=>f(x)===f(v[0]));return (same?`${v.length} × ${f(v[0])}`:v.map(f).join(' · '))+(uni?' por lado':'')}
+const PSTATUS={pending:['Pendiente','pend'],inprogress:['En curso','str'],done:['Hecho','up']};
+function planItem(pl){const [t,c]=PSTATUS[pl.status]||PSTATUS.pending;
+  return `<button class="item" data-act="openPlan" data-id="${pl.id}"><span class="kind ${pl.kind==='hr'?'hr':'st'} plan">${ic(pl.kind==='hr'?'heart':'dumbbell')}</span><span class="grow"><span class="t">${esc(pl.title||'Entrenamiento')}</span><span class="s">${planDateTxt(pl.date)} · ${planSummary(pl)}</span></span><span class="tag ${c}">${t}</span></button>`}
+// Lista de programados en el resumen del perfil
+function plansSection(p){const cl=isClient(),wk=Date.now()-7*864e5;
+  const list=plansOf(p.id).filter(x=>x.status!=='done'||(x.doneAt||0)>=wk).sort((a,b)=>(a.status==='done')-(b.status==='done')||(a.date||'').localeCompare(b.date||''));
+  if(cl&&!list.length)return '';
+  return `<section class="sec"><div class="sec-h"><h3>${cl?'Programado por tu entrenador':'Entrenamientos programados'}</h3>${cl?'':`<button class="btn small" data-act="newPlan">${ic('plus')}Programar</button>`}</div>
+    ${list.length?`<div class="list">${list.map(planItem).join('')}</div>`:`<div class="empty">Programa un entrenamiento y envíaselo por WhatsApp. Lo abrirá en su app y lo registrará al hacerlo.</div>`}</section>`}
+async function newPlanFor(pid){const pl={id:uid(),userId:pid,title:'Entrenamiento de fuerza',kind:'strength',date:todayStr(),notes:'',status:'pending',createdAt:Date.now(),
+  exercises:[{name:'',variant:'',unilateral:false,sets:[{reps:8,kg:null,rpe:7},{reps:8,kg:null,rpe:7},{reps:8,kg:null,rpe:7}]}],hr:{type:'Carrera',minutes:40,zone:2}};
+  await savePlan(pl);go('plan',pl.id)}
+// Ejercicios de una sesión anterior → objetivos del plan (en unilaterales, una serie por par izq.-der.)
+function exercisesFromSession(st){return st.exercises.filter(e=>normTxt(e.name)).map(e=>({name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,muscles:e.muscles&&!e.mAuto?{...e.muscles}:undefined,
+  sets:(e.unilateral?e.sets.filter(x=>x.side!=='D'):e.sets).filter(x=>+x.reps>0).map(x=>({reps:+x.reps||null,kg:+x.kg||null,rpe:x.rpe===''||x.rpe==null?null:+x.rpe}))}))}
+V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=isClient(),done=pl.status==='done';
+  const doneSes=pl.doneId&&(stById(pl.doneId)||S.sessions.find(x=>x.id===pl.doneId));
+  const st=PSTATUS[pl.status]||PSTATUS.pending;
+  let h=`<div class="card plan-head"><div class="sec-h"><span class="lbl">${esc(p?.name||'')} · ${planDateTxt(pl.date)}</span><span class="tag ${st[1]}">${st[0]}</span></div>`;
+  if(cl){
+    h+=`<b class="pname">${esc(pl.title||'Entrenamiento')}</b>${pl.from?`<span class="hint">De ${esc(pl.from)}</span>`:''}</div>`;
+    if(pl.notes)h+=`<div class="card"><span class="lbl">Indicaciones</span><p class="pre-wrap">${esc(pl.notes)}</p></div>`;
+    if(pl.kind==='hr'){const h2=pl.hr||{},lim=p?zoneLimits(p):null,z=+h2.zone;
+      h+=`<div class="card"><span class="lbl">Objetivo</span><div class="stats">${stat((h2.minutes||'—')+' min','Duración')}${stat(z?'Z'+z:'—','Zona')}${stat(z&&lim?`${lim[z-1]}–${z<5?lim[z]-1:p.hrMax}`:'—','ppm')}</div>${h2.type?`<span class="hint">Tipo: ${esc(h2.type)}</span>`:''}</div>`}
+    else h+=`<section class="sec"><h3>Ejercicios</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}</div><div class="chips">${e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${x.kg?'×'+fmtKg(x.kg):''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}</span>`).join('')}</div></div>`).join('')}</div></section>`}
+  else{
+    h+=`<div class="field"><label for="plTitle">Título</label><input id="plTitle" data-pf="title" value="${esc(pl.title||'')}"></div>
+      <div class="g2"><div class="field"><label for="plDate">Día</label><input id="plDate" type="date" data-pf="date" value="${esc(pl.date||'')}"></div>
+      <div class="field"><span class="lbl" style="margin-bottom:2px">Tipo</span><div class="seg two" role="radiogroup"><button type="button" role="radio" aria-checked="${pl.kind!=='hr'}" class="${pl.kind!=='hr'?'on':''}" data-act="plKind" data-v="strength">Fuerza</button><button type="button" role="radio" aria-checked="${pl.kind==='hr'}" class="${pl.kind==='hr'?'on':''}" data-act="plKind" data-v="hr">Pulsómetro</button></div></div></div>
+      <span class="hint num" id="plTot">${planSummary(pl)}</span></div>`;
+    if(pl.kind==='hr'){const h2=pl.hr||(pl.hr={type:'Carrera',minutes:40,zone:2});
+      h+=`<div class="card"><span class="lbl">Objetivo de la sesión</span><div class="g3">
+        <div class="field"><label for="plType">Tipo</label><input id="plType" data-pf="hr.type" list="types" value="${esc(h2.type||'')}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div>
+        <div class="field"><label for="plMin">Minutos</label><input id="plMin" type="number" inputmode="numeric" data-pf="hr.minutes" value="${h2.minutes??''}"></div>
+        <div class="field"><label for="plZone">Zona</label><select id="plZone" data-pf="hr.zone">${[1,2,3,4,5].map(z=>`<option value="${z}"${+h2.zone===z?' selected':''}>Z${z}</option>`).join('')}</select></div></div>
+        ${p?`<span class="hint num">Z${h2.zone} para ${esc(p.name)}: ${(()=>{const lim=zoneLimits(p),z=+h2.zone;return `${lim[z-1]}–${z<5?lim[z]-1:p.hrMax} ppm`})()}</span>`:''}</div>`}
+    else{const prev=stOf(pl.userId).slice(0,12);
+      if(prev.length)h+=`<div class="field"><label for="plCopy">Copiar ejercicios de una sesión anterior</label><select id="plCopy"><option value="">Elegir sesión…</option>${prev.map(x=>`<option value="${x.id}">${esc(x.type)} · ${fmtDate(x.startTime)}</option>`).join('')}</select></div>`;
+      pl.exercises.forEach((e,i)=>{h+=`<div class="card ex"><div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
+        <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label></div>
+        <div class="sets"><div class="set-h"><span>Serie</span><span>Reps</span><span>Kg</span><span>RPE obj.</span><span></span></div>
+        ${e.sets.map((x,j)=>`<div class="set"><span class="set-n">${j+1}</span>
+          <input type="number" inputmode="numeric" min="0" data-pe="${i}" data-ps="${j}" data-pk="reps" value="${x.reps??''}" aria-label="Repeticiones serie ${j+1}">
+          <input type="number" inputmode="decimal" min="0" step="0.5" data-pe="${i}" data-ps="${j}" data-pk="kg" value="${x.kg??''}" placeholder="—" aria-label="Kg serie ${j+1}">
+          <select data-pe="${i}" data-ps="${j}" data-pk="rpe" aria-label="RPE objetivo serie ${j+1}">${rpeOpts(x.rpe)}</select>
+          <button class="icon-btn" data-act="plDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${j+1}">×</button></div>`).join('')}</div>
+        <div class="ex-f"><button class="btn small" data-act="plAddSet" data-i="${i}">+ Serie</button>${e.unilateral?'<span class="hint">Cada serie se hace con los dos lados</span>':''}</div></div>`});
+      h+=`<datalist id="exlist">${exerciseNames(pl.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist><button class="btn wide" data-act="plAddEx">+ Añadir ejercicio</button>`}
+    h+=`<div class="card"><div class="field"><label for="plNotes">Indicaciones para el deportista</label><textarea id="plNotes" data-pf="notes" placeholder="Calentamiento, descansos, técnica, parte de cardio…">${esc(pl.notes||'')}</textarea></div></div>`}
+  // Acciones
+  if(done)h+=`<div class="note info slim">${ic('info')}<span class="hint">Hecho ${pl.doneAt?fmtDT(pl.doneAt):''}.${doneSes?'':' La sesión llegará cuando el deportista te envíe sus datos.'}</span></div>${doneSes?`<button class="btn wide" data-act="plOpenDone">Ver la sesión realizada</button>`:''}`;
+  if(cl){if(!done)h+=`<button class="btn primary wide big-btn" data-act="plStart">${ic(pl.kind==='hr'?'heart':'dumbbell')}${pl.status==='inprogress'?'Continuar entrenamiento':'Empezar entrenamiento'}</button>`}
+  else h+=`<div class="plan-actions"><button class="btn primary" data-act="plSend">${ic('send')}Enviar a ${esc(p?.name||'deportista')}</button>${done?'':`<button class="btn" data-act="plStart">${ic(pl.kind==='hr'?'heart':'dumbbell')}Hacerlo ahora (presencial)</button>`}</div>
+    ${pl.sentAt?`<span class="hint">Enviado ${ago(pl.sentAt)}. Si lo cambias, vuelve a enviarlo.</span>`:''}
+    ${info('Pulsa «Enviar» y elige WhatsApp. Tu deportista abre el archivo con IMDTraining (compartiéndolo a la app o con «Abrir entrenamiento recibido» en el menú) y le aparecerá en su resumen. Al hacerlo, la sesión se rellena con lo programado y solo tiene que anotar lo que cambie y el RPE. Cuando te envíe sus datos, este entrenamiento se marcará como hecho.<br><br>«Hacerlo ahora» es para cuando lo entrenas tú en persona: lo registras en tu móvil y al terminar puedes enviarle la sesión.','Cómo funciona')}`;
+  h+=`<details class="card danger-zone"><summary>Borrar entrenamiento programado</summary><button class="btn danger wide" data-act="plDel">Borrar</button></details>`;
+  return h};
+// Empezar un entrenamiento programado
+async function startPlan(pl){const p=prof(pl.userId);if(!p){toast('No se encuentra el perfil de este entrenamiento');return}
+  if(pl.kind==='hr'){if(S.rec){toast('Ya hay una sesión grabándose');return}S.form={type:pl.hr?.type||pl.title,planId:pl.id};go('pre',p.id,{keepForm:true});return}
+  const cur=pl.doneId&&stById(pl.doneId);if(pl.status==='inprogress'&&cur&&cur.status==='open'){go('strength',cur.id);return}
+  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)).map(e=>({name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,
+    ...(e.muscles?{muscles:{...e.muscles},mAuto:false}:{}),plan:e.sets.map(x=>({reps:x.reps??null,kg:x.kg??null,rpe:x.rpe??null})),
+    sets:e.unilateral?e.sets.flatMap(x=>[{side:'I',reps:x.reps??null,kg:x.kg??null,rpe:null},{side:'D',reps:x.reps??null,kg:x.kg??null,rpe:null}]):e.sets.map(x=>({reps:x.reps??null,kg:x.kg??null,rpe:null}))}));
+  const st={id:uid(),userId:p.id,kind:'strength',type:pl.title||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,rpePre:null,rpePost:null,rpePostTime:null,notes:'',status:'open',planId:pl.id,
+    exercises:ex.length?ex:[{name:'',sets:[{reps:null,kg:null,rpe:null}]}]};
+  await saveSt(st);pl.status='inprogress';pl.doneId=st.id;await savePlan(pl);go('strength',st.id);toast('Sesión preparada: anota solo lo que cambie y el RPE de cada serie')}
+async function markPlanDone(planId,sid,at){const pl=planById(planId)||await DB.get('plans',planId);if(!pl)return;
+  pl.status='done';pl.doneId=sid;pl.doneAt=at||Date.now();await savePlan(pl)}
+async function unmarkPlan(planId,sid){const pl=planById(planId);if(!pl||pl.doneId!==sid)return;pl.status='pending';pl.doneId=null;pl.doneAt=null;await savePlan(pl)}
+// Edición del plan (entrenador)
+$('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
+  if(el.dataset.pf){const f=el.dataset.pf;if(f.startsWith('hr.')){pl.hr=pl.hr||{};const k=f.slice(3);pl.hr[k]=k==='type'?el.value:(el.value===''?null:+el.value);if(k==='zone'){savePlanSoon(pl);const y=scrollY;render();scrollTo(0,y);return}}else pl[f]=el.value}
+  else if(el.dataset.pe!=null&&el.dataset.pk!=='unilateral'){const ex=pl.exercises[+el.dataset.pe];if(!ex)return;
+    if(el.dataset.ps!=null)ex.sets[+el.dataset.ps][el.dataset.pk]=el.value===''?null:+el.value;else ex[el.dataset.pk]=el.value}
+  else return;
+  savePlanSoon(pl);const t=$('#plTot');if(t)t.textContent=planSummary(pl)});
+$('#app').addEventListener('change',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
+  if(el.dataset.pk==='unilateral'){pl.exercises[+el.dataset.pe].unilateral=el.checked;savePlan(pl).then(rerenderKeepFocus)}
+  if(el.id==='plCopy'&&el.value){const st=stById(el.value);if(!st)return;pl.exercises=exercisesFromSession(st);if(!pl.title||pl.title==='Entrenamiento de fuerza')pl.title=st.type;
+    savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y);toast(`Copiados ${pl.exercises.length} ejercicios de «${st.type}». Ajusta las cargas.`)})}});
+/* ================= Compartir con el deportista ================= */
+async function shareFile(data,base,title,text){const txt=JSON.stringify(data);
+  try{if(navigator.canShare){for(const [ext,type] of [['json','application/json'],['txt','text/plain']]){const f=new File([txt],`${base}.${ext}`,{type});
+      if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title,text});return 'shared'}}}}
+  catch(e){if(e.name==='AbortError')return 'cancel'}
+  await download(`${base}.json`,txt,'application/json',false);return 'downloaded'}
+async function sendPlan(pl){const p=prof(pl.userId);if(!pl.title){toast('Ponle un título al entrenamiento');return}
+  if(pl.kind!=='hr'&&!(pl.exercises||[]).some(e=>normTxt(e.name))){toast('Añade al menos un ejercicio');return}
+  const data={app:'imdtraining',kind:'plan',version:4,exported:new Date().toISOString(),forProfileId:pl.userId,forName:p?.name||'',plans:[{...pl,status:'pending',doneId:null,doneAt:null}]};
+  const r=await shareFile(data,`imdtraining_entreno_${slug(p?.name)}_${slug(pl.title)}`,`Entrenamiento: ${pl.title}`,`${pl.title} (${planDateTxt(pl.date).toLowerCase()}) para ${p?.name||''}. Ábrelo con IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
+  if(r==='cancel')return;pl.sentAt=Date.now();await savePlan(pl);render();toast(r==='shared'?'Entrenamiento enviado':'Archivo guardado en Descargas: envíaselo por WhatsApp')}
+// Enviar al deportista una sesión o un test registrado por el entrenador
+async function sendToAthlete(kind,id){let x,data,label;
+  if(kind==='hr'){x=S.sessions.find(s=>s.id===id);const tr=await DB.get('tracks',id);data={sessions:[x],tracks:tr?[tr]:[]};label=x.type}
+  else if(kind==='st'){x=stById(id);data={strength:[x]};label=x.type}
+  else{x=testById(id);data={tests:[x]};label=TEST_TYPES[x.type]?.short||'Test'}
+  const p=prof(x.userId);
+  const r=await shareFile({app:'imdtraining',kind:'session',version:4,exported:new Date().toISOString(),forProfileId:x.userId,forName:p?.name||'',...data},
+    `imdtraining_${slug(p?.name)}_${slug(label)}_${fileDate(x.startTime??x.date)}`,`${label} · ${p?.name||''}`,`Tu sesión de ${label} (${fmtDate(x.startTime??x.date)}). Guárdala en IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
+  if(r==='cancel')return;x.sharedAt=Date.now();
+  if(kind==='hr')await DB.put('sessions',x);else if(kind==='st')await saveSt(x);else await saveTest(x);
+  render();toast(r==='shared'?'Enviado al deportista':'Archivo guardado en Descargas: envíaselo por WhatsApp')}
+const athleteBtn=(kind,id,x)=>isClient()?'':`<button class="btn" data-act="toAthlete" data-k="${kind}" data-id="${id}">${ic('send')}${x?.sharedAt?'Reenviar':'Enviar'} al deportista</button>`;
+// Abrir en la app lo que envía el entrenador (entrenamiento programado o sesión/test ya hecho)
+async function importForAthlete(d){
+  let target=null;
+  if(isClient()){target=myProfile();if(!target)return {error:'Crea primero tu perfil y vuelve a abrir el archivo'}
+    // Vincula tu perfil con el del entrenador para que, al devolverle tus datos, se guarden en el mismo perfil
+    if(d.forProfileId&&target.linkId!==d.forProfileId){target.linkId=d.forProfileId;await DB.put('profiles',target)}}
+  else{target=prof(d.forProfileId);if(!target)return {error:`Este archivo es para ${d.forName||'un deportista'}: ábrelo en su móvil, con la app en modo deportista`}}
+  const items=[],u=x=>({...x,userId:target.id});
+  for(const pl of d.plans||[]){const old=await DB.get('plans',pl.id);const q=u(pl);if(old&&old.status!=='pending'){q.status=old.status;q.doneId=old.doneId;q.doneAt=old.doneAt}
+    q.receivedAt=Date.now();await DB.put('plans',q);items.push({type:'plan',id:q.id,name:q.title,uid:target.id})}
+  for(const x of d.sessions||[]){await DB.put('sessions',u(x));items.push({type:'hr',id:x.id,name:x.type,uid:target.id})}
+  for(const t of d.tracks||[])await DB.put('tracks',t);
+  for(const x of d.strength||[]){await DB.put('strength',u(x));items.push({type:'st',id:x.id,name:x.type,uid:target.id})}
+  for(const x of d.tests||[]){await DB.put('tests',u(x));items.push({type:'test',id:x.id,name:TEST_TYPES[x.type]?.short||'Test',uid:target.id})}
+  return {items}}
 /* ================= Instalación como app ================= */
 let installEvt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;refreshInstall()});
@@ -1406,7 +1559,7 @@ V.test=()=>{
   if(t.type==='vo2')h+=vo2Form(t);else if(t.type==='vt2')h+=vt2Form(t);else h+=jumpForm(t);
   h+=`<section class="sec"><h3>Resultados</h3><div class="card" id="tRes" aria-live="polite"></div></section>
   <div class="card"><div class="field"><label for="tNotes">Notas</label><textarea id="tNotes" data-t="notes" placeholder="${cyc?'Ergómetro, cadencia, condiciones, sensaciones…':'Superficie, calzado, calentamiento, sensaciones…'}">${esc(t.notes||'')}</textarea></div></div>
-  <div class="row"><button class="btn primary" data-act="tSave">Guardar y volver</button><button class="btn danger" data-act="tDel">Borrar test</button></div>`;
+  <div class="row"><button class="btn primary" data-act="tSave">Guardar y volver</button>${athleteBtn('test',t.id,t)}<button class="btn danger" data-act="tDel">Borrar test</button></div>`;
   return h;
 };
 function stageRows(t,first){return (t.stages||[]).map((s,i)=>`<div class="set"><span class="set-n">${first==='min'?i+1+'′':i+1}</span>
@@ -1524,7 +1677,7 @@ $('#app').addEventListener('input',e=>{
 $('#app').addEventListener('change',e=>{if(e.target.id==='tUser')go('tests',e.target.value,{push:false})});
 
 /* ================= Navegación ================= */
-const TITLES={home:()=> 'IMDTraining',welcome:()=>'IMDTraining',edit:()=>S.arg?'Editar perfil':isClient()?'Tu perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
+const TITLES={home:()=> 'IMDTraining',welcome:()=>'IMDTraining',edit:()=>S.arg?'Editar perfil':isClient()?'Tu perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',plan:()=>planById(S.arg)?.title||'Entrenamiento',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
 function go(view,arg,{push=true,keepForm=false}={}){
   if(push)S.stack.push([S.view,S.arg]);
   S.view=view;S.arg=arg??null;if(!keepForm)S.form={};render();window.scrollTo(0,0);
@@ -1536,6 +1689,7 @@ function back(){
   let [v,a]=prev;if(v==='live'||v==='pre'||v==='post'||v==='stpost'||(v==='edit'&&S.view!=='edit'))return back();
   if((v==='strength'||v==='ssum')&&!stById(a)){v='home';a=null}
   if(v==='test'&&!testById(a)){v='home';a=null}
+  if(v==='plan'&&!planById(a)){v='home';a=null}
   if((v==='profile'&&!prof(a))||(v==='summary'&&!S.sessions.find(x=>x.id===a))){v='home';a=null}
   go(v,a,{push:false});
 }
@@ -1555,13 +1709,13 @@ function activeProfileId(){
   if(S.view==='profile'||S.view==='pre'||(S.view==='edit'&&S.arg))return S.arg;
   if(S.view==='summary'||S.view==='post')return S.sessions.find(x=>x.id===S.arg)?.userId;
   if(S.view==='strength'||S.view==='stpost'||S.view==='ssum')return stById(S.arg)?.userId;
-  if(S.view==='tests')return S.arg;if(S.view==='test')return testById(S.arg)?.userId;
+  if(S.view==='tests')return S.arg;if(S.view==='test')return testById(S.arg)?.userId;if(S.view==='plan')return planById(S.arg)?.userId;
   if(S.view==='live')return S.rec?.userId;return null}
 function renderDrawer(){
   const act=activeProfileId();
   const cl=isClient();
   $('#dHome').textContent=cl?'Mi perfil':'Inicio';$('#dHome').classList.toggle('on',S.view==='home'||(cl&&S.view==='profile'));
-  $('#dSecProfiles').hidden=cl;$('#dNew').hidden=cl;$('#dSend').hidden=!cl||!myProfile();$('#dInvite').hidden=cl;$('#dImport').hidden=cl;
+  $('#dSecProfiles').hidden=cl;$('#dNew').hidden=cl;$('#dSend').hidden=!cl||!myProfile();$('#dInvite').hidden=cl;$('#dImport').hidden=cl&&!myProfile();$('#dImport').textContent=cl?'Abrir entrenamiento recibido':'Importar datos de un cliente';
   $('#dMode').textContent=cl?'Cambiar a modo entrenador':'Cambiar a modo deportista';$('#dTests').classList.toggle('on',S.view==='tests'||S.view==='test');
   const ps=[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
   $('#dList').innerHTML=ps.length?ps.map(p=>{const ss=allOf(p.id),last=ss[0],pend=ss.some(s=>s.rpePost==null);
@@ -1621,12 +1775,25 @@ const A={
   openProfile:id=>{S.ptab='res';S.sfilter='all';go('profile',id)},
   newProfile:()=>go('edit',null),
   invite:()=>inviteClient(),
+  newPlan(){newPlanFor(S.arg)},
+  openPlan:id=>go('plan',id),
+  async plKind(_,b){const pl=planById(S.arg);pl.kind=b.dataset.v;if(pl.kind==='hr'&&(!pl.title||pl.title==='Entrenamiento de fuerza'))pl.title='Sesión de resistencia';if(pl.kind==='strength'&&pl.title==='Sesión de resistencia')pl.title='Entrenamiento de fuerza';await savePlan(pl);render()},
+  async plAddEx(){const pl=planById(S.arg);pl.exercises.push({name:'',variant:'',unilateral:false,sets:[{reps:8,kg:null,rpe:7}]});await savePlan(pl);render();const n=document.querySelectorAll('.ex-name');n[n.length-1]?.focus();n[n.length-1]?.scrollIntoView({block:'center'})},
+  async plDelEx(_,b){const pl=planById(S.arg);pl.exercises.splice(+b.dataset.i,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plAddSet(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i],l=e.sets[e.sets.length-1];e.sets.push(l?{...l}:{reps:8,kg:null,rpe:7});await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plDelSet(_,b){const pl=planById(S.arg);pl.exercises[+b.dataset.i].sets.splice(+b.dataset.j,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  plSend(){sendPlan(planById(S.arg))},
+  plStart(){startPlan(planById(S.arg))},
+  plOpenDone(){const pl=planById(S.arg);if(stById(pl.doneId))go('ssum',pl.doneId);else go('summary',pl.doneId)},
+  plDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;await DB.del('plans',id);S.plans=S.plans.filter(x=>x.id!==id);back();toast('Entrenamiento borrado')})},
+  toAthlete(_,b){sendToAthlete(b.dataset.k,b.dataset.id)},
+  openReceived(){$('#importFile').click()},
   async installApp(){if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;refreshInstall()},
   import:()=>$('#importFile').click(),
   importBackup:()=>$('#importFile').click(),
   send:()=>sendToCoach(),
   async chooseMode(b){const m=b.dataset.v;lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m;
-    if(m==='coach'){if(!S.profiles.length&&!lsGet('seeded')){await seedExample();lsSet('seedv','4');await loadAll()}S.stack=[];go('home',null,{push:false})}
+    if(m==='coach'){if(!S.profiles.length&&!lsGet('seeded')){await seedExample();lsSet('seedv','5');await loadAll()}S.stack=[];go('home',null,{push:false})}
     else{S.stack=[];clientRoot();render()}},
   editProfile:()=>go('edit',S.arg),
   estimate(){const f=readForm(),a=age(f.birthDate);if(a==null){toast('Escribe primero la fecha de nacimiento');return}
@@ -1648,6 +1815,7 @@ const A={
     if(!hasSource())return;
     const p=prof(S.arg);S.form.type=($('#stype').value||'Otro').trim();lsSet('lastType_'+p.id,S.form.type);
     const r=newRec(p,{rpePre:S.form.rpePre,type:S.form.type});
+    if(S.form.planId){r.planId=S.form.planId;const pl=planById(r.planId);if(pl){pl.status='inprogress';pl.doneId=r.id;await savePlan(pl)}}
     r.startTime=Date.now();r.running=true;r.segStart=r.startTime;S.rec=r;
     await saveRec();S.autosave=setInterval(saveRec,15000);
     keepAwake(true);S.stack=S.stack.filter(x=>x[0]!=='pre');go('live',null,{push:false});
@@ -1734,7 +1902,7 @@ const A={
     arm(b,'Pulsa otra vez para terminar',async()=>{
       st.exercises=st.exercises.filter(e=>e.name.trim()||e.sets.some(s=>+s.reps>0)).map(e=>({...e,name:e.name.trim()||'Ejercicio',variant:(e.variant||'').trim(),unilateral:!!e.unilateral,sets:e.sets.filter(s=>+s.reps>0)}));
       st.endTime=Date.now();const m=Math.round((st.endTime-st.startTime)/60000);st.durationMin=m>=1&&m<=240?m:null;st.status='done';
-      lsSet('lastStType_'+st.userId,st.type);await saveSt(st);go('stpost',st.id,{push:false})})},
+      lsSet('lastStType_'+st.userId,st.type);await saveSt(st);if(st.planId)await markPlanDone(st.planId,st.id);go('stpost',st.id,{push:false})})},
   async stDone(){const st=stById(S.arg);st.exercises=st.exercises.filter(e=>e.name.trim()||e.sets.some(s=>+s.reps>0));await saveSt(st);back();toast('Cambios guardados')},
   async stSavePost(){const st=stById(S.arg),d=parseInt($('#stDur').value);
     if(!(d>0)){toast('Escribe la duración en minutos');$('#stDur').focus();return}
@@ -1745,13 +1913,13 @@ const A={
     if(!(st.durationMin>0)){toast('Falta la duración: pulsa «Editar sesión» y añádela al terminar');}
     st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);render();toast('RPE guardado')},
   stEdit(){go('strength',S.arg)},
-  async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
+  async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;const pid=stById(id)?.planId;if(pid)await unmarkPlan(pid,id);await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
   stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;variante;unilateral;lado;serie;reps;kg;rpe;volumen_kg'];
     for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,e.variant||'',e.unilateral?'sí':'no',e.unilateral?(s.side==='I'?'izquierda':'derecha'):'',e.unilateral?Math.floor(j/2)+1:j+1,s.reps,dec(+s.kg||0,1),s.rpe??'',dec(s.reps*(+s.kg||0),1)].map(v=>String(v).replace(/;/g,',')).join(';')));
     download(`${slug(p.name)}_${fileDate(st.startTime)}_fuerza.csv`,rows.join('\r\n'),'text/csv')},
   acwrMethod(b){lsSet('acwrMethod',b.dataset.v);render()},
   loadView(b){lsSet('loadView',b.dataset.v);render()},
-  async delSession(b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
+  async delSession(b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;const pid=S.sessions.find(x=>x.id===id)?.planId;if(pid)await unmarkPlan(pid,id);await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
   async exportSession(){const s=S.sessions.find(x=>x.id===S.arg),tr=await DB.get('tracks',s.id);
     const rows=['timestamp_iso;segundos;bpm;zona',...(tr?.samples||[]).map(([t,b])=>`${new Date(t).toISOString()};${dec((t-s.startTime)/1000)};${b};Z${zoneOf(b,s.zoneLimits)}`)];
     download(`${slug(prof(s.userId)?.name)}_${fileDate(s.startTime)}_${slug(s.type)}.csv`,rows.join('\r\n'),'text/csv')},
@@ -1761,7 +1929,7 @@ const A={
       else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Pulsómetro',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','',''];
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
-  async backup(){const data={app:'imdtraining',version:3,strength:await DB.all('strength'),tests:await DB.all('tests'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
+  async backup(){const data={app:'imdtraining',version:4,strength:await DB.all('strength'),tests:await DB.all('tests'),plans:await DB.all('plans'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
     download(`imdtraining_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
   import(){$('#importFile').click()},
   async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
@@ -1775,7 +1943,8 @@ async function saveProfile(){
   const old=prof(f.id);
   delete f.example;await DB.put('profiles',f);
   const i=S.profiles.findIndex(p=>p.id===f.id);if(i<0)S.profiles.push(f);else S.profiles[i]=f;
-  if(!old&&isClient()){f.owner='client';await DB.put('profiles',f);S.stack=[];go('profile',f.id,{push:false});toast('Perfil creado');return}
+  if(!old&&isClient()){f.owner='client';await DB.put('profiles',f);S.stack=[];go('profile',f.id,{push:false});toast('Perfil creado');
+    if(S.pendingFiles){const fl=S.pendingFiles;S.pendingFiles=null;await importFiles(fl)}return}
   if(old)back();else go('profile',f.id);toast('Perfil guardado');
 }
 $('#app').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)});
@@ -1787,35 +1956,61 @@ for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x
 async function importShared(){
   try{const cache=await caches.open('imdt-share'),keys=await cache.keys(),files=[];
     for(const k of keys){const r=await cache.match(k);files.push(new File([await r.blob()],decodeURIComponent(r.headers.get('x-name')||'datos.json')));await cache.delete(k)}
-    if(files.length){if(isClient()){toast('Para importar datos de otros, cambia a modo entrenador desde el menú');return}await importFiles(files)}
+    if(files.length){
+      // Primera vez que se abre la app y llega un entrenamiento o sesión del entrenador: modo deportista
+      if(!lsGet('mode')&&!S.modeFallback){let kind=null;try{kind=JSON.parse((await files[0].text()).replace(/^\uFEFF/,'')).kind}catch(e){}
+        const m=kind==='plan'||kind==='session'?'client':'coach';lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m;
+        if(m==='client'&&!myProfile()){S.pendingFiles=files;clientRoot();render();toast('Crea tu perfil y se abrirá el entrenamiento que te han enviado');return}
+        if(m==='coach'){S.view='home';S.arg=null;render()}}
+      if(isClient()&&!myProfile()){S.pendingFiles=files;clientRoot();render();toast('Crea tu perfil y se abrirá el entrenamiento que te han enviado');return}
+      await importFiles(files)}
     else toast('No ha llegado ningún archivo. Prueba a compartirlo otra vez')}
   catch(e){toast('No se pudo leer el archivo compartido')}}
 // Importación: archivos que envían los clientes o copias de seguridad. Sin filtro de tipo: Android no reconoce bien los .json
 async function importFiles(files){
-  const res={profiles:[],nNew:0,errors:[]};
+  const res={profiles:[],nNew:0,errors:[],athlete:[],plansDone:0};
   for(const file of files){let d;
     try{let txt=await file.text();txt=txt.replace(/^﻿/,'').trim();
       if(!txt.startsWith('{'))throw new Error('formato');d=JSON.parse(txt)}
     catch(e){res.errors.push(`«${file.name}» no se puede leer como archivo de datos`);continue}
     if(!['imdtraining','imdt-training','pulsometro'].includes(d.app)){res.errors.push(`«${file.name}» no es un archivo de IMDTraining`);continue}
+    // Entrenamientos programados y sesiones que envía el entrenador al deportista
+    if(d.kind==='plan'||d.kind==='session'){const r=await importForAthlete(d);if(r.error)res.errors.push(r.error);else res.athlete.push(...r.items);continue}
+    if(isClient()){res.errors.push(`«${file.name}» son datos para el entrenador: ábrelo en modo entrenador`);continue}
     // Las copias completas traen el perfil de ejemplo del otro móvil: se ignora junto con sus datos
     const exIds=new Set((d.profiles||[]).filter(p=>p.example).map(p=>p.id)),keep=x=>!exIds.has(x.userId)&&!x.example;
     const profiles=(d.profiles||[]).filter(p=>!p.example),sessions=(d.sessions||[]).filter(keep),strength=(d.strength||[]).filter(keep),tests=(d.tests||[]).filter(keep);
     const sesIds=new Set(sessions.map(x=>x.id)),tracks=(d.tracks||[]).filter(t=>sesIds.has(t.id));
     const had=new Set([...S.sessions,...S.strength,...S.tests].map(x=>x.id)),hadP=new Set(S.profiles.map(x=>x.id));
     const fromOther=d.kind==='client'||profiles.some(p=>p.owner==='client');
-    for(const p of profiles){const q={...p};if(fromOther){q.remote=true;q.lastImport=Date.now();delete q.owner}await DB.put('profiles',q);res.profiles.push({name:p.name,id:p.id,isNew:!hadP.has(p.id)})}
-    for(const x of sessions)await DB.put('sessions',x);for(const x of tracks)await DB.put('tracks',x);
-    for(const x of strength)await DB.put('strength',x);for(const x of tests)await DB.put('tests',x);
+    // Si el deportista abrió algo que le enviaste desde un perfil creado por ti, sus datos se guardan en ese mismo perfil
+    const idMap={};
+    for(const p of profiles){let q={...p};
+      if(fromOther){q.remote=true;q.lastImport=Date.now();delete q.owner;
+        if(p.linkId&&p.linkId!==p.id&&prof(p.linkId)){idMap[p.id]=p.linkId;q={...q,id:p.linkId,name:prof(p.linkId).name}}}
+      await DB.put('profiles',q);res.profiles.push({name:q.name,id:q.id,isNew:!hadP.has(q.id)})}
+    const rm=x=>idMap[x.userId]?{...x,userId:idMap[x.userId]}:x;
+    for(const x of sessions)await DB.put('sessions',rm(x));for(const x of tracks)await DB.put('tracks',x);
+    for(const x of strength)await DB.put('strength',rm(x));for(const x of tests)await DB.put('tests',rm(x));
+    for(const x of d.plans||[])if(!planById(x.id))await DB.put('plans',rm(x));
+    // Entrenamientos programados que el deportista ya ha hecho
+    for(const x of [...sessions,...strength])if(x.planId&&x.status==='done'){const pl=planById(x.planId)||await DB.get('plans',x.planId);if(pl&&pl.status!=='done'){await markPlanDone(x.planId,x.id,x.endTime||x.startTime);res.plansDone++}}
     res.nNew+=[...sessions,...strength,...tests].filter(x=>!had.has(x.id)).length}
   await loadAll();
-  if(res.profiles.length===1){const p=res.profiles[0];toRoot('profile',p.id);toast(`${p.isNew?'Añadido':'Actualizado'} el perfil de ${p.name}: ${res.nNew} registro${res.nNew===1?'':'s'} nuevo${res.nNew===1?'':'s'}${res.errors.length?'. '+res.errors.join('. '):''}`)}
+  const errs=res.errors.length?'. '+res.errors.join('. '):'';
+  if(res.athlete.length&&!res.profiles.length){const a=res.athlete;
+    if(a.length===1){const x=a[0];if(x.type==='plan')toRoot('plan',x.id);else if(x.type==='st')toRoot('ssum',x.id);else if(x.type==='hr')toRoot('summary',x.id);else toRoot('test',x.id);
+      toast((x.type==='plan'?`Nuevo entrenamiento: ${x.name}`:`Sesión guardada: ${x.name}`)+errs)}
+    else{const me=myProfile()||prof(a[0].uid);if(me){S.ptab='res';toRoot('profile',me.id)}toast(`Recibidos ${a.length} elementos: ${a.map(x=>x.name).join(', ')}${errs}`)}
+    return}
+  const pd=res.plansDone?` · ${res.plansDone} entrenamiento${res.plansDone===1?'':'s'} programado${res.plansDone===1?'':'s'} hecho${res.plansDone===1?'':'s'}`:'';
+  if(res.profiles.length===1){const p=res.profiles[0];toRoot('profile',p.id);toast(`${p.isNew?'Añadido':'Actualizado'} el perfil de ${p.name}: ${res.nNew} registro${res.nNew===1?'':'s'} nuevo${res.nNew===1?'':'s'}${pd}${res.errors.length?'. '+res.errors.join('. '):''}`)}
   else if(res.profiles.length){toRoot('home');toast(`Importados ${res.profiles.length} perfiles (${res.profiles.map(p=>p.name).join(', ')}) · ${res.nNew} registros nuevos${res.errors.length?'. '+res.errors.join('. '):''}`)}
   else toast(res.errors.join('. ')||'El archivo no contiene perfiles')}
 $('#importFile').addEventListener('change',async e=>{const files=[...e.target.files];e.target.value='';if(files.length)await importFiles(files)});
 // En ordenador: arrastrar los archivos a la ventana
-document.addEventListener('dragover',e=>{if(e.dataTransfer?.types?.includes('Files')&&!isClient())e.preventDefault()});
-document.addEventListener('drop',e=>{if(!e.dataTransfer?.files?.length||isClient())return;e.preventDefault();importFiles([...e.dataTransfer.files])});
+document.addEventListener('dragover',e=>{if(e.dataTransfer?.types?.includes('Files'))e.preventDefault()});
+document.addEventListener('drop',e=>{if(!e.dataTransfer?.files?.length)return;e.preventDefault();importFiles([...e.dataTransfer.files])});
 
 const slug=s=>String(s||'x').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
 const fileDate=t=>{const d=new Date(t);return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`};
@@ -1870,11 +2065,17 @@ async function seedExample(){
   await T('vt2',11,{stages:Array.from({length:12},(_,i)=>{const w=50+25*i;return {w,hr:Math.round(w<=250?92+0.29*w:164.5+0.09*(w-250)+(i%2?1:0)),rpe:Math.min(20,7+i)}})});
   await T('jump',33,{weight:73,jumps:{cmj:[36.1,37.4,36.8],sj:[32.5,33,32.1],abk:[42,43.1,42.6]}});
   await T('jump',3,{jumps:{cmj:[38.2,37.6,38.9],sj:[33.8,34.4,33.9],abk:[44.5,45.2,44]}});
+  { const t=new Date();t.setDate(t.getDate()+1);const ds=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+    await DB.put('plans',{id:uid(),userId:p.id,title:'Fuerza · semana 7',kind:'strength',date:ds,status:'pending',createdAt:Date.now(),example:true,notes:'Calentamiento de 10 min. Descansos de 2–3 min en los básicos.',hr:{type:'Carrera',minutes:40,zone:2},
+      exercises:[{name:'Sentadilla',variant:'',unilateral:false,sets:[{reps:5,kg:85,rpe:7},{reps:5,kg:85,rpe:7},{reps:5,kg:85,rpe:8},{reps:5,kg:85,rpe:8}]},
+        {name:'Press banca',variant:'',unilateral:false,sets:[{reps:6,kg:57.5,rpe:7},{reps:6,kg:57.5,rpe:7},{reps:6,kg:57.5,rpe:8}]},
+        {name:'Sentadilla búlgara',variant:'',unilateral:true,sets:[{reps:8,kg:16,rpe:7},{reps:8,kg:16,rpe:7}]}]});
+    await DB.put('plans',{id:uid(),userId:p.id,title:'Rodaje suave',kind:'hr',date:ds,status:'pending',createdAt:Date.now(),example:true,notes:'Ritmo conversacional.',hr:{type:'Carrera',minutes:40,zone:2},exercises:[]}); }
   lsSet('seeded','1');
 }
 
 /* ================= Arranque ================= */
-async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests')}
+async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests');S.plans=await DB.all('plans')}
 (async()=>{
   await DB.open();await loadAll();
   // Modo: enlace de invitación (#cliente), elección guardada o deducido de los datos que ya hay
@@ -1887,14 +2088,13 @@ async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB
   if(location.hash==='#cliente')try{history.replaceState({},'',location.pathname+location.search)}catch(e){}
   // Datos de ejemplo (solo modo entrenador): se crean la primera vez y se renuevan si cambia su versión
   const ex=S.profiles.find(p=>p.example);
-  if(m==='coach'&&((!S.profiles.length&&!lsGet('seeded'))||(ex&&lsGet('seedv')!=='4'))){
+  if(m==='coach'&&((!S.profiles.length&&!lsGet('seeded'))||(ex&&lsGet('seedv')!=='5'))){
     if(ex){for(const s of S.sessions.filter(s=>s.userId===ex.id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
-      for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.del('strength',s.id);for(const t of S.tests.filter(t=>t.userId===ex.id))await DB.del('tests',t.id);await DB.del('profiles',ex.id)}
-    await seedExample();lsSet('seedv','4');await loadAll()}
+      for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.del('strength',s.id);for(const t of S.tests.filter(t=>t.userId===ex.id))await DB.del('tests',t.id);for(const x of S.plans.filter(x=>x.userId===ex.id))await DB.del('plans',x.id);await DB.del('profiles',ex.id)}
+    await seedExample();lsSet('seedv','5');await loadAll()}
   try{history.replaceState({},'')}catch(e){}
   // Archivos compartidos a la app desde WhatsApp u otra app (llegan por el service worker)
   const sharedN=new URLSearchParams(location.search).get('shared');
-  if(sharedN!=null&&!m){m='coach';lsSet('mode','coach')}
   if(!m)S.view='welcome';else if(m==='client')clientRoot();
   syncDrawerMode();render();updChip();
   if(sharedN!=null){try{history.replaceState({},'',location.pathname)}catch(e){}await importShared()}
