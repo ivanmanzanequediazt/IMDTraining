@@ -24,6 +24,7 @@
   --z0:#4A5767; --z1:#8FA3BC; --z2:#4F9BE0; --z3:#4FC062; --z4:#F59A3A; --z5:#EF5058; color-scheme:dark}
 
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--body);margin:0;-webkit-tap-highlight-color:transparent}
 h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance;line-height:1.1}
 h2{font-size:24px}
@@ -117,11 +118,86 @@ canvas.tall{height:240px}
 .ctrls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:20;max-width:calc(100% - 32px)}
 .empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+/* Lectura sobre la gráfica */
+.chart{position:relative}
+canvas.scrub{touch-action:pan-y;cursor:crosshair;border-radius:6px}
+.sc-line{position:absolute;top:6px;width:0;border-left:1px dashed var(--ink);opacity:.55;pointer-events:none}
+.sc-dot{position:absolute;width:13px;height:13px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--ink);transform:translate(-50%,-50%);pointer-events:none}
+.sc-tip{position:absolute;display:flex;flex-direction:column;gap:1px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.14);padding:5px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+.sc-tip b{font:700 18px/1.1 var(--display)}
+.sc-tip span{font-size:12px;color:var(--muted)}
+.sc-tip b span{font:inherit}
+/* Carga de entrenamiento */
+.acwr-pill{align-self:flex-start;font:700 13px var(--body);padding:3px 10px;border-radius:999px;color:#fff}
+.acwr-key{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.acwr-key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.seg.two{grid-template-columns:1fr 1fr}
+/* Fuerza */
+.tag.str{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+.item .t .tag{vertical-align:2px;margin-left:4px}
+.ex{gap:10px}
+.ex-h{display:flex;align-items:center;gap:8px}
+.ex-n{font:700 22px var(--display);color:var(--accent);min-width:20px;text-align:center}
+.ex-name{font-weight:600}
+.icon-btn{border:0;background:none;color:var(--muted);font:600 22px/1 var(--body);width:36px;height:36px;border-radius:8px;cursor:pointer;flex:none}
+.icon-btn:hover{background:var(--soft)}
+.icon-btn.armed{color:#fff;background:var(--z5);font-size:15px}
+.icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sets{display:flex;flex-direction:column;gap:6px}
+.set-h,.set{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 36px;gap:6px;align-items:center}
+.set-h span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;text-align:center}
+.set input,.set select{padding:9px 4px;text-align:center;text-align-last:center;font-variant-numeric:tabular-nums}
+.set-n{font:700 17px var(--display);text-align:center;color:var(--muted)}
+.ex-f{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chipset{font:500 13px var(--mono);background:var(--soft);padding:3px 8px;border-radius:6px}
+details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
+.st-bar{grid-template-columns:0 1fr 70px 22px}
+/* Menú lateral de perfiles */
+.menu{border:0;background:none;color:var(--ink);width:36px;height:36px;border-radius:8px;cursor:pointer;display:grid;place-content:center;gap:4px;flex:none}
+.menu i{display:block;width:18px;height:2px;border-radius:2px;background:currentColor}
+.menu:focus-visible,.d-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#drawer{position:fixed;top:0;bottom:0;left:0;z-index:30;width:min(300px,84vw);background:var(--surface);border-right:1px solid var(--line);
+  padding:calc(14px + env(safe-area-inset-top,0px)) 12px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;
+  transform:translateX(-102%);transition:transform .22s ease;overflow-y:auto;overscroll-behavior:contain}
+#drawer.open{transform:none;box-shadow:0 0 40px rgba(0,0,0,.25)}
+#scrim{position:fixed;inset:0;z-index:25;background:rgba(10,15,22,.45)}
+.d-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px}
+.d-brand{font:700 24px var(--display);letter-spacing:.02em}
+.d-brand span{color:var(--accent)}
+.d-sec{display:flex;flex-direction:column;gap:2px}
+.d-sec .lbl{padding:0 8px 6px}
+.d-item{display:flex;align-items:center;gap:11px;width:100%;border:0;background:none;color:var(--ink);font:inherit;text-align:left;padding:8px;border-radius:10px;cursor:pointer;min-height:52px}
+.d-item:hover{background:var(--soft)}
+.d-item.on{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.d-item.on .avatar{background:var(--accent);color:var(--accent-ink)}
+.d-item .avatar{width:36px;height:36px;font-size:17px}
+.d-item .grow{flex:1;min-width:0}
+.d-item .t{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-item .s{font-size:13px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-pend{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}
+.d-plain{min-height:44px;padding-inline:12px}
+.d-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:10px}
+@media (min-width:900px){
+  body{padding-left:280px}
+  #drawer{width:280px;transform:none;transition:none;box-shadow:none!important}
+  #scrim,.menu,.d-close{display:none!important}
+}
 @media (max-width:380px){.stats{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
+<nav id="drawer" aria-label="Perfiles">
+  <div class="d-head"><span class="d-brand">Pulsó<span>metro</span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
+  <button class="d-item d-plain" data-d="home" id="dHome">Inicio</button>
+  <div class="d-sec"><span class="lbl">Perfiles</span><div id="dList"></div></div>
+  <button class="btn small" data-d="new">Nuevo perfil</button>
+  <div class="d-foot"><button class="d-item d-plain" data-d="backup">Copia de seguridad</button></div>
+</nav>
+<div id="scrim" hidden></div>
+
 <header class="bar"><div class="bar-in">
+  <button class="menu" id="menuBtn" aria-label="Abrir menú de perfiles" aria-controls="drawer" aria-expanded="false"><i></i><i></i><i></i></button>
   <button class="back" id="back" aria-label="Volver" hidden>‹</button>
   <h1 id="ttl">Pulsómetro</h1>
   <span class="chip" id="chip"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
@@ -188,17 +264,61 @@ function summarize(samples,lim){
   return {zoneMs,avgHr:sumT?Math.round(sumB/sumT):null,maxHr:max||null,coveredMs:sumT};
 }
 const srpe=s=>s.rpePost==null?null:Math.round(s.rpePost*s.activeMs/60000);
+// Carga diaria (UA) desde el primer día con datos hasta hoy, un valor por día natural
+function dayKey(t){const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()}
+function dailyLoads(items,today=Date.now()){
+  const m=new Map();let first=null;
+  for(const it of items){if(!it.load)continue;const k=dayKey(it.t);m.set(k,(m.get(k)||0)+it.load);if(first==null||k<first)first=k}
+  const end=dayKey(today),out=[];if(first==null)return out;
+  const d=new Date(first);
+  while(d.getTime()<=end){out.push({t:d.getTime(),load:m.get(d.getTime())||0});d.setDate(d.getDate()+1)}
+  return out;
+}
+// ACWR. 'ra': aguda = suma 7 d; crónica = media semanal de 28 d (suma 28 d / 4).
+// 'ewma': Williams et al. (2017), λ = 2/(N+1) con N = 7 y 28, empezando en 0.
+function acwrSeries(days,method){
+  const la=2/8,lc=2/29;let ea=0,ec=0;
+  return days.map((d,i)=>{
+    let a7=0,a28=0;for(let j=Math.max(0,i-27);j<=i;j++){a28+=days[j].load;if(j>i-7)a7+=days[j].load}
+    ea=d.load*la+(1-la)*ea;ec=d.load*lc+(1-lc)*ec;
+    const ratio=method==='ewma'?(ec>0?ea/ec:null):(a28>0?a7/(a28/4):null);
+    return {t:d.t,acute:a7,month:a28,ratio:ratio==null?null:Math.round(ratio*100)/100,enough:i>=27};
+  });
+}
+/* Fuerza: volumen-carga = Σ reps × kg; RPE CR-10 por serie; 1RM estimado con Epley */
+function strengthStats(st){
+  let vol=0,sets=0,reps=0,rs=0,rn=0;
+  const ex=(st.exercises||[]).map(e=>{let v=0,r=0,n=0,es=0,en=0,top=null,e1=0;
+    for(const s of e.sets||[]){const rp=+s.reps,kg=+s.kg||0;if(!(rp>0))continue;
+      n++;r+=rp;v+=rp*kg;
+      if(s.rpe!=null&&s.rpe!==''){es+=+s.rpe;en++}
+      if(kg>0){const est=kg*(1+rp/30);if(est>e1)e1=est;if(!top||kg>+top.kg||(kg===+top.kg&&rp>+top.reps))top=s}}
+    vol+=v;sets+=n;reps+=r;rs+=es;rn+=en;
+    return {name:e.name,vol:Math.round(v*10)/10,sets:n,reps:r,rpe:en?es/en:null,top,e1rm:e1?Math.round(e1*2)/2:null}});
+  return {vol:Math.round(vol),sets,reps,rpe:rn?rs/rn:null,ex};
+}
+const stLoad=st=>st.rpePost==null||!(st.durationMin>0)?null:Math.round(st.rpePost*st.durationMin);
+function acwrStatus(r){
+  if(r==null)return{txt:'Sin datos',z:0};
+  if(r<0.8)return{txt:'Carga baja',z:2};
+  if(r<=1.3)return{txt:'Zona óptima',z:3};
+  if(r<=1.5)return{txt:'Precaución',z:4};
+  return{txt:'Riesgo elevado',z:5};
+}
 
 /* ================= Almacenamiento (IndexedDB con respaldo en memoria) ================= */
 const DB={db:null,mem:null,
   async open(){
     if(this.db||this.mem)return;
     try{
-      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',1);
-        r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('profiles',{keyPath:'id'});
-          d.createObjectStore('sessions',{keyPath:'id'}).createIndex('userId','userId');d.createObjectStore('tracks',{keyPath:'id'})};
+      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',2);
+        r.onupgradeneeded=()=>{const d=r.result,has=n=>d.objectStoreNames.contains(n);
+          if(!has('profiles'))d.createObjectStore('profiles',{keyPath:'id'});
+          if(!has('sessions'))d.createObjectStore('sessions',{keyPath:'id'}).createIndex('userId','userId');
+          if(!has('tracks'))d.createObjectStore('tracks',{keyPath:'id'});
+          if(!has('strength'))d.createObjectStore('strength',{keyPath:'id'})}; // v2: sesiones de fuerza
         r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))});
-    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map()};S.memOnly=true}
+    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map(),strength:new Map()};S.memOnly=true}
   },
   tx(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);let out;const r=fn(t.objectStore(store));if(r)r.onsuccess=()=>{out=r.result};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error)})},
   all(s){return this.mem?Promise.resolve([...this.mem[s].values()]):this.tx(s,'readonly',o=>o.getAll())},
@@ -208,11 +328,16 @@ const DB={db:null,mem:null,
 };
 
 /* ================= Estado ================= */
-const S={profiles:[],sessions:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
+const S={profiles:[],sessions:[],strength:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
 let inFrame=false;try{inFrame=window.top!==window.self}catch(e){inFrame=true}
 const btOK=!!navigator.bluetooth&&!inFrame;
 const prof=id=>S.profiles.find(p=>p.id===id);
 const sessOf=uid=>S.sessions.filter(s=>s.userId===uid&&s.status==='done').sort((a,b)=>b.startTime-a.startTime);
+const stOf=uid=>S.strength.filter(s=>s.userId===uid&&s.status==='done').sort((a,b)=>b.startTime-a.startTime);
+const stById=id=>S.strength.find(s=>s.id===id);
+// Todas las sesiones terminadas del perfil (FC y fuerza), más reciente primero
+const allOf=uid=>[...sessOf(uid).map(s=>({...s,kind:'hr'})),...stOf(uid).map(s=>({...s,kind:'st'}))].sort((a,b)=>b.startTime-a.startTime);
+const loadOfAny=s=>s.kind==='st'?stLoad(s):srpe(s);
 
 /* ================= Bluetooth ================= */
 const BLE={dev:null,status:'off',bpm:null,bat:null,contact:null,last:0,manual:false,timer:null,tries:0,sim:null,h:null,
@@ -350,20 +475,102 @@ function drawHR(el,samples,lim,hrMax,t0,t1,live){
     c.strokeStyle=zc(zoneOf(a[1],lim));c.beginPath();c.moveTo(X(a[0]),Y(a[1]));c.lineTo(X(b[0]),Y(b[1]));c.stroke()}
   if(live&&samples.length){const a=samples[samples.length-1];c.fillStyle=ink;c.beginPath();c.arc(X(a[0]),Y(a[1]),3.5,0,7);c.fill()}
   if(!samples.length){c.fillStyle=muted;c.textAlign='center';c.textBaseline='middle';c.font='14px '+css('--body');c.fillText('Esperando datos de FC…',L+pw/2,T+ph/2)}
+  el._g={samples,lim,t0,t1,L,pw,T,ph,X,Y,live,w};
+  if(el._sx!=null)scrubAt(el);
+}
+/* Lectura de la FC en cada momento: deslizar con el dedo o pasar el ratón */
+function nearestSample(sm,t){let lo=0,hi=sm.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(sm[m][0]<t)lo=m;else hi=m}
+  return Math.abs(sm[lo][0]-t)<=Math.abs(sm[hi][0]-t)?sm[lo]:sm[hi]}
+function attachScrub(el){
+  if(!el||el._scrubOn)return;el._scrubOn=true;el.classList.add('scrub');
+  const wrap=el.parentElement;
+  wrap.insertAdjacentHTML('beforeend','<div class="sc-line" hidden></div><div class="sc-dot" hidden></div><div class="sc-tip" role="status" hidden></div>');
+  el._ui={line:wrap.querySelector('.sc-line'),dot:wrap.querySelector('.sc-dot'),tip:wrap.querySelector('.sc-tip')};
+  const at=e=>{const r=el.getBoundingClientRect();el._sx=e.clientX-r.left;scrubAt(el)};
+  el.addEventListener('pointerdown',at);
+  el.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||e.buttons)at(e)});
+  el.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')hideScrub(el)});
+  // Teclado: flechas para recorrer la gráfica
+  el.tabIndex=0;
+  el.addEventListener('keydown',e=>{const g=el._g;if(!g||!['ArrowLeft','ArrowRight','Escape'].includes(e.key))return;e.preventDefault();
+    if(e.key==='Escape')return hideScrub(el);
+    el._sx=Math.min(g.L+g.pw,Math.max(g.L,(el._sx??g.L+g.pw/2)+(e.key==='ArrowLeft'?-1:1)*g.pw/60));scrubAt(el)});
+}
+function hideScrub(el){el._sx=null;if(el._ui)for(const k in el._ui)el._ui[k].hidden=true}
+function scrubAt(el){
+  const g=el._g,u=el._ui;if(!g||!u)return;
+  const x=Math.min(g.L+g.pw,Math.max(g.L,el._sx));
+  if(!g.samples.length){hideScrub(el);return}
+  const t=g.t0+(x-g.L)/g.pw*(g.t1-g.t0),s=nearestSample(g.samples,t);
+  const gap=Math.abs(s[0]-t)>5000;
+  const sx=gap?x:g.X(s[0]);
+  u.line.hidden=false;u.line.style.left=sx+'px';u.line.style.height=g.ph+'px';
+  let when;
+  if(g.live)when=`hace ${fmtDur(Date.now()-(gap?t:s[0]))}`;
+  else{const tt=gap?t:s[0];when=`${fmtDur(tt-g.t0)} · ${new Date(tt).toLocaleTimeString('es-ES')}`}
+  if(gap){u.dot.hidden=true;u.tip.innerHTML=`<b>Sin señal</b><span>${when}</span>`}
+  else{const z=zoneOf(s[1],g.lim);u.dot.hidden=false;u.dot.style.left=sx+'px';u.dot.style.top=g.Y(s[1])+'px';u.dot.style.background=zc(z);
+    u.tip.innerHTML=`<b>${s[1]} ppm · <span style="color:${zc(z)}">Z${z}</span></b><span>${when}</span>`}
+  u.tip.hidden=false;
+  const tw=u.tip.offsetWidth,th=u.tip.offsetHeight;
+  u.tip.style.left=Math.min(g.w-tw,Math.max(0,sx-tw/2))+'px';
+  const dy=gap?g.T+g.ph/2:g.Y(s[1]);u.tip.style.top=(dy-th-12>=0?dy-th-12:dy+14)+'px';
 }
 function weekStart(t){const d=new Date(t);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
-function drawWeeks(el,sess){
+// Fuentes de carga del perfil (aquí se sumará también la fuerza)
+const loadItems=uid=>allOf(uid).map(s=>({t:s.startTime,load:loadOfAny(s)}));
+const volItems=uid=>stOf(uid).map(s=>({t:s.startTime,load:strengthStats(s).vol}));
+function loadBuckets(items,mode){
+  const out=[];
+  if(mode==='month'){const d=new Date();d.setDate(1);d.setHours(0,0,0,0);
+    for(let i=5;i>=0;i--){const a=new Date(d.getFullYear(),d.getMonth()-i,1).getTime(),b=new Date(d.getFullYear(),d.getMonth()-i+1,1).getTime();
+      out.push({label:new Date(a).toLocaleDateString('es-ES',{month:'short'}).replace('.',''),v:items.filter(x=>x.t>=a&&x.t<b).reduce((s,x)=>s+(x.load||0),0)})}}
+  else{const now=weekStart(Date.now());
+    for(let i=7;i>=0;i--){const ws=new Date(now);ws.setDate(ws.getDate()-7*i);const a=ws.getTime(),e=new Date(ws);e.setDate(e.getDate()+7);
+      out.push({label:ws.getDate()+'/'+(ws.getMonth()+1),v:items.filter(x=>x.t>=a&&x.t<e.getTime()).reduce((s,x)=>s+(x.load||0),0)})}}
+  return out;
+}
+function drawBars(el,buckets){
   if(!el)return;const {c,w,h}=cv(el);
-  const now=weekStart(Date.now()),W=7*864e5,weeks=[];
-  for(let i=7;i>=0;i--){const ws=now-i*W;weeks.push({ws,v:sess.filter(s=>weekStart(s.startTime)===ws).reduce((a,s)=>a+(srpe(s)||0),0)})}
-  const max=Math.max(100,...weeks.map(x=>x.v)),L=6,B=20,T=18,bw=(w-L*2)/weeks.length;
+  const max=Math.max(100,...buckets.map(x=>x.v)),L=6,B=20,T=18,bw=(w-L*2)/buckets.length;
   c.font='11px '+css('--mono');c.textAlign='center';
-  weeks.forEach((x,i)=>{const bh=(h-T-B)*x.v/max,xx=L+i*bw+bw*.18,ww=bw*.64;
-    c.fillStyle=i===weeks.length-1?css('--accent'):css('--z1');c.globalAlpha=x.v?1:.25;
+  buckets.forEach((x,i)=>{const bh=(h-T-B)*x.v/max,xx=L+i*bw+bw*.18,ww=bw*.64;
+    c.fillStyle=i===buckets.length-1?css('--accent'):css('--z1');c.globalAlpha=x.v?1:.25;
     c.fillRect(xx,h-B-Math.max(bh,2),ww,Math.max(bh,2));c.globalAlpha=1;
     c.fillStyle=css('--ink');if(x.v)c.fillText(x.v,xx+ww/2,h-B-bh-6);
-    const d=new Date(x.ws);c.fillStyle=css('--muted');c.fillText(d.getDate()+'/'+(d.getMonth()+1),xx+ww/2,h-5)});
+    c.fillStyle=css('--muted');c.fillText(x.label,xx+ww/2,h-5)});
 }
+function drawAcwr(el,ser){
+  if(!el)return;const {c,w,h}=cv(el);
+  const pts=ser.slice(-42),L=30,R=30,T=8,B=20,pw=w-L-R,ph=h-T-B;
+  const muted=css('--muted'),ink=css('--ink');
+  const vals=pts.map(p=>p.ratio).filter(v=>v!=null);
+  // Escala por los días con datos suficientes; el arranque (muy inestable) se recorta arriba
+  const good=pts.filter(p=>p.enough&&p.ratio!=null).map(p=>p.ratio);
+  const hi=Math.min(3,Math.max(2,Math.ceil((Math.max(0,...good)+0.1)*4)/4));
+  const Y=v=>T+(1-v/hi)*ph,X=i=>L+(pts.length>1?i/(pts.length-1):0.5)*pw;
+  [[0,0.8,2],[0.8,1.3,3],[1.3,1.5,4],[1.5,hi,5]].forEach(([a,b,z])=>{c.fillStyle=zc(z);c.globalAlpha=.13;c.fillRect(L,Y(b),pw,Y(a)-Y(b))});
+  c.globalAlpha=1;c.font='10px '+css('--mono');c.textAlign='right';c.textBaseline='middle';
+  for(const v of [0.8,1.3,1.5]){const y=Math.round(Y(v))+.5;c.strokeStyle=css('--line');c.lineWidth=1;c.beginPath();c.moveTo(L,y);c.lineTo(L+pw,y);c.stroke();c.fillStyle=muted;c.fillText(dec(v,1),L-5,y)}
+  if(!vals.length){c.textAlign='center';c.font='14px '+css('--body');c.fillText('Sin carga registrada todavía',L+pw/2,T+ph/2);return}
+  // fechas
+  c.textAlign='center';c.textBaseline='top';
+  pts.forEach((p,i)=>{if((pts.length-1-i)%7===0){const d=new Date(p.t);c.fillText(d.getDate()+'/'+(d.getMonth()+1),Math.min(Math.max(X(i),L+12),L+pw-12),h-B+5)}});
+  // línea: tramo con menos de 28 días de datos más tenue
+  c.save();c.beginPath();c.rect(L,T,pw,ph);c.clip();
+  c.lineWidth=2.2;c.lineJoin='round';c.strokeStyle=ink;
+  for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];if(a.ratio==null||b.ratio==null)continue;
+    c.globalAlpha=b.enough?1:.35;c.setLineDash(b.enough?[]:[4,4]);c.beginPath();c.moveTo(X(i-1),Y(a.ratio));c.lineTo(X(i),Y(b.ratio));c.stroke()}
+  c.restore();c.globalAlpha=1;c.setLineDash([]);
+  const li=pts.length-1,lv=pts[li].ratio;
+  if(lv!=null&&lv<=hi){c.fillStyle=zc(acwrStatus(lv).z);c.beginPath();c.arc(X(li),Y(lv),5,0,7);c.fill();c.strokeStyle=css('--surface');c.lineWidth=2;c.stroke();
+    c.fillStyle=ink;c.textAlign='left';c.textBaseline='middle';c.font='700 13px '+css('--display');c.fillText(dec(lv,2),Math.min(X(li)+8,w-26),Y(lv))}
+}
+function drawProfileCharts(){const id=S.arg;
+  drawAcwr($('#acwr'),acwrSeries(dailyLoads(loadItems(id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'));
+  drawBars($('#wk'),loadBuckets(loadItems(id),lsGet('loadView')==='month'?'month':'week'));
+  drawBars($('#stv'),loadBuckets(volItems(id),lsGet('loadView')==='month'?'month':'week'))}
+const fmtKg=k=>{k=Math.round((+k||0)*10)/10;return (Number.isInteger(k)?k.toLocaleString('es-ES'):k.toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1}))};
 
 /* ================= Componentes ================= */
 function zoneBars(zoneMs,noSig){
@@ -392,10 +599,14 @@ V.home=()=>{
     h+=`<div class="note"><b>Sesión sin terminar · ${esc(prof(s.userId)?.name||'')}</b><span class="hint">Empezó ${fmtDT(s.startTime)}. Se cerró la app antes de finalizarla.</span><div class="row"><button class="btn small primary" data-act="recover" data-id="${s.id}">Guardar lo grabado</button><button class="btn small danger" data-act="discard" data-id="${s.id}">Descartar</button></div></div>`;
   for(const s of S.sessions.filter(s=>s.status==='done'&&s.rpePost==null&&Date.now()-s.endTime<7*864e5))
     h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · terminó ${ago(s.endTime)}</span></span><span class="tag pend">Anotar</span></button>`;
+  for(const s of S.strength.filter(s=>s.status==='done'&&s.rpePost==null&&Date.now()-(s.endTime||s.startTime)<7*864e5))
+    h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} (fuerza) · ${ago(s.endTime||s.startTime)}</span></span><span class="tag pend">Anotar</span></button>`;
+  for(const s of S.strength.filter(s=>s.status==='open'))
+    h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Fuerza en curso · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · empezó ${ago(s.startTime)}</span></span><span class="tag str">Continuar</span></button>`;
   h+=`<section class="sec"><div class="sec-h"><h2>Perfiles</h2><button class="btn small" data-act="newProfile">Nuevo perfil</button></div>`;
   if(!S.profiles.length)h+=`<div class="empty">Crea un perfil por cada persona que vaya a usar el pulsómetro. Cada uno guarda sus zonas y sus sesiones.</div>`;
   else{h+='<div class="list">';
-    for(const p of [...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))){const ss=sessOf(p.id),a=age(p.birthDate);
+    for(const p of [...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))){const ss=allOf(p.id),a=age(p.birthDate);
       h+=`<button class="item" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${p.example?' <span class="tag ex">Ejemplo</span>':''}</span><br><span class="s num">${a!=null?a+' años · ':''}FCmáx ${p.hrMax} · ${methodName(p)}</span></span><span class="s num">${ss.length} ses.</span></button>`}
     h+='</div>'}
   h+=`</section><section class="sec"><h3>Copia de seguridad</h3><p class="hint" style="margin:0">Los datos se guardan solo en este móvil y en este navegador. Exporta una copia de vez en cuando.</p><div class="row"><button class="btn small" data-act="backup">Exportar copia (.json)</button><button class="btn small" data-act="import">Importar copia</button></div></section>`;
@@ -454,17 +665,47 @@ function updZprev(){const box=$('#zprev');if(!box)return;const f=readForm(),e=va
 
 V.profile=()=>{
   const p=prof(S.arg);if(!p)return'';const ss=sessOf(p.id),lim=zoneLimits(p),a=age(p.birthDate);
-  const wk=ss.filter(s=>weekStart(s.startTime)===weekStart(Date.now()));
+  const method=lsGet('acwrMethod')==='ewma'?'ewma':'ra',view=lsGet('loadView')==='month'?'month':'week';
+  const ser=acwrSeries(dailyLoads(loadItems(p.id)),method),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio);
+  const nDays=ser.length,all=allOf(p.id),sts=stOf(p.id),open=S.strength.filter(s=>s.userId===p.id&&s.status==='open');
+  const wk7=Date.now()-7*864e5,v7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)});
   let h=`<div class="card"><div class="sec-h"><span class="lbl">${a!=null?a+' años · ':''}${methodName(p)}</span><button class="link" data-act="editProfile">Editar</button></div>
-  <div class="stats">${stat(p.hrMax+(p.hrMaxEstimated?'*':''),'FC máx')}${stat(p.hrRest||'—','FC reposo')}${stat(wk.reduce((a,s)=>a+(srpe(s)||0),0),'sRPE semana')}</div>
+  <div class="stats">${stat(p.hrMax+(p.hrMaxEstimated?'*':''),'FC máx')}${stat(p.hrRest||'—','FC reposo')}${stat(all.length,'Sesiones')}</div>
   ${p.hrMaxEstimated?'<span class="hint">* FC máxima estimada con la fórmula de Tanaka.</span>':''}
   ${zoneTable(lim,p.hrMax)}</div>
-  <button class="btn primary wide" data-act="newSession">Nueva sesión</button>
-  <section class="sec"><div class="sec-h"><h3>Carga semanal (sRPE, UA)</h3></div><div class="card"><canvas id="wk" style="height:160px" role="img" aria-label="Carga sRPE de las últimas 8 semanas"></canvas></div></section>
-  <section class="sec"><div class="sec-h"><h3>Sesiones</h3>${ss.length?'<button class="btn small" data-act="exportSummary">Exportar CSV</button>':''}</div>`;
-  if(!ss.length)h+=`<div class="empty">Todavía no hay sesiones. Pulsa «Nueva sesión» para grabar la primera.</div>`;
-  else{h+='<div class="list">';for(const s of ss){const l=srpe(s);
-    h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">${esc(s.type)}</span><br><span class="s num">${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm</span></span>${l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`}</button>`}
+  ${open.map(o=>`<button class="item" data-act="openStrength" data-id="${o.id}"><span class="grow"><span class="t">${esc(o.type)} en curso</span><br><span class="s">Empezó ${ago(o.startTime)} · ${strengthStats(o).sets} series anotadas</span></span><span class="tag str">Continuar</span></button>`).join('')}
+  <div class="ctrls"><button class="btn primary" data-act="newSession">Sesión con pulsómetro</button><button class="btn primary" data-act="newStrength">Sesión de fuerza</button></div>
+  <section class="sec"><h3>Carga de entrenamiento</h3>
+  <div class="card">
+    <div class="seg two" role="radiogroup" aria-label="Método de cálculo del ACWR">
+      <button type="button" data-act="acwrMethod" data-v="ra" class="${method==='ra'?'on':''}" aria-checked="${method==='ra'}" role="radio">Medias móviles 7:28</button>
+      <button type="button" data-act="acwrMethod" data-v="ewma" class="${method==='ewma'?'on':''}" aria-checked="${method==='ewma'}" role="radio">EWMA</button></div>
+    <div class="stats">${stat(cur?cur.acute:0,'Últ. 7 días')}${stat(cur?cur.month:0,'Últ. 28 días')}${stat(cur?.ratio!=null?dec(cur.ratio,2):'—','ACWR')}</div>
+    <span class="acwr-pill" style="background:${zc(st.z)}">${st.txt}</span>
+    <span class="hint">${cur?`Carga aguda ${cur.acute} UA frente a una media crónica de ${Math.round(cur.month/4)} UA por semana.`:'Registra sesiones con RPE post para calcular la carga.'}${nDays&&nDays<28?` Hacen falta 28 días de registros para que el ACWR sea fiable; llevas ${nDays}.`:''}</span>
+    <div class="chart"><canvas id="acwr" style="height:170px" role="img" aria-label="ACWR de las últimas 6 semanas"></canvas></div>
+    <div class="acwr-key"><span><i style="background:${zc(2)}"></i>&lt; 0,8 baja</span><span><i style="background:${zc(3)}"></i>0,8–1,3 óptima</span><span><i style="background:${zc(4)}"></i>1,3–1,5 precaución</span><span><i style="background:${zc(5)}"></i>&gt; 1,5 riesgo</span></div>
+  </div>
+  <div class="card">
+    <div class="sec-h"><span class="lbl">Carga por ${view==='week'?'semana natural (lun–dom)':'mes'} · UA</span></div>
+    <div class="seg two" role="radiogroup" aria-label="Agrupar carga por">
+      <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
+      <button type="button" data-act="loadView" data-v="month" class="${view==='month'?'on':''}" aria-checked="${view==='month'}" role="radio">Meses</button></div>
+    <canvas id="wk" style="height:160px" role="img" aria-label="Carga sRPE por ${view==='week'?'semana':'mes'}"></canvas>
+    <span class="hint">Carga = RPE post × minutos de sesión (sRPE de Foster), sumando las sesiones con pulsómetro y las de fuerza. Las sesiones con el RPE post pendiente no suman. Rangos del ACWR orientativos (Gabbett, 2016).</span>
+  </div>
+  ${sts.length?`<div class="card">
+    <div class="sec-h"><span class="lbl">Fuerza · volumen-carga por ${view==='week'?'semana':'mes'} (kg)</span></div>
+    <div class="stats">${stat(fmtKg(v7.vol),'Kg últ. 7 días')}${stat(v7.sets,'Series 7 días')}${stat(v7.rpe!=null?dec(v7.rpe,1):'—','RPE medio serie')}</div>
+    <canvas id="stv" style="height:150px" role="img" aria-label="Volumen-carga de fuerza por ${view==='week'?'semana':'mes'}"></canvas>
+    <span class="hint">Volumen-carga = series × repeticiones × kg. Se muestra aparte y no entra en el ACWR; ahí cuenta el sRPE de cada sesión de fuerza.</span>
+  </div>`:''}</section>
+  <section class="sec"><div class="sec-h"><h3>Sesiones</h3>${all.length?'<button class="btn small" data-act="exportSummary">Exportar CSV</button>':''}</div>`;
+  if(!all.length)h+=`<div class="empty">Todavía no hay sesiones. Empieza una con pulsómetro o registra una sesión de fuerza.</div>`;
+  else{h+='<div class="list">';for(const s of all){const l=loadOfAny(s),right=l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`;
+    if(s.kind==='st'){const k=strengthStats(s);
+      h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">${esc(s.type)} <span class="tag str">Fuerza</span></span><br><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
+    else h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">${esc(s.type)}</span><br><span class="s num">${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm</span></span>${right}</button>`}
     h+='</div>'}
   return h+'</section>';
 };
@@ -490,7 +731,7 @@ V.live=()=>{
   return `<div class="note" hidden><b id="liveSt"></b><button class="btn small" data-act="connect" ${btOK?'':'hidden'}>Volver a conectar</button></div>
   <div class="live-hr"><span class="big" id="lBpm">—</span><span class="unit">PPM</span><span class="zpill" id="lZone">—</span></div>
   <div class="stats">${stat('00:00','Tiempo','lTime')}${stat('—','FC media','lAvg')}${stat('—','FC máx','lMax')}</div>
-  <div class="card"><canvas id="lc" role="img" aria-label="FC de los últimos 3 minutos"></canvas></div>
+  <div class="card"><div class="chart"><canvas id="lc" role="img" aria-label="FC de los últimos 3 minutos. Desliza o usa las flechas para leer cada momento."></canvas></div></div>
   <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(r.inc.zoneMs,0)}</div>
   <div class="ctrls"><button class="btn" id="pauseBtn" data-act="pause">${r.running?'Pausar':'Reanudar'}</button><button class="btn danger" data-act="finish">Finalizar</button></div>
   <span class="hint" style="text-align:center">Deja esta pantalla abierta: con la pantalla apagada Chrome puede dejar de recibir datos.</span>`;
@@ -521,15 +762,103 @@ V.summary=()=>{
   const s=S.sessions.find(x=>x.id===S.arg);if(!s)return'';const p=prof(s.userId),l=srpe(s);
   return `<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(s.startTime)} · ${esc(p?.name||'')}</span>${s.example?'<span class="tag ex">Ejemplo</span>':''}</div>
   <div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}${stat(s.rpePre??'—','RPE pre')}${stat(s.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
-  <canvas id="sc" class="tall" role="img" aria-label="Frecuencia cardíaca de la sesión con zonas"></canvas></div>
+  <div class="chart"><canvas id="sc" class="tall" role="img" aria-label="Frecuencia cardíaca de la sesión con zonas. Desliza o usa las flechas para leer cada momento."></canvas></div>
+  <span class="hint">Desliza el dedo o pasa el ratón por la gráfica para ver la FC de cada momento.</span></div>
   <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(s.zoneMs,s.noSignalMs)}<span class="hint num">Zonas aplicadas: ${s.zoneLimits.join(' · ')} ppm (FCmáx ${s.hrMax})</span></div>
   ${s.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="savePending">Guardar RPE</button></section>`:''}
   <div class="card"><div class="field"><label for="snotes2">Notas</label><textarea id="snotes2" data-act="notes">${esc(s.notes)}</textarea></div><span class="hint">${esc(s.deviceName)}</span></div>
   <div class="row"><button class="btn" data-act="exportSession">Exportar CSV de la sesión</button><button class="btn danger" data-act="delSession">Borrar sesión</button></div>`;
 };
 
+/* ================= Fuerza ================= */
+const EXERCISES=['Sentadilla','Peso muerto','Peso muerto rumano','Press banca','Press militar','Dominadas','Remo con barra','Hip thrust','Zancadas','Prensa','Fondos','Curl de bíceps','Extensión de tríceps','Elevaciones laterales','Jalón al pecho','Sentadilla búlgara','Plancha'];
+const ST_TYPES=['Fuerza','Tren inferior','Tren superior','Full body','Potencia','Hipertrofia','Prevención de lesiones'];
+const toLocalInput=t=>{const d=new Date(t);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`};
+const setsText=sets=>(sets||[]).filter(s=>+s.reps>0).map(s=>`${s.reps}×${fmtKg(s.kg)}`).join(' · ')+' kg';
+function exerciseNames(uid){const set=new Set(EXERCISES);for(const s of S.strength)if(s.userId===uid)for(const e of s.exercises)if(e.name.trim())set.add(e.name.trim());return [...set].sort((a,b)=>a.localeCompare(b,'es'))}
+// Última vez que el perfil hizo cada ejercicio (antes de esta sesión)
+function lastTimes(st){const m={};
+  for(const s of stOf(st.userId)){if(s.id===st.id||s.startTime>=st.startTime)continue;
+    for(const e of s.exercises){const k=e.name.trim().toLowerCase();if(k&&!m[k]&&e.sets.some(x=>+x.reps>0))m[k]={t:s.startTime,sets:e.sets}}}
+  return m}
+const rpeOpts=v=>`<option value=""${v==null||v===''?' selected':''}>—</option>`+[0,1,2,3,4,5,6,7,8,9,10].map(i=>`<option value="${i}"${+v===i&&v!==''&&v!=null?' selected':''}>${i}</option>`).join('');
+function exSummary(k){return k.sets?`${k.sets} series · ${k.reps} reps · ${fmtKg(k.vol)} kg${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}`:'Sin series válidas todavía'}
+V.strength=()=>{
+  const st=stById(S.arg);if(!st)return'';const prev=lastTimes(st),tot=strengthStats(st);
+  let h=`<div class="card"><div class="g2">
+    <div class="field"><label for="stName">Sesión</label><input id="stName" data-sf="type" list="sttypes" value="${esc(st.type)}"><datalist id="sttypes">${ST_TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div>
+    <div class="field"><label for="stStart">Inicio</label><input id="stStart" data-sf="startTime" type="datetime-local" value="${toLocalInput(st.startTime)}"></div></div>
+    ${st.status==='open'?`<span class="hint">En curso · <b class="num" id="stClock">${fmtDur(Date.now()-st.startTime)}</b>. Si registras una sesión pasada, cambia la hora de inicio.</span>`:''}</div>
+  <details class="card"${st.rpePre!=null?'':''}><summary>RPE pre · ¿cómo llegas?${st.rpePre!=null?` <span class="tag">${st.rpePre}</span>`:' <span class="hint">(opcional)</span>'}</summary>${rpeScale('stRpePre','pre',st.rpePre)}</details>`;
+  st.exercises.forEach((e,i)=>{const k=strengthStats({exercises:[e]}).ex[0],pv=prev[e.name.trim().toLowerCase()];
+    h+=`<div class="card ex">
+    <div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
+    ${pv?`<span class="hint num">Última vez (${fmtDate(pv.t)}): ${setsText(pv.sets)}</span>`:''}
+    <div class="sets"><div class="set-h"><span>Serie</span><span>Reps</span><span>Kg</span><span>RPE</span><span></span></div>
+    ${e.sets.map((s,j)=>`<div class="set"><span class="set-n">${j+1}</span>
+      <input type="number" inputmode="numeric" min="0" data-ex="${i}" data-set="${j}" data-f="reps" value="${s.reps??''}" aria-label="Repeticiones serie ${j+1}">
+      <input type="number" inputmode="decimal" min="0" step="0.5" data-ex="${i}" data-set="${j}" data-f="kg" value="${s.kg??''}" aria-label="Kg serie ${j+1}">
+      <select data-ex="${i}" data-set="${j}" data-f="rpe" aria-label="RPE serie ${j+1}">${rpeOpts(s.rpe)}</select>
+      <button class="icon-btn" data-act="stDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${j+1}">×</button></div>`).join('')}
+    </div>
+    <div class="ex-f"><button class="btn small" data-act="stAddSet" data-i="${i}">+ Serie</button><span class="hint num" id="exs${i}">${exSummary(k)}</span></div></div>`});
+  if(!st.exercises.length)h+=`<div class="empty">Añade el primer ejercicio. Cada serie guarda repeticiones, kg y RPE (CR-10).</div>`;
+  h+=`<datalist id="exlist">${exerciseNames(st.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+  <button class="btn wide" data-act="stAddEx">+ Añadir ejercicio</button>
+  <div class="card"><span class="lbl">Total de la sesión</span><div class="stats" id="stTot">${stTotHTML(tot)}</div>
+  <span class="hint">RPE de cada serie en escala CR-10: 3 moderado · 5 duro · 7 muy duro · 10 máximo. Para peso corporal deja 0 kg o pon el lastre.</span></div>
+  ${st.status==='open'?`<button class="btn primary wide" data-act="stFinish">Terminar sesión</button>`:`<button class="btn primary wide" data-act="stDone">Guardar cambios</button>`}`;
+  return h;
+};
+const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series')+stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio');
+let stSaveT=null;
+function saveStSoon(st){clearTimeout(stSaveT);stSaveT=setTimeout(()=>DB.put('strength',st),400)}
+async function saveSt(st){clearTimeout(stSaveT);await DB.put('strength',st);const i=S.strength.findIndex(x=>x.id===st.id);if(i<0)S.strength.push(st);else S.strength[i]=st}
+V.stpost=()=>{const st=stById(S.arg);const t=strengthStats(st);if(S.form.rpePost===undefined)S.form.rpePost=st.rpePost??null;
+  return `<div class="card"><span class="lbl">Sesión de fuerza terminada</span><div class="stats">${stTotHTML(t)}</div>
+  <div class="field"><label for="stDur">Duración (minutos)</label><input id="stDur" type="number" inputmode="numeric" min="1" value="${st.durationMin||''}" placeholder="min"><span class="hint">Tiempo total de la sesión, descansos incluidos. Se usa para el sRPE.</span></div></div>
+  <section class="sec"><h3>RPE de la sesión</h3><span class="hint">¿Cómo de dura ha sido la sesión en conjunto? Lo ideal es contestarlo unos 30 minutos después. Puedes dejarlo para luego.</span>${rpeScale('rpePost','post',S.form.rpePost)}</section>
+  <div class="card"><div class="field"><label for="stNotes">Notas</label><textarea id="stNotes" placeholder="Sensaciones, molestias, técnica…">${esc(st.notes)}</textarea></div></div>
+  <button class="btn primary wide" data-act="stSavePost">Guardar RPE</button>
+  <div class="ctrls"><button class="btn" data-act="stLater">Anotar más tarde</button><button class="btn" data-act="remind">Avisarme en 30 min</button></div>`};
+V.ssum=()=>{
+  const st=stById(S.arg);if(!st)return'';const t=strengthStats(st),l=stLoad(st),p=prof(st.userId);
+  const maxV=Math.max(1,...t.ex.map(e=>e.vol));
+  let h=`<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(st.startTime)} · ${esc(p?.name||'')}</span>${st.example?'<span class="tag ex">Ejemplo</span>':''}</div>
+  <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series')}${stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie')}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
+  ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}</div>
+  <section class="sec"><h3>Ejercicios</h3>`;
+  for(const e of t.ex){const src=st.exercises.find(x=>x.name===e.name);
+    h+=`<div class="card ex"><div class="sec-h"><b>${esc(e.name||'Sin nombre')}</b><span class="hint num">${e.e1rm?'1RM est. '+fmtKg(e.e1rm)+' kg':''}</span></div>
+    <div class="zb-r st-bar"><span class="k"></span><div class="zb-t"><div class="zb-f" style="width:${e.vol/maxV*100}%;background:var(--accent)"></div></div><span class="v">${fmtKg(e.vol)}</span><span class="p">kg</span></div>
+    <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${s.reps}×${fmtKg(s.kg)}${s.rpe!=null&&s.rpe!==''?' @'+s.rpe:''}</span>`).join('')}</div>
+    <span class="hint num">${exSummary(e)}</span></div>`}
+  if(!t.ex.length)h+=`<div class="empty">Esta sesión no tiene ejercicios.</div>`;
+  h+=`<span class="hint">1RM estimado con Epley a partir de la mejor serie: kg × (1 + reps/30). Orientativo, menos fiable por encima de 10 repeticiones.</span></section>
+  ${st.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="stSavePending">Guardar RPE</button></section>`:''}
+  <div class="card"><div class="field"><label for="stNotes2">Notas</label><textarea id="stNotes2">${esc(st.notes)}</textarea></div></div>
+  <div class="row"><button class="btn" data-act="stEdit">Editar sesión</button><button class="btn" data-act="stExport">Exportar CSV</button><button class="btn danger" data-act="stDel">Borrar sesión</button></div>`;
+  return h;
+};
+// Edición en vivo de ejercicios y series (sin redibujar la pantalla mientras se escribe)
+$('#app').addEventListener('input',e=>{
+  if(S.view!=='strength'&&S.view!=='stpost')return;const st=stById(S.arg);if(!st)return;const el=e.target;
+  if(el.dataset.sf){const f=el.dataset.sf;
+    if(f==='startTime'){const t=new Date(el.value).getTime();if(!isNaN(t))st.startTime=t}else st[f]=el.value;
+    saveStSoon(st);return}
+  if(el.dataset.ex==null)return;const ex=st.exercises[+el.dataset.ex];if(!ex)return;
+  if(el.dataset.f==='name')ex.name=el.value;
+  else{const s=ex.sets[+el.dataset.set];const v=el.value;s[el.dataset.f]=v===''?null:+v}
+  const k=strengthStats({exercises:[ex]}).ex[0],x=$('#exs'+el.dataset.ex);if(x)x.textContent=exSummary(k);
+  const tt=$('#stTot');if(tt)tt.innerHTML=stTotHTML(strengthStats(st));
+  saveStSoon(st);
+});
+$('#app').addEventListener('change',e=>{if(S.view==='strength'&&e.target.dataset.f==='name'){const st=stById(S.arg);DB.put('strength',st).then(()=>{const y=scrollY;render();scrollTo(0,y)})}
+  if(e.target.id==='stNotes2'){const st=stById(S.arg);st.notes=e.target.value;saveSt(st);toast('Notas guardadas')}});
+setInterval(()=>{const c=$('#stClock');const st=S.view==='strength'&&stById(S.arg);if(c&&st)c.textContent=fmtDur(Date.now()-st.startTime)},1000);
+
 /* ================= Navegación ================= */
-const TITLES={home:()=> 'Pulsómetro',edit:()=>S.arg?'Editar perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión'};
+const TITLES={home:()=> 'Pulsómetro',edit:()=>S.arg?'Editar perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Nueva sesión',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza'};
 function go(view,arg,{push=true,keepForm=false}={}){
   if(push)S.stack.push([S.view,S.arg]);
   S.view=view;S.arg=arg??null;if(!keepForm)S.form={};render();window.scrollTo(0,0);
@@ -538,25 +867,72 @@ function go(view,arg,{push=true,keepForm=false}={}){
 function back(){
   if(S.view==='live')return; // en directo no se sale con «atrás»
   const prev=S.stack.pop();if(!prev){go('home',null,{push:false});return}
-  let [v,a]=prev;if(v==='live'||v==='pre'||v==='post'||(v==='edit'&&S.view!=='edit'))return back();
+  let [v,a]=prev;if(v==='live'||v==='pre'||v==='post'||v==='stpost'||(v==='edit'&&S.view!=='edit'))return back();
+  if((v==='strength'||v==='ssum')&&!stById(a)){v='home';a=null}
   if((v==='profile'&&!prof(a))||(v==='summary'&&!S.sessions.find(x=>x.id===a))){v='home';a=null}
   go(v,a,{push:false});
 }
-window.addEventListener('popstate',()=>{if(S.view==='live'){try{history.pushState({},'')}catch(e){}return}back()});
+window.addEventListener('popstate',()=>{
+  if(drawerOpen()){closeDrawer();try{history.pushState({},'')}catch(e){}return} // «atrás» cierra el menú
+  if(S.view==='live'){try{history.pushState({},'')}catch(e){}return}back()});
+
+/* ================= Menú lateral ================= */
+const drawer=$('#drawer'),scrim=$('#scrim'),menuBtn=$('#menuBtn');
+const wide=matchMedia('(min-width:900px)');
+const drawerOpen=()=>drawer.classList.contains('open')&&!wide.matches;
+function openDrawer(){if(wide.matches)return;renderDrawer();drawer.classList.add('open');scrim.hidden=false;menuBtn.setAttribute('aria-expanded','true');drawer.removeAttribute('inert');(drawer.querySelector('.d-item.on')||$('#dHome')).focus({preventScroll:true})}
+function closeDrawer(){drawer.classList.remove('open');scrim.hidden=true;menuBtn.setAttribute('aria-expanded','false');if(!wide.matches)drawer.setAttribute('inert','')}
+function syncDrawerMode(){if(wide.matches){drawer.removeAttribute('inert');scrim.hidden=true}else if(!drawer.classList.contains('open'))drawer.setAttribute('inert','')}
+wide.addEventListener?.('change',syncDrawerMode);
+function activeProfileId(){
+  if(S.view==='profile'||S.view==='pre'||(S.view==='edit'&&S.arg))return S.arg;
+  if(S.view==='summary'||S.view==='post')return S.sessions.find(x=>x.id===S.arg)?.userId;
+  if(S.view==='strength'||S.view==='stpost'||S.view==='ssum')return stById(S.arg)?.userId;
+  if(S.view==='live')return S.rec?.userId;return null}
+function renderDrawer(){
+  const act=activeProfileId();
+  $('#dHome').classList.toggle('on',S.view==='home');
+  const ps=[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
+  $('#dList').innerHTML=ps.length?ps.map(p=>{const ss=allOf(p.id),last=ss[0],pend=ss.some(s=>s.rpePost==null);
+    return `<button class="d-item${p.id===act?' on':''}" data-d="profile" data-id="${p.id}"${p.id===act?' aria-current="page"':''}><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${S.rec?.userId===p.id?' · grabando':''}</span><span class="s">${last?'Última: '+fmtDate(last.startTime):'Sin sesiones'} · ${ss.length} ses.</span></span>${pend?'<span class="d-pend" title="RPE post pendiente"></span>':''}</button>`}).join('')
+    :`<p class="hint" style="margin:0;padding:0 8px">Todavía no hay perfiles.</p>`;
+}
+function navFromDrawer(fn){
+  if(S.rec&&S.view==='live'){toast('Termina o pausa la sesión antes de salir de ella');return}
+  closeDrawer();fn();
+}
+// Desde el menú, «atrás» siempre vuelve a Inicio
+const toRoot=(v,a)=>{S.stack=v==='home'?[]:[['home',null]];go(v,a,{push:false});try{history.pushState({},'')}catch(e){}};
+drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)return;const d=b.dataset.d;
+  if(d==='close')return closeDrawer();
+  if(d==='home')return navFromDrawer(()=>toRoot('home'));
+  if(d==='profile')return navFromDrawer(()=>toRoot('profile',b.dataset.id));
+  if(d==='new')return navFromDrawer(()=>toRoot('edit',null));
+  if(d==='backup')return navFromDrawer(()=>{toRoot('home');setTimeout(()=>$('[data-act="backup"]')?.scrollIntoView({behavior:'smooth',block:'center'}),50)});
+});
+menuBtn.onclick=openDrawer;scrim.onclick=closeDrawer;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawerOpen()){closeDrawer();menuBtn.focus()}});
+// Deslizar desde el borde izquierdo para abrir y hacia la izquierda para cerrar
+let sw=null;
+document.addEventListener('touchstart',e=>{const t=e.touches[0];if(wide.matches||S.view==='live')return;
+  if(!drawerOpen()&&t.clientX<22)sw={x:t.clientX,y:t.clientY,mode:'open'};else if(drawerOpen())sw={x:t.clientX,y:t.clientY,mode:'close'};else sw=null},{passive:true});
+document.addEventListener('touchend',e=>{if(!sw)return;const t=e.changedTouches[0],dx=t.clientX-sw.x,dy=Math.abs(t.clientY-sw.y);
+  if(dy<60){if(sw.mode==='open'&&dx>60)openDrawer();if(sw.mode==='close'&&dx<-60)closeDrawer()}sw=null},{passive:true});
 $('#back').onclick=()=>{try{history.back()}catch(e){back()}};
 function render(){
   $('#ttl').textContent=TITLES[S.view]();
   $('#back').hidden=S.view==='home'||S.view==='live';
+  menuBtn.hidden=S.view==='live';renderDrawer();
   $('#app').innerHTML=V[S.view]();
   if(S.view==='edit'){updZprev();$('#pform').addEventListener('input',updZprev);$('#pform').addEventListener('submit',e=>{e.preventDefault();saveProfile()})}
-  if(S.view==='profile')drawWeeks($('#wk'),sessOf(S.arg));
+  if(S.view==='profile')drawProfileCharts();
   if(S.view==='pre'||S.view==='live')updDevice();
-  if(S.view==='live')updLive();
-  if(S.view==='summary')drawSummary();
+  if(S.view==='live'){attachScrub($('#lc'));updLive()}
+  if(S.view==='summary'){attachScrub($('#sc'));drawSummary()}
 }
 async function drawSummary(){const s=S.sessions.find(x=>x.id===S.arg);const tr=await DB.get('tracks',s.id);if(S.view!=='summary'||S.arg!==s.id)return;
   const sm=tr?.samples||[];drawHR($('#sc'),sm,s.zoneLimits,s.hrMax,s.startTime,s.endTime||sm.at(-1)?.[0]||s.startTime+1,false)}
-let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>{if(S.view==='profile')drawWeeks($('#wk'),sessOf(S.arg));if(S.view==='summary')drawSummary();if(S.view==='live')updLive()},150)});
+let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>{if(S.view==='profile')drawProfileCharts();if(S.view==='summary')drawSummary();if(S.view==='live')updLive()},150)});
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
 new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
@@ -571,10 +947,12 @@ const A={
   method(b){readForm();S.form.p.method=b.dataset.v;const y=$('#fmax').value;render();$('#fmax').value=y},
   async delProfile(b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;
     for(const s of S.sessions.filter(s=>s.userId===id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
+    for(const s of S.strength.filter(s=>s.userId===id))await DB.del('strength',s.id);S.strength=S.strength.filter(s=>s.userId!==id);
     await DB.del('profiles',id);S.sessions=S.sessions.filter(s=>s.userId!==id);S.profiles=S.profiles.filter(p=>p.id!==id);
     S.stack=[];go('home',null,{push:false});toast('Perfil borrado')})},
   newSession(){go('pre',S.arg)},
-  rpe(b){const n=b.dataset.name,v=+b.dataset.v;S.form[n]=v;b.parentElement.querySelectorAll('.rpe-row').forEach(x=>{const on=+x.dataset.v===v;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)})},
+  rpe(b){const n=b.dataset.name,v=+b.dataset.v;S.form[n]=v;b.parentElement.querySelectorAll('.rpe-row').forEach(x=>{const on=+x.dataset.v===v;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});
+    if(n==='stRpePre'){const st=stById(S.arg);st.rpePre=v;saveSt(st);const sm=b.closest('details')?.querySelector('summary');if(sm)sm.innerHTML=`RPE pre · ¿cómo llegas? <span class="tag">${v}</span>`}},
   clearPre(){S.form.rpePre=null;document.querySelectorAll('.rpe-row.on').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-checked','false')})},
   async connect(){try{await BLE.pick()}catch(e){
     if(e.name==='NotFoundError')return;
@@ -599,21 +977,61 @@ const A={
     if(S.form.rpePost==null){toast('Elige un valor o pulsa «Anotar más tarde»');return}
     s.rpePost=S.form.rpePost;s.rpePostTime=Date.now();await DB.put('sessions',s);go('summary',s.id,{push:false});toast('RPE guardado')},
   async later(){const s=S.sessions.find(x=>x.id===S.arg);s.notes=$('#snotes').value;await DB.put('sessions',s);go('summary',s.id,{push:false})},
-  async remind(){const s=S.sessions.find(x=>x.id===S.arg);
+  async remind(){const isSt=S.view==='stpost',s=isSt?stById(S.arg):S.sessions.find(x=>x.id===S.arg);
     let ok=false;try{if('Notification' in window){ok=Notification.permission==='granted'||(await Notification.requestPermission())==='granted'}}catch(e){}
     setTimeout(()=>{try{if(ok)new Notification('RPE post pendiente',{body:`Anota cómo de dura fue la sesión de ${s.type}.`})}catch(e){}toast('Ya puedes anotar el RPE post')},30*60000);
-    toast(ok?'Te aviso en 30 min si la app sigue abierta':'Aviso dentro de la app en 30 min');A.later()},
+    toast(ok?'Te aviso en 30 min si la app sigue abierta':'Aviso dentro de la app en 30 min');isSt?A.stLater():A.later()},
   async savePending(){const s=S.sessions.find(x=>x.id===S.arg);if(S.form.rpePost==null){toast('Elige un valor de la escala');return}
     s.rpePost=S.form.rpePost;s.rpePostTime=Date.now();await DB.put('sessions',s);render();toast('RPE guardado')},
   openSession:id=>go('summary',id),
+  /* --- Fuerza --- */
+  async newStrength(){const p=prof(S.arg);
+    const st={id:uid(),userId:p.id,kind:'strength',type:lsGet('lastStType_'+p.id)||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,
+      rpePre:null,rpePost:null,rpePostTime:null,notes:'',status:'open',exercises:[{name:'',sets:[{reps:null,kg:null,rpe:null}]}]};
+    await saveSt(st);go('strength',st.id);setTimeout(()=>$('.ex-name')?.focus(),60)},
+  openStrength:id=>{const st=stById(id);go(st&&st.status==='open'?'strength':'ssum',id)},
+  async stAddEx(){const st=stById(S.arg);st.exercises.push({name:'',sets:[{reps:null,kg:null,rpe:null}]});await saveSt(st);render();
+    const ins=document.querySelectorAll('.ex-name');ins[ins.length-1]?.focus();ins[ins.length-1]?.scrollIntoView({block:'center',behavior:'smooth'})},
+  async stDelEx(_,b){const st=stById(S.arg),i=+b.dataset.i,e=st.exercises[i];
+    if(e.sets.some(s=>s.reps!=null||s.kg!=null)&&!b.classList.contains('armed')){b.classList.add('armed');b.textContent='¿?';b.setAttribute('aria-label','Pulsa otra vez para quitar el ejercicio');setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='×'}},3000);return}
+    st.exercises.splice(i,1);await saveSt(st);const y=scrollY;render();scrollTo(0,y)},
+  async stAddSet(_,b){const st=stById(S.arg),e=st.exercises[+b.dataset.i],l=e.sets[e.sets.length-1];
+    e.sets.push({reps:l?.reps??null,kg:l?.kg??null,rpe:null});await saveSt(st);const y=scrollY;render();scrollTo(0,y);
+    const sel=document.querySelectorAll(`select[data-ex="${b.dataset.i}"]`);sel[sel.length-1]?.focus({preventScroll:true})},
+  async stDelSet(_,b){const st=stById(S.arg),e=st.exercises[+b.dataset.i];e.sets.splice(+b.dataset.j,1);await saveSt(st);const y=scrollY;render();scrollTo(0,y)},
+  async stFinish(_,b){const st=stById(S.arg);
+    if(!strengthStats(st).sets){toast('Anota al menos una serie con repeticiones');return}
+    arm(b,'Pulsa otra vez para terminar',async()=>{
+      st.exercises=st.exercises.filter(e=>e.name.trim()||e.sets.some(s=>+s.reps>0)).map(e=>({...e,name:e.name.trim()||'Ejercicio',sets:e.sets.filter(s=>+s.reps>0)}));
+      st.endTime=Date.now();const m=Math.round((st.endTime-st.startTime)/60000);st.durationMin=m>=1&&m<=240?m:null;st.status='done';
+      lsSet('lastStType_'+st.userId,st.type);await saveSt(st);go('stpost',st.id,{push:false})})},
+  async stDone(){const st=stById(S.arg);st.exercises=st.exercises.filter(e=>e.name.trim()||e.sets.some(s=>+s.reps>0));await saveSt(st);back();toast('Cambios guardados')},
+  async stSavePost(){const st=stById(S.arg),d=parseInt($('#stDur').value);
+    if(!(d>0)){toast('Escribe la duración en minutos');$('#stDur').focus();return}
+    if(S.form.rpePost==null){toast('Elige un valor o pulsa «Anotar más tarde»');return}
+    st.durationMin=d;st.notes=$('#stNotes').value;st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);go('ssum',st.id,{push:false});toast('RPE guardado')},
+  async stLater(){const st=stById(S.arg),d=parseInt($('#stDur')?.value);if(d>0)st.durationMin=d;st.notes=$('#stNotes')?.value??st.notes;await saveSt(st);go('ssum',st.id,{push:false})},
+  async stSavePending(){const st=stById(S.arg);if(S.form.rpePost==null){toast('Elige un valor de la escala');return}
+    if(!(st.durationMin>0)){toast('Falta la duración: pulsa «Editar sesión» y añádela al terminar');}
+    st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);render();toast('RPE guardado')},
+  stEdit(){go('strength',S.arg)},
+  async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
+  stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;serie;reps;kg;rpe;volumen_kg'];
+    for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,j+1,s.reps,dec(+s.kg||0,1),s.rpe??'',dec(s.reps*(+s.kg||0),1)].map(v=>String(v).replace(/;/g,',')).join(';')));
+    download(`${slug(p.name)}_${fileDate(st.startTime)}_fuerza.csv`,rows.join('\r\n'),'text/csv')},
+  acwrMethod(b){lsSet('acwrMethod',b.dataset.v);render()},
+  loadView(b){lsSet('loadView',b.dataset.v);render()},
   async delSession(b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
   async exportSession(){const s=S.sessions.find(x=>x.id===S.arg),tr=await DB.get('tracks',s.id);
     const rows=['timestamp_iso;segundos;bpm;zona',...(tr?.samples||[]).map(([t,b])=>`${new Date(t).toISOString()};${dec((t-s.startTime)/1000)};${b};Z${zoneOf(b,s.zoneLimits)}`)];
     download(`${slug(prof(s.userId)?.name)}_${fileDate(s.startTime)}_${slug(s.type)}.csv`,rows.join('\r\n'),'text/csv')},
-  exportSummary(){const p=prof(S.arg);const rows=['usuario;fecha;tipo;duracion_min;fc_media;fc_max;min_z0;min_z1;min_z2;min_z3;min_z4;min_z5;rpe_pre;rpe_post;srpe'];
-    for(const s of [...sessOf(p.id)].reverse())rows.push([p.name,new Date(s.startTime).toLocaleString('es-ES'),s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??''].map(v=>String(v).replace(/;/g,',')).join(';'));
+  exportSummary(){const p=prof(S.arg);const rows=['usuario;fecha;modalidad;tipo;duracion_min;fc_media;fc_max;min_z0;min_z1;min_z2;min_z3;min_z4;min_z5;rpe_pre;rpe_post;srpe;volumen_kg;series;reps;rpe_medio_series'];
+    for(const s of [...allOf(p.id)].reverse()){let r;
+      if(s.kind==='st'){const k=strengthStats(s);r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Fuerza',s.type,s.durationMin??'','','','','','','','','',s.rpePre??'',s.rpePost??'',stLoad(s)??'',k.vol,k.sets,k.reps,k.rpe!=null?dec(k.rpe,2):'']}
+      else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Pulsómetro',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','',''];
+      rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
-  async backup(){const data={app:'pulsometro',version:1,exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
+  async backup(){const data={app:'pulsometro',version:2,strength:await DB.all('strength'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
     download(`pulsometro_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
   import(){$('#importFile').click()},
   async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
@@ -637,8 +1055,8 @@ for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x
 
 $('#importFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;
   try{const d=JSON.parse(await file.text());if(d.app!=='pulsometro')throw 0;
-    for(const p of d.profiles||[])await DB.put('profiles',p);for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);
-    await loadAll();render();toast(`Importados ${d.profiles.length} perfiles y ${d.sessions.length} sesiones`)}
+    for(const p of d.profiles||[])await DB.put('profiles',p);for(const s of d.sessions||[])await DB.put('sessions',s);for(const t of d.tracks||[])await DB.put('tracks',t);for(const x of d.strength||[])await DB.put('strength',x);
+    await loadAll();render();toast(`Importados ${d.profiles.length} perfiles y ${d.sessions.length+(d.strength||[]).length} sesiones`)}
   catch(err){toast('El archivo no es una copia válida de esta app')}});
 
 const slug=s=>String(s||'x').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
@@ -668,21 +1086,38 @@ async function seedExample(){
   const birth=new Date();birth.setFullYear(birth.getFullYear()-22);
   const p={id:uid(),name:'Ejemplo',birthDate:birth.toISOString().slice(0,10),hrMax:tanaka(22),hrMaxEstimated:true,hrRest:58,method:'karvonen',percents:[...DEF_PC],manual:[],createdAt:Date.now(),example:true};
   await DB.put('profiles',p);
-  const plan=[[1,'Carrera',40,'cont',4,6,1],[3,'Intervalos',38,'int',5,8,1],[6,'Recuperación',30,'rec',6,3,0],[9,'Carrera',45,'cont',3,6,2],[13,'Intervalos',42,'int',4,8,1],[16,'Carrera',50,'cont',3,5,1]];
+  // 6 semanas: 3 sesiones por semana y una última semana más cargada (ACWR al alza)
+  const plan=[],types=[['Carrera','cont'],['Intervalos','int'],['Recuperación','rec'],['Carrera','cont']];
+  for(let w=5;w>=0;w--){(w===0?[1,2,4,6]:[1,3,5]).forEach((dd,k)=>{const [type,kind]=types[k%4];
+    const mins=kind==='rec'?30:38+((w*7+k)%3)*6,post=kind==='int'?(w===0?9:7):kind==='rec'?3:(w===0?7:5);
+    plan.push([w*7+dd,type,mins,kind,3+(k%3),post,k%2])})}
   for(const [dAgo,type,mins,kind,pre,post,h] of plan){
     const st=new Date();st.setDate(st.getDate()-dAgo);st.setHours(18+h,15,0,0);const {samples,lim}=genSession(p,st.getTime(),mins,kind);
     const m={id:uid(),userId:p.id,startTime:st.getTime(),endTime:samples.at(-1)[0],activeMs:mins*60000,zoneLimits:lim,hrMax:p.hrMax,rpePre:pre,rpePost:post,rpePostTime:st.getTime()+(mins+30)*60000,type,notes:'',deviceName:'Datos de ejemplo',status:'recording',example:true};
     await finalize(m,{id:m.id,samples,rr:[],pauses:[]});
   }
+  // Fuerza: una sesión por semana con progresión de cargas
+  const R=()=>Math.random();
+  for(let w=5;w>=0;w--){const st=new Date();st.setDate(st.getDate()-(w*7+(w===0?3:2)));st.setHours(17,30,0,0);const pr=5-w;
+    const sets=(n,reps,kg,rpe0)=>Array.from({length:n},(_,i)=>({reps,kg,rpe:Math.min(10,rpe0+(i>=n-1?1:0)+(w===0?1:0))}));
+    const ex=[{name:'Sentadilla',sets:sets(4,6,70+2.5*pr,6)},{name:'Press banca',sets:sets(4,8,50+2.5*Math.floor(pr/2),6)},
+      {name:'Peso muerto rumano',sets:sets(3,10,60+2.5*pr,5)},{name:'Dominadas',sets:sets(3,7+Math.floor(pr/3),0,7)}];
+    await DB.put('strength',{id:uid(),userId:p.id,kind:'strength',type:w%2?'Tren inferior':'Full body',startTime:st.getTime(),endTime:st.getTime()+55*60000,durationMin:52+Math.round(R()*8),
+      rpePre:3,rpePost:w===0?8:7,rpePostTime:st.getTime()+85*60000,notes:'',status:'done',exercises:ex,example:true})}
   lsSet('seeded','1');
 }
 
 /* ================= Arranque ================= */
-async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions')}
+async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength')}
 (async()=>{
   await DB.open();await loadAll();
-  if(!S.profiles.length&&!lsGet('seeded')){await seedExample();await loadAll()}
+  // Datos de ejemplo: se crean la primera vez y se renuevan si cambia su versión (solo el perfil marcado como ejemplo)
+  const ex=S.profiles.find(p=>p.example);
+  if((!S.profiles.length&&!lsGet('seeded'))||(ex&&lsGet('seedv')!=='3')){
+    if(ex){for(const s of S.sessions.filter(s=>s.userId===ex.id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
+      for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.del('strength',s.id);await DB.del('profiles',ex.id)}
+    await seedExample();lsSet('seedv','3');await loadAll()}
   try{history.replaceState({},'')}catch(e){}
-  render();updChip();
+  syncDrawerMode();render();updChip();
 })();
 </script>
