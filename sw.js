@@ -1,10 +1,21 @@
 // Service worker de IMDTraining
 // 1) Recibe los archivos que se comparten a la app desde otras apps (WhatsApp, Archivos…) y los deja listos para importar.
-// 2) Guarda la app para que se abra sin conexión (primero intenta la red, así siempre carga la última versión).
+// 2) Al tocar un aviso de la app, la vuelve a abrir.
+// 3) Guarda la app para que se abra sin conexión (primero intenta la red, así siempre carga la última versión).
 const APP_CACHE = 'imdt-app-v1';
 const SHARE_CACHE = 'imdt-share';
 
 self.addEventListener('install', () => self.skipWaiting());
+
+// Al tocar un aviso (fin del descanso, cambio de bloque) se vuelve a la app
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (all.length) return all[0].focus();
+    return self.clients.openWindow(self.registration.scope);
+  })());
+});
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('fetch', e => {

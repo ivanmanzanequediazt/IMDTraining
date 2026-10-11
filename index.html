@@ -390,10 +390,41 @@ body.has-rest .wrap{padding-bottom:90px}
 .wk-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .wk-acts .btn{font-size:15px;padding:10px 8px}
 .seg.four{grid-template-columns:repeat(4,1fr)}
+.mebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 13px var(--body);border-radius:999px;padding:3px 10px 3px 3px;min-height:36px;cursor:pointer;flex:none}
+.mebtn .avatar{width:28px;height:28px;font-size:14px;background:var(--accent);color:var(--accent-ink)}
+.mebtn:has(svg){padding:6px 12px}
+.mebtn svg{color:var(--accent)}
+.d-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--soft);border-radius:12px;padding:4px;margin:4px 0 6px}
+.d-switch button{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:none;color:var(--muted);font:600 14px var(--body);padding:9px 6px;border-radius:9px;cursor:pointer}
+.d-switch button.on{background:var(--accent);color:var(--accent-ink)}
+.chip.compact #chipt{display:none}.chip.compact{padding:8px;gap:0}
+.ivbar{display:flex;gap:2px;height:12px;border-radius:6px;overflow:hidden;margin:8px 0}
+.ivbar i{display:block;min-width:3px}
+.ivlist{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.ivrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:var(--soft);border-left:4px solid var(--c)}
+.ivrow.edit input{width:70px;min-height:38px;padding:6px 8px}
+.ivrow.edit select{width:auto;min-height:38px;padding:6px 8px}
+.ivrow .grow{flex:1;min-width:0}
+.ivrow .icon-btn{width:32px;height:32px;font-size:18px}
+.zpill.sm{font:700 12px var(--body);padding:2px 8px;border-radius:999px;color:#fff;letter-spacing:0}
+.ivpct{display:block;height:8px;border-radius:4px;background:var(--line);overflow:hidden}.ivpct i{display:block;height:100%}
+.iv-card{padding:12px 14px;border-left:5px solid var(--accent)}
+.iv-now{display:flex;align-items:center;gap:10px}
+.iv-now .iv-z{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0}
+.iv-now .iv-z b{font:800 32px var(--display);color:var(--c)}
+.iv-left{font:800 38px var(--display);color:var(--c)}
+.iv-now.done b{font:700 22px var(--display);color:var(--ok)}
+.cue{font:700 13px var(--body);padding:3px 9px;border-radius:999px}
+.cue.ok{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}
+.cue.up{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+.cue.down{background:color-mix(in srgb,var(--z5) 20%,transparent);color:var(--z5)}
+.ivprog{position:relative}.ivprog>i{position:absolute;top:-3px;bottom:-3px;width:3px;border-radius:2px;background:var(--ink);transform:translateX(-1px)}
+.ivppm{white-space:nowrap;font-size:12px}.ivrow.edit{gap:6px;padding:6px}.ivrow.edit input{width:58px}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
   <div class="d-head"><span class="d-brand brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="#EDE6D6" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="#EDE6D6" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="b1">IMDT</span><span class="b2">raining</span></span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
+  <div class="d-switch" id="dSwitch" hidden></div>
   <button class="d-item d-plain" data-d="home" id="dHome">Inicio</button>
   <button class="d-item d-plain" data-d="tests" id="dTests">Test</button>
   <div class="d-sec" id="dSecProfiles"><span class="lbl">Perfiles</span><div id="dList"></div></div>
@@ -409,6 +440,7 @@ body.has-rest .wrap{padding-bottom:90px}
   <button class="menu" id="menuBtn" aria-label="Abrir menú de perfiles" aria-controls="drawer" aria-expanded="false"><i></i><i></i><i></i></button>
   <button class="back" id="back" aria-label="Volver" hidden>‹</button>
   <h1 id="ttl" class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="#EDE6D6" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="#EDE6D6" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="b1">IMDT</span><span class="b2">raining</span></span></h1>
+  <button class="mebtn" id="meBtn" hidden></button>
   <span class="chip" id="chip"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
 </div></header>
 <main class="wrap" id="app"></main>
@@ -765,6 +797,7 @@ async function finalize(meta,track){
 async function finishRec(){
   const r=S.rec;const now=Date.now();
   if(r.running){r.acc+=now-r.segStart;r.running=false}
+  if(r.blocks){ivTick(r,true);keepAlive('iv',false)}
   const lp=r.pauses[r.pauses.length-1];if(lp&&lp[1]==null)lp[1]=now;
   r.endTime=now;r.activeMs=r.acc;
   const meta=sessMeta(r);meta.activeMs=r.acc;
@@ -942,18 +975,19 @@ function alertsHTML(uid,noGlobal){let h='';const mine=x=>uid?x.userId===uid:!pro
     h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · terminó ${ago(s.endTime)}</span></span><span class="tag pend">Anotar</span></button>`;
   for(const s of S.strength.filter(s=>mine(s)&&s.status==='done'&&s.rpePost==null&&Date.now()-(s.endTime||s.startTime)<7*864e5))
     h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} (fuerza) · ${ago(s.endTime||s.startTime)}</span></span><span class="tag pend">Anotar</span></button>`;
-  for(const s of S.strength.filter(s=>mine(s)&&s.status==='open'))
+  for(const s of S.strength.filter(s=>mine(s)&&s.status==='open'&&!stEmpty(s)))
     h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Fuerza en curso · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · empezó ${ago(s.startTime)}</span></span><span class="tag str">Continuar</span></button>`;
   return h}
 function profileCard(p){const all=allOf(p.id),last=all[0],ser=acwrSeries(dailyLoads(loadItems(p.id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio),pend=all.some(s=>s.rpePost==null);
   return `<button class="pcard" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span>
     <span class="grow"><span class="t">${esc(p.name)}${pend?'<i class="pdot" title="RPE pendiente"></i>':''}</span><span class="s">${last?'Última sesión '+ago(last.startTime):'Sin sesiones'}</span>
-    <span class="tags">${p.example?'<span class="tag ex">Ejemplo</span>':''}${p.remote?'<span class="tag str">Cliente</span>':''}</span></span>
+    <span class="tags">${p.id===meId()?'<span class="tag up">Tú</span>':''}${p.example?'<span class="tag ex">Ejemplo</span>':''}${p.remote?'<span class="tag str">Cliente</span>':''}</span></span>
     <span class="acwr-mini" style="--c:${zc(st.z)}"><b class="num">${cur?.ratio!=null?dec(cur.ratio,2):'—'}</b><span>ACWR</span></span></button>`}
 V.home=()=>{
   let h=alertsHTML()+installCardHTML();
-  const ps=[...S.profiles].sort((a,b)=>(a.example?1:0)-(b.example?1:0)||a.name.localeCompare(b.name));
+  const ps=sortProfiles(S.profiles),srt=lsGet('pSort')||'az';
   h+=`<section class="sec"><div class="sec-h"><h2>Perfiles <span class="muted num">${ps.length||''}</span></h2><button class="btn small" data-act="newProfile">${ic('plus')}Nuevo</button></div>`;
+  if(ps.length>1)h+=`<div class="chips-f" role="radiogroup" aria-label="Ordenar perfiles"><span class="lbl" style="align-self:center;margin-right:2px">Ordenar</span>${[['az','A–Z'],['recent','Actividad reciente']].map(([k,l])=>`<button type="button" role="radio" aria-checked="${srt===k}" class="fchip ${srt===k?'on':''}" data-act="pSort" data-v="${k}">${l}</button>`).join('')}</div>`;
   h+=ps.length?`<div class="pgrid">${ps.map(profileCard).join('')}</div>`:`<div class="empty">Crea un perfil por cada persona que entrenes. Cada uno guarda sus zonas, sesiones y test.</div>`;
   h+=`</section><section class="sec"><h3>Clientes</h3><div class="actions">
     <button class="action" data-act="invite">${ic('userPlus')}<b>Invitar</b><span>Envía el enlace</span></button>
@@ -1093,7 +1127,7 @@ V.profile=()=>{
   const all=allOf(p.id),method=lsGet('acwrMethod')==='ewma'?'ewma':'ra',ser=acwrSeries(dailyLoads(loadItems(p.id)),method),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio);
   let h=(isClient()?alertsHTML(p.id)+installCardHTML():'')+profileTabs(p.id,tab);
   if(tab==='res'){
-    const open=S.strength.filter(s=>s.userId===p.id&&s.status==='open'),last=all[0];
+    const open=S.strength.filter(s=>s.userId===p.id&&s.status==='open'&&!stEmpty(s)),last=all[0];
     h+=isClient()?'':alertsHTML(p.id,true);
     h+=open.map(o=>`<button class="item hl" data-act="openStrength" data-id="${o.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(o.type)} en curso</span><span class="s">Empezó ${ago(o.startTime)} · ${strengthStats(o).sets} series anotadas</span></span><span class="tag str">Continuar</span></button>`).join('');
     h+=(isClient()?plansSection(p):'')+`<div class="starts"><button class="start" data-act="newSession">${ic('heart')}<b>Aeróbico</b><span>FC en directo y zonas</span></button><button class="start" data-act="newStrength">${ic('dumbbell')}<b>Sesión de fuerza</b><span>Ejercicios, series y RPE</span></button></div>
@@ -1103,8 +1137,8 @@ V.profile=()=>{
     ${wellCard(p)}
     ${all.length&&!isClient()?`<button class="action wide-action" data-act="report">${ic('chart')}<b>Informe del mes</b><span>Imagen para compartir</span></button>`:''}
     ${all.length&&!isClient()?`<div class="card"><div class="sec-h"><span class="lbl">Carga semanal</span><button class="link" data-act="ptab" data-v="load">Ver carga ${ic('chev','sm')}</button></div><canvas id="wkMini" style="height:120px" role="img" aria-label="Carga de las últimas 8 semanas"></canvas></div>`:''}
-    ${isClient()?shareCard(p):''}
-    ${isClient()?`<button class="link" data-act="openReceived">${ic('download','sm')} Abrir entrenamiento o sesión recibida</button>`:plansSection(p)}
+    ${isClient()&&!selfCoached()?shareCard(p):''}
+    ${isClient()?(selfCoached()?'':`<button class="link" data-act="openReceived">${ic('download','sm')} Abrir entrenamiento o sesión recibida</button>`):plansSection(p)}
     <section class="sec"><div class="sec-h"><h3>Últimas sesiones</h3>${all.length>3?`<button class="link" data-act="ptab" data-v="ses">Ver todas (${all.length}) ${ic('chev','sm')}</button>`:''}</div>
     ${all.length?`<div class="list">${all.slice(0,3).map(sessItem).join('')}</div>`:`<div class="empty">Todavía no hay sesiones. Empieza una con los botones de arriba.</div>`}</section>`}
   else if(tab==='ses'){
@@ -1155,6 +1189,8 @@ V.profile=()=>{
       ${p.hrMaxEstimated?'<span class="hint">* FC máxima estimada con la fórmula de Tanaka. Si la mides, cámbiala en Editar.</span>':''}</div>
     <div class="card"><span class="lbl">Zonas de frecuencia cardíaca</span>${zoneTable(lim,p.hrMax)}</div>
     ${isClient()?'':shareCard(p)}
+    ${isClient()||p.example?'':p.id===meId()?`<div class="card"><span class="lbl">Tu perfil</span><span class="hint">Es el perfil que usas como deportista. Cambia entre entrenador y tu perfil con el botón «Yo» de arriba.</span><div class="row"><button class="btn small primary" data-act="goMe">${ic('user','sm')}Abrir como deportista</button><button class="btn small" data-act="meUnset">Dejar de usarlo como mío</button></div></div>`
+      :`<div class="card"><span class="lbl">¿Eres tú?</span><span class="hint">Márcalo como tu perfil para entrenar tú también con la app y pasar de entrenador a deportista con un toque.</span><button class="btn small" data-act="meSet" data-id="${p.id}">${ic('user','sm')}Es mi perfil</button></div>`}
     ${isClient()?'':`<details class="card danger-zone"><summary>Borrar perfil</summary><span class="hint">Se eliminan de este móvil ${esc(p.name)} y todos sus datos: ${all.length} sesi${all.length===1?'ón':'ones'} y ${S.tests.filter(t=>t.userId===p.id).length} test. No se puede deshacer.${p.remote?' Si vuelve a enviarte sus datos y los importas, el perfil se volverá a crear.':''}</span>
       <button class="btn danger wide" data-act="delProfileHere">Borrar el perfil de ${esc(p.name)}</button></details>`}`}
   return h;
@@ -1181,7 +1217,7 @@ function updDevice(){
 V.live=()=>{
   const r=S.rec;
   const pl=r.planId&&planById(r.planId);
-  return `${pl?`<div class="note info slim plan-live">${ic('clock')}<span class="hint"><b>Objetivo:</b> ${pl.hr?.minutes||'—'} min${pl.hr?.zone?' en Z'+pl.hr.zone:''} · <span id="lPlan" class="num"></span></span></div>`:''}<div class="note" hidden><b id="liveSt"></b><button class="btn small" data-act="connect" ${btOK?'':'hidden'}>Volver a conectar</button></div>
+  return `${r.blocks?'<div class="card iv-card" id="ivBox"></div>':pl?`<div class="note info slim plan-live">${ic('clock')}<span class="hint"><b>Objetivo:</b> ${pl.hr?.minutes||'—'} min${pl.hr?.zone?' en Z'+pl.hr.zone:''} · <span id="lPlan" class="num"></span></span></div>`:''}<div class="note" hidden><b id="liveSt"></b><button class="btn small" data-act="connect" ${btOK?'':'hidden'}>Volver a conectar</button></div>
   <div class="live-hr"><span class="big" id="lBpm">—</span><span class="unit">PPM</span><span class="zpill" id="lZone">—</span></div>
   <div class="stats">${stat('00:00','Tiempo','lTime')}${stat('—','FC media','lAvg')}${stat('—','FC máx','lMax')}</div>
   <div class="card"><div class="chart"><canvas id="lc" role="img" aria-label="FC de los últimos 3 minutos. Desliza o usa las flechas para leer cada momento."></canvas></div></div>
@@ -1189,6 +1225,26 @@ V.live=()=>{
   <div class="ctrls"><button class="btn" id="pauseBtn" data-act="pause">${r.running?'Pausar':'Reanudar'}</button><button class="btn danger" data-act="finish">Finalizar</button></div>
   <span class="hint" style="text-align:center">Deja esta pantalla abierta: con la pantalla apagada Chrome puede dejar de recibir datos.</span>`;
 };
+// Intervalos en directo: bloque según el tiempo activo (las pausas no cuentan)
+function ivState(r){const bs=r.blocks,a=recActive(r);let acc=0;
+  for(let i=0;i<bs.length;i++){const e=acc+bs[i].min*60000;if(a<e)return {i,left:e-a,elapsed:a-acc};acc=e}
+  return {i:bs.length,left:0,elapsed:0}}
+function ivTick(r,final){if(!r?.blocks)return;const st=ivState(r),n=r.blocks.length;
+  const close=k=>{const b=r.blocks[k];if(!b||r.ivRes[k])return;r.ivRes[k]={zone:b.zone,min:b.min,inMs:Math.max(0,Math.min(b.min*60000,r.inc.zoneMs[b.zone]-r.ivBase))}};
+  if(final){if(r.ivi<n)close(r.ivi);return}
+  if(st.i!==r.ivi){for(let k=r.ivi;k<Math.min(st.i,n);k++)close(k);r.ivi=st.i;
+    if(st.i<n){const b=r.blocks[st.i];r.ivBase=r.inc.zoneMs[b.zone];beep();alertUser(`Bloque ${st.i+1}/${n}: Z${b.zone}`,`${fmtBl(b.min)} en Z${b.zone}${st.i+1<n?' · luego '+fmtBl(r.blocks[st.i+1].min)+' Z'+r.blocks[st.i+1].zone:''}`);toast(`Bloque ${st.i+1}: ${fmtBl(b.min)} en Z${b.zone}`)}
+    else{beep();alertUser('Intervalos completados','Puedes seguir o finalizar la sesión');toast('¡Intervalos completados!');keepAlive('iv',false)}}
+  else if(st.i<n&&r.running){const s=Math.ceil(st.left/1000);if(s<=3&&s>=1&&r.ivPip!==st.i*10+s){r.ivPip=st.i*10+s;schedBeeps(0,'pip')}}
+  if(S.view==='live')ivRender(r,st)}
+function ivRender(r,st=ivState(r)){const box=$('#ivBox');if(!box)return;const bs=r.blocks,n=bs.length,p=prof(r.userId);
+  if(st.i>=n){box.innerHTML=`<div class="iv-now done"><span class="lbl">Intervalos</span><b>Completados</b><span class="hint">${r.ivRes.map((x,k)=>`${k+1}: ${Math.round(x.inMs/(x.min*600))} %`).join(' · ')} en zona</span></div>${ivBar(bs)}`;return}
+  const b=bs[st.i],nx=bs[st.i+1],cur=BLE.bpm&&Date.now()-BLE.last<5000?zoneOf(BLE.bpm,r.zoneLimits):null,inz=Math.max(0,r.inc.zoneMs[b.zone]-r.ivBase);
+  const cue=cur==null?'':cur===b.zone?'<span class="cue ok">En zona</span>':cur<b.zone?'<span class="cue up">Sube ↑</span>':'<span class="cue down">Baja ↓</span>';
+  const done=ivTotal(bs.slice(0,st.i))*60000+st.elapsed,pct=Math.min(100,done/(ivTotal(bs)*600));
+  box.innerHTML=`<div class="iv-now" style="--c:${zc(b.zone)}"><div class="grow"><span class="lbl">Bloque ${st.i+1} de ${n}</span><div class="iv-z"><b>Z${b.zone}</b><span class="hint num">${zoneRange(p,b.zone)}</span>${cue}</div>
+    <span class="hint num">En zona ${fmtDur(inz)} de ${fmtDur(st.elapsed)}${nx?` · luego ${fmtBl(nx.min)} Z${nx.zone}`:' · último bloque'}</span></div><b class="iv-left num">${fmtDur(st.left)}</b></div>
+    <div class="ivprog">${ivBar(bs)}<i style="left:${pct}%"></i></div>`}
 function updLive(){
   const r=S.rec;if(!r||S.view!=='live')return;
   const fresh=Date.now()-BLE.last<5000&&hasSource();
@@ -1204,6 +1260,7 @@ function updLive(){
   const now=Date.now(),t0=now-180000;let k=r.samples.length;while(k>0&&r.samples[k-1][0]>=t0-2000)k--;
   drawHR($('#lc'),r.samples.slice(k),r.zoneLimits,r.hrMax,t0,now,true);
   $('#pauseBtn').textContent=r.running?'Pausar':'Reanudar';
+  if(r.blocks)ivRender(r);
   const lp=$('#lPlan');if(lp){const pl=planById(r.planId),z=+pl?.hr?.zone;lp.textContent=`llevas ${fmtDur(recActive(r))}${z?' · '+fmtDur(r.inc.zoneMs[z])+' en Z'+z:''}`}
 }
 V.post=()=>{const f=S.form;if(f.rpePost===undefined)f.rpePost=null;const s=S.sessions.find(x=>x.id===S.arg);
@@ -1219,6 +1276,8 @@ V.summary=()=>{
   ${s.hrr?`<div class="hrr"><span class="lbl">Recuperación 1 min</span><b class="num">−${s.hrr.drop} ppm</b><span class="hint num">${s.hrr.start} → ${s.hrr.end} ppm · ${hrrTxt(s.hrr)}</span>${info('Caída de la FC en el primer minuto tras terminar, en reposo. Cuanto más baja, mejor recuperación. Orientativo: &lt; 12 ppm baja · 12–19 normal · 20–29 buena · ≥ 30 muy buena. Lo más útil es compararla con tus propias sesiones: si baja menos de lo habitual a la misma intensidad, puede indicar fatiga.','Cómo se interpreta')}</div>`:''}
   <div class="chart"><canvas id="sc" class="tall" role="img" aria-label="Frecuencia cardíaca de la sesión con zonas. Desliza o usa las flechas para leer cada momento."></canvas></div>
   <span class="hint">Desliza el dedo o pasa el ratón por la gráfica para ver la FC de cada momento.</span></div>
+  ${s.blocks&&s.ivRes?.length?`<div class="card"><span class="lbl">Intervalos · tiempo en la zona objetivo</span>${ivBar(s.blocks)}<div class="ivlist">${s.blocks.map((b,k)=>{const x=s.ivRes[k],pc=x?Math.round(x.inMs/(b.min*600)):null;
+    return `<div class="ivrow" style="--c:${zc(b.zone)}"><span class="ex-n sm">${k+1}</span><b class="num">${fmtBl(b.min)}</b><span class="zpill sm" style="background:${zc(b.zone)}">Z${b.zone}</span><span class="grow"><span class="ivpct"><i style="width:${pc??0}%;background:${zc(b.zone)}"></i></span></span><b class="num">${pc==null?'—':pc+' %'}</b></div>`}).join('')}</div><span class="hint">Porcentaje de cada bloque con la FC dentro de su zona. Al empezar un bloque intenso es normal que la FC tarde 1–2 min en subir.</span></div>`:''}
   <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(s.zoneMs,s.noSignalMs)}<span class="hint num">Zonas aplicadas: ${s.zoneLimits.join(' · ')} ppm (FCmáx ${s.hrMax})</span></div>
   ${s.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="savePending">Guardar RPE</button></section>`:''}
   <div class="card"><div class="field"><label for="snotes2">Notas</label><textarea id="snotes2" data-act="notes">${esc(s.notes)}</textarea></div><span class="hint">${esc(s.deviceName)}</span></div>
@@ -1331,6 +1390,9 @@ function mgCard(uid){
   </div>`}
 const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series')+stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio');
 let stSaveT=null;
+// Una sesión de fuerza recién abierta sin nada anotado es un borrador: no cuenta como «en curso» y se descarta al salir
+const stEmpty=st=>!st.planId&&!(st.exercises||[]).some(e=>normTxt(e.name)||e.sets.some(x=>(x.reps!=null&&x.reps!=='')||(x.kg!=null&&x.kg!=='')));
+function dropDraft(id){const st=stById(id);if(!st||st.status!=='open'||!stEmpty(st))return;clearTimeout(stSaveT);S.strength=S.strength.filter(x=>x.id!==id);DB.del('strength',id)}
 function saveStSoon(st){clearTimeout(stSaveT);stSaveT=setTimeout(()=>DB.put('strength',st),400)}
 async function saveSt(st){clearTimeout(stSaveT);await DB.put('strength',st);const i=S.strength.findIndex(x=>x.id===st.id);if(i<0)S.strength.push(st);else S.strength[i]=st}
 V.stpost=()=>{const st=stById(S.arg);const t=strengthStats(st);if(S.form.rpePost===undefined)S.form.rpePost=st.rpePost??null;
@@ -1396,7 +1458,12 @@ setInterval(()=>{const c=$('#stClock');const st=S.view==='strength'&&stById(S.ar
 /* ================= Modo entrenador / deportista ================= */
 // El modo se guarda en el navegador. 'client' = deportista (un único perfil propio), 'coach' = entrenador (todos los perfiles)
 const isClient=()=>lsGet('mode')==='client'||S.modeFallback==='client';
-const myProfile=()=>S.profiles.filter(p=>!p.example&&!p.remote).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0))[0];
+// Mi perfil: el marcado como «yo» (meId). En un móvil de entrenador (coachDev) no se deduce: hay que elegirlo
+const meId=()=>{const m=prof(lsGet('meId'));return m&&!m.example?m.id:null};
+const coachDev=()=>lsGet('coachDev')==='1';
+const myProfile=()=>{const m=meId();if(m)return prof(m);if(coachDev())return null;return S.profiles.filter(p=>!p.example&&!p.remote).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0))[0]};
+// Entrenador que también entrena: en modo deportista no hace falta enviarse datos a sí mismo
+const selfCoached=()=>isClient()&&coachDev();
 function clientRoot(){const p=myProfile();S.stack=[];if(p){S.view='profile';S.arg=p.id}else{S.view='edit';S.arg=null;S.form={}}}
 V.welcome=()=>`<div class="welcome">
   <div class="welcome-logo"><img src="icon-192.png" alt="" onerror="this.parentNode.innerHTML=BRAND_MARK"></div><h2 class="brand big-brand"><span><span class="b1">IMDT</span><span class="b2">raining</span></span></h2>
@@ -1431,11 +1498,24 @@ async function inviteClient(){
   try{if(navigator.share){await navigator.share({title:'IMDTraining',text,url});return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(text+' '+url);toast('Enlace de invitación copiado')}catch(e){toast(url)}}
 async function switchMode(){
-  if(isClient()){lsSet('mode','coach');S.modeFallback=null;S.stack=[];go('home',null,{push:false});toast('Modo entrenador');return}
-  const own=S.profiles.filter(p=>!p.example&&!p.remote);
-  if(own.length>1){toast('En modo deportista solo puede haber un perfil propio en este móvil');return}
-  if(own[0]){own[0].owner='client';await DB.put('profiles',own[0])}
-  lsSet('mode','client');S.stack=[];clientRoot();render();toast('Modo deportista')}
+  if(S.rec){toast('Termina antes la sesión que está grabando');return}
+  if(S.view==='strength')dropDraft(S.arg);
+  if(isClient()){lsSet('mode','coach');lsSet('coachDev','1');S.modeFallback=null;S.stack=[];go('home',null,{push:false});toast('Modo entrenador');return}
+  lsSet('coachDev','1');
+  if(!meId()){openPickMe();return}
+  enterMe()}
+function enterMe(){closeModal();lsSet('mode','client');S.modeFallback=null;S.stack=[];clientRoot();render();window.scrollTo(0,0);toast(`Tu perfil: ${myProfile()?.name||''}`)}
+// ¿Cuál de los perfiles eres tú?
+function openPickMe(){const ps=sortProfiles(S.profiles.filter(p=>!p.example),'az');S.modalKind='me';
+  $('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true"><div class="sec-h"><h2>¿Cuál es tu perfil?</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
+    <span class="hint">Lo usarás como deportista: verás solo tus entrenamientos, lo que te programes y el bienestar diario. Podrás volver al modo entrenador en cualquier momento.</span>
+    ${ps.length?`<div class="list">${ps.map(p=>`<button class="item" data-act="meSet" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}</span></span>${ic('chev','sm')}</button>`).join('')}</div>`:''}
+    <button class="btn wide" data-act="meNew">${ic('plus')}Crear mi perfil</button></div>`;
+  $('#modal').hidden=false;document.body.classList.add('modal-open')}
+// Orden de la lista de perfiles: A–Z (tu perfil primero) o por actividad reciente; el ejemplo siempre al final
+const lastAct=id=>Math.max(0,...allOf(id).map(x=>x.startTime||0));
+function sortProfiles(ps,how=lsGet('pSort')||'az'){const me=meId();
+  return [...ps].sort((a,b)=>(a.example?1:0)-(b.example?1:0)||(b.id===me)-(a.id===me)||(how==='recent'?lastAct(b.id)-lastAct(a.id):0)||a.name.trim().localeCompare(b.name.trim(),'es',{sensitivity:'base'}))}
 // Borra un perfil con todas sus sesiones (y registros de FC), sesiones de fuerza y test
 async function deleteProfile(id){const p=prof(id);if(!p)return;
   if(S.rec&&S.rec.userId===id){toast('Termina antes la sesión que está grabando');return}
@@ -1512,10 +1592,36 @@ let audioCtx=null;
 function beep(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
   [0,.25,.5].forEach((t,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=i===2?1175:880;o.connect(g);g.connect(audioCtx.destination);
     const s0=audioCtx.currentTime+t;g.gain.setValueAtTime(.0001,s0);g.gain.exponentialRampToValueAtTime(.35,s0+.02);g.gain.exponentialRampToValueAtTime(.0001,s0+.2);o.start(s0);o.stop(s0+.22)})}catch(e){}}
-function startRest(sec){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
-  REST.dur=sec||restDefault();REST.end=Date.now()+REST.dur*1000;REST.done=0;clearInterval(REST.tick);REST.tick=setInterval(restTick,250);renderRest()}
+/* Con la pantalla bloqueada Chrome frena la app. Para que el aviso llegue igual:
+   1) un tono casi inaudible (30 Hz) mantiene la app activa mientras corre el descanso o los intervalos,
+   2) los pitidos se programan en el reloj de audio, que suena a su hora aunque el resto de la app vaya frenada,
+   3) si la pantalla está bloqueada, una notificación hace vibrar el móvil (la vibración directa solo funciona con la pantalla encendida). */
+const AL={keep:null,users:new Set(),beeps:[]};
+function actx(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}catch(e){return null}}
+function keepAlive(who,on){if(on)AL.users.add(who);else AL.users.delete(who);const c=actx();if(!c)return;
+  if(AL.users.size&&!AL.keep){const o=c.createOscillator(),g=c.createGain();o.frequency.value=30;g.gain.value=.004;o.connect(g);g.connect(c.destination);o.start();AL.keep=o}
+  if(!AL.users.size&&AL.keep){try{AL.keep.stop()}catch(e){}AL.keep=null}}
+// Pitidos en el reloj de audio dentro de 'sec' segundos (kind: 'end' tres pitidos, 'pip' uno corto)
+function schedBeeps(sec,kind='end'){const c=actx();if(!c)return[];const t0=c.currentTime+Math.max(0,sec),ns=[];
+  (kind==='pip'?[[0,880,.12]]:[[0,880,.2],[.25,880,.2],[.5,1175,.35]]).forEach(([t,f,d])=>{const o=c.createOscillator(),g=c.createGain();o.frequency.value=f;o.connect(g);g.connect(c.destination);
+    const s0=t0+t;g.gain.setValueAtTime(.0001,s0);g.gain.exponentialRampToValueAtTime(.4,s0+.02);g.gain.exponentialRampToValueAtTime(.0001,s0+d);o.start(s0);o.stop(s0+d+.02);ns.push(o)});return ns}
+const cancelBeeps=ns=>{for(const o of ns||[])try{o.stop()}catch(e){}};
+// Vibrar: directo si se ve la app; con notificación si la pantalla está bloqueada o la app en segundo plano
+async function alertUser(title,body){try{navigator.vibrate?.([300,120,300,120,500])}catch(e){}
+  if(document.hidden&&'Notification' in window&&Notification.permission==='granted')try{const r=await navigator.serviceWorker?.getRegistration();
+    if(r)await r.showNotification(title,{body,tag:'imdt-alert',renotify:true,vibrate:[400,150,400,150,700],icon:'icon-192.png',badge:'icon-192.png',silent:false})}catch(e){}}
+function askNotif(){if(!('Notification' in window)||Notification.permission!=='default'||lsGet('notifAsked'))return;lsSet('notifAsked','1');
+  toast('Permite las notificaciones para que vibre con la pantalla bloqueada');try{Notification.requestPermission()}catch(e){}}
+document.addEventListener('visibilitychange',async()=>{if(document.hidden)return;
+  try{const r=await navigator.serviceWorker?.getRegistration();for(const n of await r?.getNotifications({tag:'imdt-alert'})||[])n.close()}catch(e){}
+  restTick();if(S.rec)ivTick(S.rec)});
+function restArm(){cancelBeeps(AL.beeps);AL.beeps=[];if(!REST.end){keepAlive('rest',false);return}
+  keepAlive('rest',true);AL.beeps=schedBeeps((REST.end-Date.now())/1000)}
+function startRest(sec){actx();askNotif();
+  REST.dur=sec||restDefault();REST.end=Date.now()+REST.dur*1000;REST.done=0;clearInterval(REST.tick);REST.tick=setInterval(restTick,250);restArm();renderRest()}
 function restTick(){if(!REST.end)return;const left=REST.end-Date.now();
-  if(left<=0){REST.end=0;REST.done=Date.now();clearInterval(REST.tick);REST.tick=null;try{navigator.vibrate?.([250,120,250,120,400])}catch(e){}beep();toast('¡Descanso terminado! A por la siguiente serie');renderRest();setTimeout(renderRest,4000);return}
+  if(left<=0){REST.end=0;REST.done=Date.now();clearInterval(REST.tick);REST.tick=null;if(!AL.beeps.length)beep();AL.beeps=[];setTimeout(()=>keepAlive('rest',false),1500);
+    alertUser('Descanso terminado','A por la siguiente serie');toast('¡Descanso terminado! A por la siguiente serie');renderRest();setTimeout(renderRest,4000);return}
   const t=$('#restT');if(t){t.textContent=fmtDur(left);$('#restP').style.width=(100-left/(REST.dur*10))+'%'}}
 function renderRest(){const bar=$('#restBar'),on=S.view==='strength'&&stById(S.arg)?.status==='open';bar.hidden=!on;document.body.classList.toggle('has-rest',on);if(!on)return;
   const run=REST.end>Date.now(),fresh=REST.done&&Date.now()-REST.done<4000;
@@ -1634,7 +1740,16 @@ let plSaveT=null;const savePlanSoon=pl=>{clearTimeout(plSaveT);plSaveT=setTimeou
 async function savePlan(pl){clearTimeout(plSaveT);await DB.put('plans',pl);const i=S.plans.findIndex(x=>x.id===pl.id);if(i<0)S.plans.push(pl);else S.plans[i]=pl}
 function planDateTxt(ds){if(!ds)return'Sin fecha';const d=new Date(ds+'T12:00:00'),t=new Date();t.setHours(12,0,0,0);const n=Math.round((d-t)/864e5);
   return n===0?'Hoy':n===1?'Mañana':n===-1?'Ayer':n<-1?`${d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · atrasado`:d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}
-function planSummary(pl){if(pl.kind==='hr'){const h=pl.hr||{};return `${h.minutes||'—'} min${h.zone?' · Z'+h.zone:''}${h.type?' · '+h.type:''}`}
+// Intervalos: bloques {min, zone}; los minutos admiten decimales (0,5 = 30 s)
+const fmtBl=m=>{m=+m||0;const mm=Math.floor(m),ss=Math.round((m-mm)*60);return ss?(mm?`${mm}'${pad(ss)}"`:`${ss}"`):`${mm}'`};
+const ivBlocks=h=>h?.mode==='int'?(h.blocks||[]).filter(b=>+b.min>0):null;
+const ivTotal=bs=>bs.reduce((a,b)=>a+(+b.min||0),0);
+function ivBar(bs,id){const t=ivTotal(bs)||1;return `<div class="ivbar"${id?` id="${id}"`:''}>${bs.map(b=>`<i style="flex:${+b.min||0};background:${zc(+b.zone)}" title="${fmtBl(b.min)} Z${b.zone}"></i>`).join('')}</div>`}
+const ivText=bs=>bs.length<=5?bs.map(b=>`${fmtBl(b.min)} Z${b.zone}`).join(' + '):`${bs.length} bloques`;
+const zoneRange=(p,z)=>{if(!p||!z)return'';const lim=zoneLimits(p);return `${lim[z-1]}–${z<5?lim[z]-1:p.hrMax} ppm`};
+function planSummary(pl){if(pl.kind==='hr'){const h=pl.hr||{},bs=ivBlocks(h);
+    if(bs)return `${fmtBl(ivTotal(bs)).replace("'",'')} min · ${ivText(bs)}${h.type?' · '+h.type:''}`;
+    return `${h.minutes||'—'} min${h.zone?' · Z'+h.zone:''}${h.type?' · '+h.type:''}`}
   const ex=(pl.exercises||[]).filter(e=>normTxt(e.name));return `${ex.length} ejercicio${ex.length===1?'':'s'} · ${ex.reduce((a,e)=>a+e.sets.length,0)} series`}
 function planSetsText(sets,uni){const v=(sets||[]).filter(x=>x.reps||x.kg||x.pct);if(!v.length)return'';
   const f=x=>`${x.reps??'—'}${x.pct?' × '+x.pct+' %'+(x.kg?' ('+fmtKg(x.kg)+' kg)':''):x.kg?' × '+fmtKg(x.kg)+' kg':''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}`;
@@ -1725,7 +1840,11 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
   if(cl){
     h+=`<b class="pname">${esc(pl.title||'Entrenamiento')}</b>${pl.from?`<span class="hint">De ${esc(pl.from)}</span>`:''}</div>`;
     if(pl.notes)h+=`<div class="card"><span class="lbl">Indicaciones</span><p class="pre-wrap">${esc(pl.notes)}</p></div>`;
-    if(pl.kind==='hr'){const h2=pl.hr||{},lim=p?zoneLimits(p):null,z=+h2.zone;
+    if(pl.kind==='hr'&&ivBlocks(pl.hr)){const bs=ivBlocks(pl.hr);
+      h+=`<div class="card"><div class="sec-h"><span class="lbl">Intervalos</span><span class="num muted">${fmtBl(ivTotal(bs))} en total</span></div>${ivBar(bs)}
+        <div class="ivlist">${bs.map((b,i)=>`<div class="ivrow" style="--c:${zc(+b.zone)}"><span class="ex-n sm">${i+1}</span><b class="num">${fmtBl(b.min)}</b><span class="zpill sm" style="background:${zc(+b.zone)}">Z${b.zone}</span><span class="hint num">${zoneRange(p,+b.zone)}</span></div>`).join('')}</div>
+        ${pl.hr.type?`<span class="hint">Tipo: ${esc(pl.hr.type)}</span>`:''}<span class="hint">Durante la sesión la app te indica cada bloque y avisa con pitido y vibración al cambiar.</span></div>`}
+    else if(pl.kind==='hr'){const h2=pl.hr||{},lim=p?zoneLimits(p):null,z=+h2.zone;
       h+=`<div class="card"><span class="lbl">Objetivo</span><div class="stats">${stat((h2.minutes||'—')+' min','Duración')}${stat(z?'Z'+z:'—','Zona')}${stat(z&&lim?`${lim[z-1]}–${z<5?lim[z]-1:p.hrMax}`:'—','ppm')}</div>${h2.type?`<span class="hint">Tipo: ${esc(h2.type)}</span>`:''}</div>`}
     else h+=`<section class="sec"><h3>Ejercicios</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}</div><div class="chips">${e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}</span>`).join('')}</div></div>`).join('')}</div></section>`}
   else{
@@ -1733,8 +1852,21 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
       <div class="g2"><div class="field"><label for="plDate">Día</label><input id="plDate" type="date" data-pf="date" value="${esc(pl.date||'')}"></div>
       <div class="field"><span class="lbl" style="margin-bottom:2px">Tipo</span><div class="seg two" role="radiogroup"><button type="button" role="radio" aria-checked="${pl.kind!=='hr'}" class="${pl.kind!=='hr'?'on':''}" data-act="plKind" data-v="strength">Fuerza</button><button type="button" role="radio" aria-checked="${pl.kind==='hr'}" class="${pl.kind==='hr'?'on':''}" data-act="plKind" data-v="hr">Aeróbico</button></div></div></div>
       <span class="hint num" id="plTot">${planSummary(pl)}</span></div>`;
-    if(pl.kind==='hr'){const h2=pl.hr||(pl.hr={type:'Carrera',minutes:40,zone:2});
-      h+=`<div class="card"><span class="lbl">Objetivo de la sesión</span><div class="g3">
+    if(pl.kind==='hr'&&pl.hr?.mode==='int'){const h2=pl.hr,bs=h2.blocks||(h2.blocks=[]);
+      h+=`<div class="card"><span class="lbl">Objetivo de la sesión</span>
+        <div class="seg two" role="radiogroup" aria-label="Formato"><button type="button" role="radio" aria-checked="false" data-act="plHrMode" data-v="cont">Continuo</button><button type="button" role="radio" aria-checked="true" class="on" data-act="plHrMode" data-v="int">Intervalos</button></div>
+        <div class="field"><label for="plType">Tipo</label><input id="plType" data-pf="hr.type" list="types" value="${esc(h2.type||'')}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div>
+        <div id="plIvBar">${bs.length?ivBar(bs):''}</div>
+        <div class="ivlist">${bs.map((b,i)=>`<div class="ivrow edit" style="--c:${zc(+b.zone)}"><span class="ex-n sm">${i+1}</span>
+          <input type="number" inputmode="decimal" step="0.5" min="0" data-pb="${i}" data-pbk="min" value="${b.min??''}" aria-label="Minutos del bloque ${i+1}"><span class="muted">min</span>
+          <select data-pb="${i}" data-pbk="zone" aria-label="Zona del bloque ${i+1}">${[1,2,3,4,5].map(z=>`<option value="${z}"${+b.zone===z?' selected':''}>Z${z}</option>`).join('')}</select>
+          <span class="hint num grow ivppm">${p?zoneRange(p,+b.zone).replace(' ppm',''):''}</span>
+          <button class="icon-btn" data-act="plBlkDup" data-i="${i}" aria-label="Duplicar bloque ${i+1}" title="Duplicar">${ic('copy','sm')}</button><button class="icon-btn" data-act="plBlkDel" data-i="${i}" aria-label="Quitar bloque ${i+1}">×</button></div>`).join('')}</div>
+        <div class="row"><button class="btn small" data-act="plBlkAdd">${ic('plus')}Añadir bloque</button>${bs.length>=2?`<button class="btn small" data-act="plBlkRep">${ic('copy','sm')}Repetir los 2 últimos</button>`:''}</div>
+        <span class="hint">Minutos con decimales: 0,5 = 30 s; 1,5 = 1'30". Ejemplo: 10' Z2 + 3' Z4 + 10' Z2. Para series, añade el trabajo y la recuperación y pulsa «Repetir los 2 últimos».</span></div>`}
+    else if(pl.kind==='hr'){const h2=pl.hr||(pl.hr={type:'Carrera',minutes:40,zone:2});
+      h+=`<div class="card"><span class="lbl">Objetivo de la sesión</span>
+        <div class="seg two" role="radiogroup" aria-label="Formato"><button type="button" role="radio" aria-checked="true" class="on" data-act="plHrMode" data-v="cont">Continuo</button><button type="button" role="radio" aria-checked="false" data-act="plHrMode" data-v="int">Intervalos</button></div><div class="g3">
         <div class="field"><label for="plType">Tipo</label><input id="plType" data-pf="hr.type" list="types" value="${esc(h2.type||'')}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div>
         <div class="field"><label for="plMin">Minutos</label><input id="plMin" type="number" inputmode="numeric" data-pf="hr.minutes" value="${h2.minutes??''}"></div>
         <div class="field"><label for="plZone">Zona</label><select id="plZone" data-pf="hr.zone">${[1,2,3,4,5].map(z=>`<option value="${z}"${+h2.zone===z?' selected':''}>Z${z}</option>`).join('')}</select></div></div>
@@ -1777,7 +1909,9 @@ async function markPlanDone(planId,sid,at){const pl=planById(planId)||await DB.g
 async function unmarkPlan(planId,sid){const pl=planById(planId);if(!pl||pl.doneId!==sid)return;pl.status='pending';pl.doneId=null;pl.doneAt=null;await savePlan(pl)}
 // Edición del plan (entrenador)
 $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
-  if(el.dataset.pf){const f=el.dataset.pf;if(f.startsWith('hr.')){pl.hr=pl.hr||{};const k=f.slice(3);pl.hr[k]=k==='type'?el.value:(el.value===''?null:+el.value);if(k==='zone'){savePlanSoon(pl);const y=scrollY;render();scrollTo(0,y);return}}else pl[f]=el.value}
+  if(el.dataset.pb!=null){const b=pl.hr.blocks[+el.dataset.pb];if(!b)return;const k=el.dataset.pbk;b[k]=el.value===''?null:+String(el.value).replace(',','.');
+    if(k==='zone'){savePlan(pl).then(rerenderKeepFocus);return}const w=$('#plIvBar');if(w)w.innerHTML=ivBar(ivBlocks(pl.hr)||[])}
+  else if(el.dataset.pf){const f=el.dataset.pf;if(f.startsWith('hr.')){pl.hr=pl.hr||{};const k=f.slice(3);pl.hr[k]=k==='type'?el.value:(el.value===''?null:+el.value);if(k==='zone'){savePlanSoon(pl);const y=scrollY;render();scrollTo(0,y);return}}else pl[f]=el.value}
   else if(el.dataset.pe!=null&&el.dataset.pk!=='unilateral'){const ex=pl.exercises[+el.dataset.pe];if(!ex)return;
     if(el.dataset.ps!=null){const x=ex.sets[+el.dataset.ps];x[el.dataset.pk]=el.value===''?null:+el.value;
       if(ex.load==='pct'){const rm=planRM(pl.userId,ex);x.kg=rm&&x.pct?roundKg(rm*x.pct/100):null;const h=$('#plrm'+el.dataset.pe);if(h&&rm)h.textContent=`1RM est. ${fmtKg(rm)} kg → ${pctKgText(ex,rm)}`}}
@@ -2025,12 +2159,14 @@ $('#app').addEventListener('change',e=>{if(e.target.id==='tUser')go('tests',e.ta
 /* ================= Navegación ================= */
 const TITLES={home:()=> 'IMDTraining',welcome:()=>'IMDTraining',edit:()=>S.arg?'Editar perfil':isClient()?'Tu perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Aeróbico',exprog:()=>exerciseRecords(S.arg).find(r=>r.key===S.progKey)?.name||'Progresión',recov:()=>'Recuperación',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',plan:()=>planById(S.arg)?.title||'Entrenamiento',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
 function go(view,arg,{push=true,keepForm=false}={}){
+  if(S.view==='strength'&&!(view==='strength'&&arg===S.arg))dropDraft(S.arg);
   if(push)S.stack.push([S.view,S.arg]);
   S.view=view;S.arg=arg??null;if(!keepForm)S.form={};render();window.scrollTo(0,0);
   if(push)try{history.pushState({},'')}catch(e){}
 }
 function back(){
   if(S.view==='live')return; // en directo no se sale con «atrás»
+  if(S.view==='strength')dropDraft(S.arg);
   const prev=S.stack.pop();if(!prev){go('home',null,{push:false});return}
   let [v,a]=prev;if(v==='live'||v==='recov'||v==='pre'||v==='post'||v==='stpost'||(v==='edit'&&S.view!=='edit'))return back();
   if((v==='strength'||v==='ssum')&&!stById(a)){v='home';a=null}
@@ -2061,11 +2197,15 @@ function renderDrawer(){
   const act=activeProfileId();
   const cl=isClient();
   $('#dHome').textContent=cl?'Mi perfil':'Inicio';$('#dHome').classList.toggle('on',S.view==='home'||(cl&&S.view==='profile'));
-  $('#dSecProfiles').hidden=cl;$('#dNew').hidden=cl;$('#dSend').hidden=!cl||!myProfile();$('#dInvite').hidden=cl;$('#dImport').hidden=cl&&!myProfile();$('#dImport').textContent=cl?'Abrir entrenamiento recibido':'Importar datos de un cliente';
-  $('#dMode').textContent=cl?'Cambiar a modo entrenador':'Cambiar a modo deportista';$('#dTests').classList.toggle('on',S.view==='tests'||S.view==='test');
-  const ps=[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
+  $('#dSecProfiles').hidden=cl;$('#dNew').hidden=cl;$('#dSend').hidden=!cl||!myProfile()||selfCoached();$('#dInvite').hidden=cl;$('#dImport').hidden=cl&&(!myProfile()||selfCoached());$('#dImport').textContent=cl?'Abrir entrenamiento recibido':'Importar datos de un cliente';
+  $('#dMode').textContent=cl?'Cambiar a modo entrenador':'Cambiar a modo deportista';$('#dMode').hidden=coachDev();
+  const dual=coachDev();$('#dSwitch').hidden=!dual;if(dual)$('#dSwitch').innerHTML=`<button class="${cl?'':'on'}" data-d="toCoach">${ic('list','sm')}Entrenador</button><button class="${cl?'on':''}" data-d="toMe">${ic('user','sm')}Mi perfil</button>`;
+  const mb=$('#meBtn'),me=prof(meId());mb.hidden=!dual||S.view==='live'||S.view==='recov'||S.view==='welcome';
+  if(!mb.hidden){mb.innerHTML=cl?`${ic('list','sm')}<span>Entrenador</span>`:me?`<span class="avatar">${esc(me.name.trim()[0]?.toUpperCase()||'?')}</span><span>Yo</span>`:`${ic('user','sm')}<span>Yo</span>`;mb.setAttribute('aria-label',cl?'Cambiar a modo entrenador':'Ir a mi perfil')}
+  $('#chip').classList.toggle('compact',!mb.hidden&&!['pre','live','test','recov'].includes(S.view));$('#dTests').classList.toggle('on',S.view==='tests'||S.view==='test');
+  const ps=sortProfiles(S.profiles);
   $('#dList').innerHTML=ps.length?ps.map(p=>{const ss=allOf(p.id),last=ss[0],pend=ss.some(s=>s.rpePost==null);
-    return `<button class="d-item${p.id===act?' on':''}" data-d="profile" data-id="${p.id}"${p.id===act?' aria-current="page"':''}><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${S.rec?.userId===p.id?' · grabando':''}</span><span class="s">${last?'Última: '+fmtDate(last.startTime):'Sin sesiones'} · ${ss.length} ses.</span></span>${pend?'<span class="d-pend" title="RPE post pendiente"></span>':''}</button>`}).join('')
+    return `<button class="d-item${p.id===act?' on':''}" data-d="profile" data-id="${p.id}"${p.id===act?' aria-current="page"':''}><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${p.id===meId()?' <span class="tag up">Tú</span>':''}${S.rec?.userId===p.id?' · grabando':''}</span><span class="s">${last?'Última: '+fmtDate(last.startTime):'Sin sesiones'} · ${ss.length} ses.</span></span>${pend?'<span class="d-pend" title="RPE post pendiente"></span>':''}</button>`}).join('')
     :`<p class="hint" style="margin:0;padding:0 8px">Todavía no hay perfiles.</p>`;
 }
 function navFromDrawer(fn){
@@ -2084,6 +2224,8 @@ drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)r
   if(d==='invite')return navFromDrawer(()=>inviteClient());
   if(d==='import')return navFromDrawer(()=>$('#importFile').click());
   if(d==='mode')return navFromDrawer(()=>switchMode());
+  if(d==='toCoach')return navFromDrawer(()=>{if(isClient())switchMode()});
+  if(d==='toMe')return navFromDrawer(()=>{if(!isClient())switchMode()});
   if(d==='backup')return navFromDrawer(()=>{toRoot('home');setTimeout(()=>{const d=$('details.more');if(d){d.open=true;d.scrollIntoView({behavior:'smooth',block:'center'})}},50)});
 });
 menuBtn.onclick=openDrawer;scrim.onclick=closeDrawer;
@@ -2135,6 +2277,11 @@ const A={
   wSkip(){lsSet('wellSkip_'+S.wellFor,todayStr());closeModal()},
   wClose(){if(S.modalKind==='well')lsSet('wellSkip_'+S.wellFor,todayStr());closeModal()},
   newPlan(){newPlanFor(S.arg)},
+  meSet(id){lsSet('meId',id);lsSet('coachDev','1');if(S.modalKind==='me')enterMe();else{render();toast('Marcado como tu perfil')}},
+  meUnset(){lsSet('meId','');render();toast('Ya no es tu perfil')},
+  meNew(){closeModal();lsSet('mode','client');lsSet('coachDev','1');S.modeFallback=null;S.stack=[];S.view='edit';S.arg=null;S.form={};render();window.scrollTo(0,0)},
+  goMe(){switchMode()},
+  pSort(_,b){lsSet('pSort',b.dataset.v);render()},
   newPlanDay(_,b){S.calDay=b.dataset.d;newPlanFor(S.arg,b.dataset.d)},
   calCopy(){S.copyN=1;openCopyWeek()},
   copyN(_,b){S.copyN=+b.dataset.v;openCopyWeek()},
@@ -2143,6 +2290,12 @@ const A={
   calDay(_,b){S.calDay=b.dataset.d;const y=scrollY;render();scrollTo(0,y)},
   calNav(_,b){const v=+b.dataset.v;S.calOff=v===0?0:(S.calOff||0)+v;S.calDay=null;const y=scrollY;render();scrollTo(0,y)},
   openPlan:id=>go('plan',id),
+  async plHrMode(_,b){const pl=planById(S.arg);pl.hr=pl.hr||{type:'Carrera',minutes:40,zone:2};pl.hr.mode=b.dataset.v;
+    if(pl.hr.mode==='int'&&!(pl.hr.blocks||[]).length)pl.hr.blocks=[{min:10,zone:2},{min:3,zone:4},{min:10,zone:2}];await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plBlkAdd(){const pl=planById(S.arg),bs=pl.hr.blocks,l=bs[bs.length-1];bs.push({min:l?.min??5,zone:l?.zone??2});await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plBlkDup(_,b){const pl=planById(S.arg),i=+b.dataset.i;pl.hr.blocks.splice(i+1,0,{...pl.hr.blocks[i]});await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plBlkDel(_,b){const pl=planById(S.arg);pl.hr.blocks.splice(+b.dataset.i,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plBlkRep(){const pl=planById(S.arg),bs=pl.hr.blocks;bs.push(...bs.slice(-2).map(x=>({...x})));await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plKind(_,b){const pl=planById(S.arg);pl.kind=b.dataset.v;if(pl.kind==='hr'&&(!pl.title||pl.title==='Entrenamiento de fuerza'))pl.title='Sesión aeróbica';if(pl.kind==='strength'&&pl.title==='Sesión aeróbica')pl.title='Entrenamiento de fuerza';await savePlan(pl);render()},
   async plAddEx(){const pl=planById(S.arg);pl.exercises.push({name:'',variant:'',unilateral:false,sets:[{reps:8,kg:null,rpe:7}]});await savePlan(pl);render();const n=document.querySelectorAll('.ex-name');n[n.length-1]?.focus();n[n.length-1]?.scrollIntoView({block:'center'})},
   async plDelEx(_,b){const pl=planById(S.arg);pl.exercises.splice(+b.dataset.i,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
@@ -2162,7 +2315,7 @@ const A={
   import:()=>$('#importFile').click(),
   importBackup:()=>$('#importFile').click(),
   send:()=>sendToCoach(),
-  async chooseMode(b){const m=b.dataset.v;lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m;
+  async chooseMode(b){const m=b.dataset.v;lsSet('mode',m);if(m==='coach')lsSet('coachDev','1');if(!lsGet('mode'))S.modeFallback=m;
     if(m==='coach'){if(!S.profiles.length&&!lsGet('seeded')){await seedExample();lsSet('seedv','6');await loadAll()}S.stack=[];go('home',null,{push:false})}
     else{S.stack=[];clientRoot();render()}},
   editProfile:()=>go('edit',S.arg),
@@ -2185,11 +2338,11 @@ const A={
     if(!hasSource())return;
     const p=prof(S.arg);S.form.type=($('#stype').value||'Otro').trim();lsSet('lastType_'+p.id,S.form.type);
     const r=newRec(p,{rpePre:S.form.rpePre,type:S.form.type});
-    if(S.form.planId){r.planId=S.form.planId;const pl=planById(r.planId);if(pl){pl.status='inprogress';pl.doneId=r.id;await savePlan(pl)}}
+    if(S.form.planId){r.planId=S.form.planId;const pl=planById(r.planId);if(pl){pl.status='inprogress';pl.doneId=r.id;await savePlan(pl);const bs=ivBlocks(pl.hr);if(bs){r.blocks=bs.map(x=>({min:+x.min,zone:+x.zone}));r.ivi=0;r.ivBase=0;r.ivRes=[];actx();askNotif();keepAlive('iv',true)}}}
     r.startTime=Date.now();r.running=true;r.segStart=r.startTime;S.rec=r;
     await saveRec();S.autosave=setInterval(saveRec,15000);
     keepAwake(true);S.stack=S.stack.filter(x=>x[0]!=='pre');go('live',null,{push:false});
-    clearInterval(S.tick);S.tick=setInterval(()=>{if(S.view==='live')updLive()},1000);
+    clearInterval(S.tick);S.tick=setInterval(()=>{if(S.rec)ivTick(S.rec);if(S.view==='live')updLive()},1000);
   },
   pause(){const r=S.rec,now=Date.now();
     if(r.running){r.acc+=now-r.segStart;r.running=false;r.pauses.push([now,null]);r.seg++}
@@ -2197,8 +2350,8 @@ const A={
     updLive();saveRec()},
   finish(b){arm(b,'Pulsa otra vez para terminar',async()=>{const id=await finishRec();clearInterval(S.tick);startRecov(id)})},
   recSkip(){clearInterval(S.recovTick);const id=S.recov?.sid||S.arg;S.recov=null;go('post',id,{push:false})},
-  restAdd(b){REST.end=Math.max(Date.now()+1000,REST.end+(+b.dataset.v)*1000);REST.dur=Math.max(REST.dur,(REST.end-Date.now())/1000);restTick()},
-  restStop(){REST.end=0;clearInterval(REST.tick);REST.tick=null;renderRest()},
+  restAdd(b){REST.end=Math.max(Date.now()+1000,REST.end+(+b.dataset.v)*1000);REST.dur=Math.max(REST.dur,(REST.end-Date.now())/1000);restArm();restTick()},
+  restStop(){REST.end=0;clearInterval(REST.tick);REST.tick=null;restArm();renderRest()},
   restDef(b){lsSet('restSec',restDefault()+(+b.dataset.v));renderRest()},
   restGo(){startRest()},
   async savePost(){const s=S.sessions.find(x=>x.id===S.arg);s.notes=$('#snotes').value;
@@ -2318,13 +2471,14 @@ async function saveProfile(){
   const old=prof(f.id);
   delete f.example;await DB.put('profiles',f);
   const i=S.profiles.findIndex(p=>p.id===f.id);if(i<0)S.profiles.push(f);else S.profiles[i]=f;
-  if(!old&&isClient()){f.owner='client';await DB.put('profiles',f);S.stack=[];go('profile',f.id,{push:false});toast('Perfil creado');
+  if(!old&&isClient()){f.owner='client';await DB.put('profiles',f);lsSet('meId',f.id);S.stack=[];go('profile',f.id,{push:false});toast('Perfil creado');
     if(S.pendingFiles){const fl=S.pendingFiles;S.pendingFiles=null;await importFiles(fl)}return}
   if(old)back();else go('profile',f.id);toast('Perfil guardado');
 }
 function actClick(e){const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)}
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){A.wClose?.();return}actClick(e)});
 $('#restBar').addEventListener('click',actClick);
+$('#meBtn').addEventListener('click',()=>switchMode());
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden)A.wClose();
   if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[role="button"][data-act]')){e.preventDefault();e.target.click()}});
 $('#app').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)});
@@ -2463,6 +2617,7 @@ async function seedExample(){
 async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests');S.plans=await DB.all('plans');S.wellness=await DB.all('wellness')}
 (async()=>{
   await DB.open();await loadAll();
+  for(const st of S.strength.filter(x=>x.status==='open'&&stEmpty(x)))dropDraft(st.id);
   // Modo: enlace de invitación (#cliente), elección guardada o deducido de los datos que ya hay
   let m=lsGet('mode');
   if(!m){const own=S.profiles.filter(p=>!p.example&&!p.remote);
@@ -2480,6 +2635,7 @@ async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB
   try{history.replaceState({},'')}catch(e){}
   // Archivos compartidos a la app desde WhatsApp u otra app (llegan por el service worker)
   const sharedN=new URLSearchParams(location.search).get('shared');
+  if(m==='coach')lsSet('coachDev','1');
   if(!m)S.view='welcome';else if(m==='client')clientRoot();
   syncDrawerMode();render();updChip();
   if(sharedN!=null){try{history.replaceState({},'',location.pathname)}catch(e){}await importShared()}
