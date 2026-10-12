@@ -996,7 +996,11 @@ function methodName(p){return p.method==='karvonen'?'Karvonen':p.method==='pct'?
 /* ================= Vistas ================= */
 const V={};
 // Avisos (Bluetooth, sesiones sin terminar, RPE pendiente). uid = solo ese perfil; sin uid = todos menos los clientes importados
-function alertsHTML(uid,noGlobal){let h='';const mine=x=>uid?x.userId===uid:!prof(x.userId)?.remote;
+// Recordatorio de copia de seguridad: si hay datos propios y la última copia tiene más de 7 días
+function backupNudge(){const real=[...S.sessions,...S.strength,...S.tests].filter(x=>!x.example).length;if(real<3)return'';
+  const t=+lsGet('lastBackup')||0;if(Date.now()-t<7*864e5)return'';
+  return `<div class="note info slim">${ic('save')}<span class="hint grow"><b>${t?`Última copia ${ago(t)}`:'Aún no has hecho ninguna copia'}.</b> Tus datos solo están en este móvil: guarda una copia en Drive.</span><button class="btn small" data-act="backup">Copia</button></div>`}
+function alertsHTML(uid,noGlobal){let h=noGlobal?'':backupNudge();const mine=x=>uid?x.userId===uid:!prof(x.userId)?.remote;
   if(!btOK&&!noGlobal)h+=`<div class="note info slim">${ic('info')}<span class="hint">Bluetooth no disponible aquí: abre la app desde su enlace en Chrome para Android. Puedes probarlo todo con el simulador.</span></div>`;
   if(S.memOnly&&!noGlobal)h+=`<div class="note"><b>Los datos no se guardarán</b><span class="hint">Este navegador no permite almacenamiento. Abre la app desde su propio enlace para que guarde perfiles y sesiones.</span></div>`;
   for(const s of S.sessions.filter(s=>mine(s)&&s.status==='recording'&&(!S.rec||S.rec.id!==s.id)))
@@ -2528,7 +2532,8 @@ const A={
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
   async backup(){const data={app:'imdtraining',version:4,strength:await DB.all('strength'),tests:await DB.all('tests'),plans:await DB.all('plans'),wellness:await DB.all('wellness'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
-    download(`imdtraining_copia_${fileDate(Date.now())}.json`,JSON.stringify(data),'application/json',false)},
+    const r=await shareFile(data,`imdtraining_copia_${fileDate(Date.now())}`,'Copia de seguridad IMDTraining','Copia de seguridad de IMDTraining. Guárdala en Drive o en tu correo.');
+    if(r==='cancel')return;lsSet('lastBackup',Date.now());render();toast(r==='shared'?'Copia guardada':'Copia guardada en Descargas: súbela a Drive para no perderla')},
   import(){$('#importFile').click()},
   async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
     const last=tr.samples.at(-1);m.endTime=last?last[0]:m.startTime;if(!m.activeMs)m.activeMs=m.endTime-m.startTime;
@@ -2688,6 +2693,7 @@ async function seedExample(){
 async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests');S.plans=await DB.all('plans');S.wellness=await DB.all('wellness')}
 (async()=>{
   await DB.open();await loadAll();
+  try{navigator.storage?.persist?.()}catch(e){}
   for(const st of S.strength.filter(x=>x.status==='open'&&stEmpty(x)))dropDraft(st.id);
   // Modo: enlace de invitación (#cliente), elección guardada o deducido de los datos que ya hay
   let m=lsGet('mode');
