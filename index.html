@@ -420,6 +420,12 @@ body.has-rest .wrap{padding-bottom:90px}
 .cue.down{background:color-mix(in srgb,var(--z5) 20%,transparent);color:var(--z5)}
 .ivprog{position:relative}.ivprog>i{position:absolute;top:-3px;bottom:-3px;width:3px;border-radius:2px;background:var(--ink);transform:translateX(-1px)}
 .ivppm{white-space:nowrap;font-size:12px}.ivrow.edit{gap:6px;padding:6px}.ivrow.edit input{width:58px}
+.chip.tap{cursor:pointer;border:0}
+.chip.tap:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rest-hr{display:inline-flex;align-items:center;gap:3px;font:700 15px var(--mono);color:var(--z5);margin-right:4px}
+@media (max-width:440px){.rest-in.has-hr .rest-l{display:none}.rest-in.has-hr b{font-size:22px}}
+.rest-in .rest-hr .ic{color:var(--z5)}
+.ble-diag{margin-top:8px}.ble-diag summary{cursor:pointer;color:var(--muted);font-size:13px}.ble-diag pre{white-space:pre-wrap;font:12px/1.5 var(--mono);background:var(--soft);padding:8px;border-radius:8px;max-height:200px;overflow:auto;margin:6px 0}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
@@ -432,6 +438,7 @@ body.has-rest .wrap{padding-bottom:90px}
   <button class="d-item d-plain" data-d="send" id="dSend">Enviar mis datos al entrenador</button>
   <button class="d-item d-plain" data-d="invite" id="dInvite">Invitar a un cliente</button>
   <button class="d-item d-plain" data-d="import" id="dImport">Importar datos de un cliente</button>
+  <button class="d-item d-plain" data-d="hr" id="dHr">Pulsómetro</button>
   <div class="d-foot"><button class="d-item d-plain" data-d="backup">Copia de seguridad</button><button class="d-item d-plain" data-d="mode" id="dMode">Cambiar modo</button></div>
 </nav>
 <div id="scrim" hidden></div>
@@ -441,7 +448,7 @@ body.has-rest .wrap{padding-bottom:90px}
   <button class="back" id="back" aria-label="Volver" hidden>‹</button>
   <h1 id="ttl" class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="#EDE6D6" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="#EDE6D6" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="b1">IMDT</span><span class="b2">raining</span></span></h1>
   <button class="mebtn" id="meBtn" hidden></button>
-  <span class="chip" id="chip"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
+  <span class="chip tap" id="chip" role="button" tabindex="0" aria-label="Pulsómetro: conectar o ver estado"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
 </div></header>
 <main class="wrap" id="app"></main>
 <div id="modal" hidden></div>
@@ -555,11 +562,22 @@ const normTxt=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCa
 const exKey=e=>normTxt(e.name)+'|'+normTxt(e.variant)+(e.unilateral?'|u':'');
 const exLabel=e=>(e.name||'').trim()+(normTxt(e.variant)?' · '+e.variant.trim():'')+(e.unilateral?' · unilateral':'');
 const SIDE={I:'Izq.',D:'Der.'};
+// Pliometría: cada serie guarda contactos (apoyos/saltos; en unilaterales, por pierna), intensidad (1 baja · 2 media · 3 alta) y RPE
+const PLYO_KEYS=['salto','jump','cmj','drop','pliom','plio','bote','pogo','skipping','bound','multisalto','comba','rebote','abalakov','depth','vallas','hop','skater','tuck'];
+const isPlyoName=n=>{n=normTxt(n);return !!n&&PLYO_KEYS.some(k=>n.includes(k))};
+const INT=['','Baja','Media','Alta'],INTS=['','B','M','A'];
+const intOpts=v=>`<option value=""${!v?' selected':''}>—</option>`+[1,2,3].map(i=>`<option value="${i}"${+v===i?' selected':''}>${INT[i]}</option>`).join('');
+const intTxt=b=>[3,2,1].filter(i=>b[i]).map(i=>`${b[i]} ${INT[i].toLowerCase()}`).join(' · ');
 // Asimetría = (lado fuerte − lado débil) / lado fuerte × 100
 const asym=(a,b)=>{const hi=Math.max(a,b),lo=Math.min(a,b);return hi>0?(hi-lo)/hi*100:null};
 function strengthStats(st,formula='brzycki'){
   let vol=0,sets=0,reps=0,rs=0,rn=0;
+  let contacts=0,plyoSets=0;const byInt={1:0,2:0,3:0};
   const ex=(st.exercises||[]).map(e=>{let v=0,r=0,n=0,es=0,en=0,top=null,e1=0,rmSet=null;
+    if(e.plyo){const sd={I:0,D:0},bi={1:0,2:0,3:0};let c=0;
+      for(const s of e.sets||[]){const rp=+s.reps;if(!(rp>0))continue;n++;c+=rp;if(+s.int)bi[+s.int]+=rp;if(e.unilateral&&s.side in sd)sd[s.side]++;if(s.rpe!=null&&s.rpe!==''){es+=+s.rpe;en++}}
+      const series=e.unilateral?Math.max(sd.I,sd.D):n;contacts+=c;plyoSets+=series;rs+=es;rn+=en;for(const k in bi)byInt[k]+=bi[k];
+      return {name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,label:exLabel(e),plyo:true,contacts:c,byInt:bi,vol:0,sets:series,reps:0,rpe:en?es/en:null,top:null,e1rm:null,rmSet:null}}
     const sd={I:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null},D:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null}};
     for(const s of e.sets||[]){const rp=+s.reps,kg=+s.kg||0;if(!(rp>0))continue;
       n++;r+=rp;v+=rp*kg;
@@ -572,7 +590,7 @@ function strengthStats(st,formula='brzycki'){
     for(const k of ['I','D'])sd[k].e1rm=sd[k].e1rm?Math.round(sd[k].e1rm*2)/2:null;
     const uni=e.unilateral?{sides:sd,asymVol:asym(sd.I.vol,sd.D.vol),asymRM:sd.I.e1rm&&sd.D.e1rm?asym(sd.I.e1rm,sd.D.e1rm):null}:{};
     return {name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,label:exLabel(e),vol:Math.round(v*10)/10,sets:series,reps:r,rpe:en?es/en:null,top,e1rm:e1?Math.round(e1*2)/2:null,rmSet,...uni}});
-  return {vol:Math.round(vol),sets,reps,rpe:rn?rs/rn:null,ex};
+  return {vol:Math.round(vol),sets,reps,rpe:rn?rs/rn:null,ex,contacts,plyoSets,byInt};
 }
 const stLoad=st=>st.rpePost==null||!(st.durationMin>0)?null:Math.round(st.rpePost*st.durationMin);
 /* ===== Grupos musculares ===== */
@@ -601,7 +619,7 @@ const musclesOf=e=>e.muscles||suggestMuscles(e.name)||{};
 function muscleVolume(sessions){
   const out={},un={sets:0,kg:0};for(const [g] of MG)out[g]={sets:0,setsD:0,kg:0,kgD:0};
   for(const st of sessions){const k=strengthStats(st);
-    st.exercises.forEach((e,i)=>{const x=k.ex[i];if(!x||!x.sets)return;const m=musclesOf(e),gs=Object.keys(m).filter(g=>out[g]);
+    st.exercises.forEach((e,i)=>{const x=k.ex[i];if(!x||!x.sets||x.plyo)return;const m=musclesOf(e),gs=Object.keys(m).filter(g=>out[g]);
       if(!gs.length){un.sets+=x.sets;un.kg+=x.vol;return}
       for(const g of gs){const f=m[g]==='p'?1:0.5;out[g].sets+=x.sets*f;out[g].kg+=x.vol*f;if(m[g]==='p'){out[g].setsD+=x.sets;out[g].kgD+=x.vol}}})}
   return {groups:out,unassigned:un}}
@@ -708,32 +726,40 @@ const allOf=uid=>[...sessOf(uid).map(s=>({...s,kind:'hr'})),...stOf(uid).map(s=>
 const loadOfAny=s=>s.kind==='st'?stLoad(s):srpe(s);
 
 /* ================= Bluetooth ================= */
+// Diagnóstico de la conexión: registro de cada paso (se puede copiar y enviar)
+const BLOG=[];function blog(m){const d=new Date();BLOG.push(`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${m}`);if(BLOG.length>40)BLOG.shift();const e=$('#bleLog');if(e)e.textContent=BLOG.join('\n')}
 const BLE={dev:null,status:'off',bpm:null,bat:null,contact:null,last:0,manual:false,timer:null,tries:0,sim:null,h:null,
   name(){return this.status==='sim'?'Simulador':(this.dev?.name||'Pulsómetro')},
-  set(st){this.status=st;updChip();if(S.view==='pre'||S.view==='live')updDevice();if(S.view==='test')updTestDevice()},
+  set(st){this.status=st;updChip();if(S.view==='pre'||S.view==='live'||S.modalKind==='hr')updDevice();if(S.view==='strength')renderRest();if(S.view==='test')updTestDevice()},
   async pick(all){
     if(!navigator.bluetooth)throw new Error('Este navegador no tiene Web Bluetooth. Usa Chrome en Android.');
     // all = mostrar todos los dispositivos: algunos relojes con apps de emisión de FC no se anuncian como pulsómetro
+    blog(`Buscar ${all?'todos los dispositivos (reloj)':'pulsómetros (servicio de FC)'}`);
     const d=await navigator.bluetooth.requestDevice(all?{acceptAllDevices:true,optionalServices:['heart_rate','battery_service']}:{filters:[{services:['heart_rate']}],optionalServices:['battery_service']});
     this.stopSim();
     if(this.dev&&this.dev!==d)this.disconnect();
-    this.dev=d;this.manual=false;this.tries=0;
+    this.dev=d;this.manual=false;this.tries=0;blog(`Elegido: ${d.name||'(sin nombre)'}`);
     if(!d._hooked){d.addEventListener('gattserverdisconnected',()=>this.onDrop());d._hooked=true}
     await this.connect();
   },
   async connect(){
     this.set(this.status==='re'?'re':'conn');
-    const srv=await this.dev.gatt.connect();
-    let svc;try{svc=await srv.getPrimaryService('heart_rate')}catch(e){try{this.dev.gatt.disconnect()}catch(_){}this.manual=true;const err=new Error(`«${this.dev.name||'Este dispositivo'}» no envía la frecuencia cardíaca por Bluetooth estándar. Si es un reloj, activa la emisión de FC en él (por ejemplo con la app Heart for Bluetooth).`);err.name='NoHR';throw err}
-    const ch=await svc.getCharacteristic('heart_rate_measurement');
+    blog('Conectando…');let srv;
+    try{srv=await this.dev.gatt.connect()}catch(e){blog(`Error al conectar: ${e.name} ${e.message}`);throw e}
+    blog('Conectado. Buscando el servicio de FC…');
+    try{const all=await srv.getPrimaryServices();blog('Servicios: '+(all.map(x=>x.uuid.slice(4,8)).join(', ')||'ninguno visible'))}catch(e){blog('Servicios: no se pueden listar ('+e.name+')')}
+    let svc;try{svc=await srv.getPrimaryService('heart_rate')}catch(e){blog(`Sin servicio de FC (180D): ${e.name}`);try{this.dev.gatt.disconnect()}catch(_){}this.manual=true;const err=new Error(`«${this.dev.name||'Este dispositivo'}» no envía la frecuencia cardíaca por Bluetooth estándar. Si es un reloj, activa la emisión de FC en él (por ejemplo con la app Heart for Bluetooth).`);err.name='NoHR';throw err}
+    let ch;try{ch=await svc.getCharacteristic('heart_rate_measurement')}catch(e){blog(`Sin característica 2A37: ${e.name}`);throw e}
     this.h=this.h||(e=>this.onValue(e.target.value));
     ch.removeEventListener('characteristicvaluechanged',this.h);
     ch.addEventListener('characteristicvaluechanged',this.h);
-    await ch.startNotifications();
-    this.tries=0;clearTimeout(this.timer);this.set('on');lsSet('lastDevice',this.dev.name||'');
+    try{await ch.startNotifications()}catch(e){blog(`No se pudieron activar las notificaciones: ${e.name} ${e.message}`);throw e}
+    blog('Notificaciones activadas. Esperando datos…');this.first=true;const t0=Date.now();
+    this.tries=0;clearTimeout(this.timer);this.set('on');
+    clearTimeout(this.wd);this.wd=setTimeout(()=>{if(this.status==='on'&&this.last<t0){blog('10 s conectado sin recibir ningún dato');toast('Conectado, pero no llegan datos. En el reloj, abre la app de emisión y comprueba que está enviando.');updDevice()}},10000);lsSet('lastDevice',this.dev.name||'');
     try{const c=await (await srv.getPrimaryService('battery_service')).getCharacteristic('battery_level');this.bat=(await c.readValue()).getUint8(0);updChip()}catch(e){}
   },
-  onDrop(){
+  onDrop(){blog(this.manual?'Desconectado':'Se perdió la conexión');
     if(this.manual||!this.dev){this.set('off');return}
     clearTimeout(this.timer);
     const delay=Math.min(30,2**this.tries)*1000;this.tries++;
@@ -741,7 +767,8 @@ const BLE={dev:null,status:'off',bpm:null,bat:null,contact:null,last:0,manual:fa
     this.timer=setTimeout(async()=>{try{await this.connect()}catch(e){if(!this.dev.gatt.connected)this.onDrop()}},delay);
   },
   disconnect(){this.manual=true;clearTimeout(this.timer);try{this.dev?.gatt?.connected&&this.dev.gatt.disconnect()}catch(e){}this.bpm=null;this.set('off')},
-  onValue(dv){const p=parseHR(dv);this.bpm=p.bpm;this.contact=p.contact;this.last=Date.now();onHR(p)},
+  onValue(dv){if(this.first){this.first=false;const by=[...new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength)].map(x=>x.toString(16).padStart(2,'0')).join(' ');blog(`Primer dato: ${by}`)}const p=parseHR(dv);
+    if(this.first===false){this.first=null;blog(`FC leída: ${p.bpm} ppm${p.contact===false?' (sin contacto con la piel)':''}`)}this.bpm=p.bpm;this.contact=p.contact;this.last=Date.now();onHR(p)},
   startSim(){
     if(this.dev)this.disconnect();this.stopSim();this.manual=false;
     const p=prof(S.arg)||S.profiles[0];const max=p?.hrMax||190;let hr=Math.round(max*0.45),t=0;
@@ -758,7 +785,7 @@ const BLE={dev:null,status:'off',bpm:null,bat:null,contact:null,last:0,manual:fa
 };
 function updChip(){
   const c=$('#chip'),st=BLE.status;
-  c.className='chip '+({on:'on',conn:'conn',re:'re',sim:'sim'}[st]||'');
+  c.className='chip tap '+({on:'on',conn:'conn',re:'re',sim:'sim'}[st]||'')+(S.chipCompact?' compact':'');
   let t='Sin pulsómetro';
   if(st==='conn')t='Conectando…';
   else if(st==='re')t='Reconectando…';
@@ -803,14 +830,15 @@ async function finishRec(){
   const meta=sessMeta(r);meta.activeMs=r.acc;
   await finalize(meta,{id:r.id,samples:r.samples,rr:r.rr,pauses:r.pauses});
   if(meta.planId)await markPlanDone(meta.planId,meta.id);
-  clearInterval(S.autosave);S.rec=null;keepAwake(false);
+  clearInterval(S.autosave);S.rec=null;keepAwake(false);keepAlive('rec',false);recNotif(false);
   return meta.id;
 }
 function onHR(p){
   const t=Date.now();updChip();
   if(S.rec)recAdd(p,t);
   if(S.view==='live')updLive();
-  if(S.view==='pre'){const e=$('#preHr');if(e)e.textContent=p.bpm}
+  if(S.view==='pre'||S.modalKind==='hr'){const e=$('#preHr');if(e)e.textContent=p.bpm}
+  {const e=$('#restHr');if(e)e.textContent=p.bpm}
   if(S.view==='test'){const e=$('#tHr');if(e)e.textContent=p.bpm}
 }
 
@@ -943,7 +971,8 @@ function drawProfileCharts(){const id=S.arg;
   drawAcwr($('#acwr'),acwrSeries(dailyLoads(loadItems(id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'));
   drawBars($('#wk'),loadBuckets(loadItems(id),lsGet('loadView')==='month'?'month':'week'));
   drawBars($('#wkMini'),loadBuckets(loadItems(id),'week'));
-  drawBars($('#stv'),loadBuckets(volItems(id),lsGet('loadView')==='month'?'month':'week'))}
+  drawBars($('#stv'),loadBuckets(volItems(id),lsGet('loadView')==='month'?'month':'week'));
+  drawBars($('#plyv'),loadBuckets(stOf(id).map(s=>({t:s.startTime,load:strengthStats(s).contacts})),lsGet('loadView')==='month'?'month':'week'))}
 const fmtKg=k=>{k=Math.round((+k||0)*10)/10;return (Number.isInteger(k)?k.toLocaleString('es-ES'):k.toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1}))};
 
 /* ================= Componentes ================= */
@@ -1053,7 +1082,7 @@ function updZprev(){const box=$('#zprev');if(!box)return;const f=readForm(),e=va
 /* ===== Récords ===== */
 // Por ejercicio (nombre + variante + unilateral): mayor peso, más repeticiones en una serie y mayor 1RM estimado
 function exerciseRecords(uid){const map=new Map(),fk=rmKey();
-  for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime))for(const e of st.exercises){if(!normTxt(e.name))continue;const k=exKey(e);
+  for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime))for(const e of st.exercises){if(!normTxt(e.name)||e.plyo)continue;const k=exKey(e);
     let r=map.get(k);if(!r){r={key:k,name:e.name.trim(),variant:(e.variant||'').trim(),uni:!!e.unilateral,muscles:{},n:0,first:st.startTime,last:0,kg:null,rep:null,rm:null};map.set(k,r)}
     r.muscles=musclesOf(e);r.name=e.name.trim();r.variant=(e.variant||'').trim();r.n++;r.last=st.startTime;
     for(const s of e.sets||[]){const rp=+s.reps,kg=+s.kg||0;if(!(rp>0))continue;
@@ -1072,7 +1101,7 @@ function recRow(r){const wk=Date.now()-7*864e5,isNew=r.n>1&&[r.kg,r.rep,r.rm].so
     </div></div>`}
 // Progresión de un ejercicio sesión a sesión
 function exerciseHistory(uid,key){const fk=rmKey(),out=[];
-  for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime)){const i=st.exercises.findIndex(e=>exKey(e)===key);if(i<0)continue;
+  for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime)){const i=st.exercises.findIndex(e=>exKey(e)===key&&!e.plyo);if(i<0)continue;
     const e=st.exercises[i],k=strengthStats({exercises:[e]},fk).ex[0];if(!k.sets)continue;
     out.push({id:st.id,t:st.startTime,rm:k.e1rm,top:k.top,vol:k.vol,sets:k.sets,reps:k.reps,rpe:k.rpe,rmSet:k.rmSet})}
   return out}
@@ -1180,6 +1209,11 @@ V.profile=()=>{
           <button type="button" data-act="loadView" data-v="month" class="${view==='month'?'on':''}" aria-checked="${view==='month'}" role="radio">Meses</button></div>
         <canvas id="stv" style="height:150px" role="img" aria-label="Volumen-carga de fuerza"></canvas>
         ${info('Volumen-carga = series × repeticiones × kg. Se muestra aparte y no entra en el ACWR; ahí cuenta el sRPE de cada sesión de fuerza.')}</div>
+      ${(()=>{const pts=sts.filter(s=>s.exercises.some(e=>e.plyo));if(!pts.length)return'';const p7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)}),last=strengthStats(pts[0]);
+        return `<div class="card"><div class="sec-h"><span class="lbl">Pliometría · contactos por ${view==='week'?'semana':'mes'}</span></div>
+          <div class="stats">${stat(p7.contacts,'Contactos 7 días')}${stat(last.contacts,'Última sesión')}${stat(intTxt(p7.byInt)?Math.round(p7.byInt[3]/(p7.contacts||1)*100)+' %':'—','Alta intensidad 7 d')}</div>
+          <canvas id="plyv" style="height:140px" role="img" aria-label="Contactos de pliometría"></canvas>
+          ${info('Contactos = apoyos con el suelo de cada salto o bote. Referencia orientativa por sesión (Chu; NSCA): principiante 80–100, intermedio 100–120, avanzado 120–140 contactos; con más intensidad, menos contactos. Deja 48–72 h entre sesiones intensas para los mismos grupos.','Referencias')}</div>`})()}
       <button class="btn primary wide" data-act="newStrength">${ic('plus')}Nueva sesión de fuerza</button>`}
   else if(tab==='rec'){h+=recordsHTML(p)}
   else if(tab==='data'){
@@ -1203,13 +1237,21 @@ V.pre=()=>{
   <section class="sec"><h3>Pulsómetro</h3><div class="card" id="devBox"></div></section>
   <button class="btn primary wide" id="startBtn" data-act="start">Empezar sesión</button>`;
 };
+// Ventana del pulsómetro: conectar sin entrar en una sesión aeróbica (fuerza, test, bienestar…)
+function openHrModal(){if(S.view==='live')return;if(S.view==='pre'){$('#devBox')?.scrollIntoView({block:'center',behavior:'smooth'});return}
+  S.modalKind='hr';$('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="hrTitle"><div class="sec-h"><h2 id="hrTitle">Pulsómetro</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
+    <div class="card" id="devBox"></div>
+    <span class="hint">Queda conectado mientras usas la app: en las sesiones de fuerza verás la FC en la barra de descanso, y la tendrás lista para los test, el bienestar o una sesión aeróbica.</span></div>`;
+  $('#modal').hidden=false;document.body.classList.add('modal-open');updDevice()}
 function updDevice(){
   const b=$('#devBox');
   if(b){const st=BLE.status;let h='';
     if(st==='on'||st==='sim')h=`<div class="row" style="justify-content:space-between"><span><b>${esc(BLE.name())}</b><br><span class="hint">${st==='sim'?'Datos simulados':'Conectado'}${BLE.bat!=null&&st==='on'?' · batería '+BLE.bat+' %':''}</span></span><span class="num" style="font:700 40px var(--display)"><span id="preHr">${BLE.bpm??'—'}</span> <span class="unit">ppm</span></span></div><button class="btn small" data-act="disconnect">Desconectar</button>`;
     else if(st==='conn'||st==='re')h=`<b>${st==='re'?'Reconectando…':'Conectando…'}</b><span class="hint">Asegúrate de que el pulsómetro o la emisión del reloj están activos.</span><button class="btn small" data-act="disconnect">Cancelar</button>`;
-    else h=`<div class="row"><button class="btn primary" data-act="connect" ${btOK?'':'disabled'}>Conectar pulsómetro</button><button class="btn" data-act="sim">Usar simulador</button></div>${lsGet('lastDevice')?`<span class="hint">Último usado: ${esc(lsGet('lastDevice'))}</span>`:''}
+    else h=`<div class="row"><button class="btn primary" data-act="connect" ${btOK?'':'disabled'}>${ic('heart','sm')}Pulsómetro</button><button class="btn" data-act="connectAll" ${btOK?'':'disabled'}>Reloj</button><button class="btn small" data-act="sim">Simulador</button></div>${lsGet('lastDevice')?`<span class="hint">Último usado: ${esc(lsGet('lastDevice'))}</span>`:''}
       ${info(`Enciende el pulsómetro (HW9 u otro con Bluetooth) y póntelo. Si no aparece en la lista, activa la ubicación del móvil y cierra otras apps que lo estén usando (Strava, Coospo…).<br><br><b>Reloj (Galaxy Watch, Wear OS…)</b>: no envía la FC por Bluetooth estándar por sí solo. Instala en el reloj una app que la emita (por ejemplo Heart for Bluetooth), ábrela y empieza la emisión. Si no aparece al pulsar «Conectar pulsómetro», usa <button class="link" data-act="connectAll" ${btOK?'':'disabled'}>buscar en todos los dispositivos</button>.`,'¿No aparece tu pulsómetro o reloj?')}`;
+    if(st==='on'&&BLE.bpm==null)h+=`<div class="note slim"><span class="hint"><b>Esperando datos…</b> Si es un reloj: abre la app que emite la FC, pulsa empezar y deja su pantalla encendida. Algunas apps solo emiten mientras están abiertas.</span></div>`;
+    h+=`<details class="ble-diag"><summary>Diagnóstico de la conexión</summary><pre id="bleLog">${esc(BLOG.join('\n')||'Todavía no hay intentos de conexión.')}</pre><button class="btn small" data-act="copyBleLog">Copiar diagnóstico</button></details>`;
     b.innerHTML=h}
   const sb=$('#startBtn');if(sb)sb.disabled=!hasSource();
   const ls=$('#liveSt');if(ls){const st=BLE.status;ls.textContent=st==='re'?'Señal perdida. Reconectando… la sesión sigue grabando.':st==='off'?'Pulsómetro desconectado.':'';ls.parentElement.hidden=!(st==='re'||st==='off')}
@@ -1223,7 +1265,7 @@ V.live=()=>{
   <div class="card"><div class="chart"><canvas id="lc" role="img" aria-label="FC de los últimos 3 minutos. Desliza o usa las flechas para leer cada momento."></canvas></div></div>
   <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(r.inc.zoneMs,0)}</div>
   <div class="ctrls"><button class="btn" id="pauseBtn" data-act="pause">${r.running?'Pausar':'Reanudar'}</button><button class="btn danger" data-act="finish">Finalizar</button></div>
-  <span class="hint" style="text-align:center">Deja esta pantalla abierta: con la pantalla apagada Chrome puede dejar de recibir datos.</span>`;
+  <span class="hint" style="text-align:center">Puedes bloquear el móvil o cambiar de app: la sesión sigue grabando y verás el tiempo y la FC en una notificación. No cierres la app desde la multitarea.</span>`;
 };
 // Intervalos en directo: bloque según el tiempo activo (las pausas no cuentan)
 function ivState(r){const bs=r.blocks,a=recActive(r);let acc=0;
@@ -1246,7 +1288,7 @@ function ivRender(r,st=ivState(r)){const box=$('#ivBox');if(!box)return;const bs
     <span class="hint num">En zona ${fmtDur(inz)} de ${fmtDur(st.elapsed)}${nx?` · luego ${fmtBl(nx.min)} Z${nx.zone}`:' · último bloque'}</span></div><b class="iv-left num">${fmtDur(st.left)}</b></div>
     <div class="ivprog">${ivBar(bs)}<i style="left:${pct}%"></i></div>`}
 function updLive(){
-  const r=S.rec;if(!r||S.view!=='live')return;
+  const r=S.rec;if(!r||S.view!=='live'||document.hidden)return;
   const fresh=Date.now()-BLE.last<5000&&hasSource();
   const b=fresh?BLE.bpm:null,z=b!=null?zoneOf(b,r.zoneLimits):null;
   const be=$('#lBpm');if(!be)return;
@@ -1288,7 +1330,10 @@ V.summary=()=>{
 const EXERCISES=['Sentadilla','Peso muerto','Peso muerto rumano','Press banca','Press militar','Dominadas','Remo con barra','Hip thrust','Zancadas','Prensa','Fondos','Curl de bíceps','Extensión de tríceps','Elevaciones laterales','Jalón al pecho','Sentadilla búlgara','Plancha'];
 const ST_TYPES=['Fuerza','Tren inferior','Tren superior','Full body','Potencia','Hipertrofia','Prevención de lesiones'];
 const toLocalInput=t=>{const d=new Date(t);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`};
-const setsText=(sets,uni)=>{const v=(sets||[]).filter(s=>+s.reps>0);
+const plyoSetsText=(sets,uni)=>{const v=(sets||[]).filter(s=>+s.reps>0&&s.side!=='D');if(!v.length)return'';const it=x=>x.int?INT[x.int].toLowerCase():'';
+  const same=v.every(x=>+x.reps===+v[0].reps&&it(x)===it(v[0]));
+  return (same?`${v.length} × ${v[0].reps} contactos${it(v[0])?' · intensidad '+it(v[0]):''}`:v.map(x=>`${x.reps}${it(x)?' '+it(x):''}`).join(' · ')+' contactos')+(uni?' por pierna':'')};
+const setsText=(sets,uni,plyo)=>{if(plyo)return plyoSetsText(sets,uni);const v=(sets||[]).filter(s=>+s.reps>0);
   if(!uni)return v.map(s=>`${s.reps}×${fmtKg(s.kg)}`).join(' · ')+' kg';
   const out=[];for(let i=0;i<v.length;i++){const a=v[i],b=v[i+1];
     if(a.side==='I'&&b&&b.side==='D'&&+a.kg===+b.kg){out.push(`${a.reps}/${b.reps}×${fmtKg(a.kg)}`);i++}else out.push(`${SIDE[a.side]||''} ${a.reps}×${fmtKg(a.kg)}`)}
@@ -1307,13 +1352,14 @@ function variantsOf(uid,name){const n=normTxt(name),set=new Map();if(!n)return[]
   return [...set.values()].sort((a,b)=>a.localeCompare(b,'es'))}
 function prevHint(prev,e){
   const pv=prev.m[exKey(e)];
-  if(pv)return `<span class="hint num">Última vez (${fmtDate(pv.t)}): ${setsText(pv.sets,e.unilateral)}</span>`;
+  if(pv)return `<span class="hint num">Última vez (${fmtDate(pv.t)}): ${setsText(pv.sets,e.unilateral,e.plyo)}</span>`;
   const others=(prev.byName[normTxt(e.name)]||[]).filter(x=>normTxt(x.variant)!==normTxt(e.variant)||x.uni!==!!e.unilateral);
   if(others.length)return `<span class="hint">Primera vez con ${normTxt(e.variant)||e.unilateral?'esta variante':'el ejercicio sin variante'}. Registrado antes como: ${others.map(o=>esc((o.variant.trim()||'sin variante')+(o.uni?' (unilateral)':''))).join(', ')}.</span>`;
   return '';
 }
 const rpeOpts=v=>`<option value=""${v==null||v===''?' selected':''}>—</option>`+[0,1,2,3,4,5,6,7,8,9,10].map(i=>`<option value="${i}"${+v===i&&v!==''&&v!=null?' selected':''}>${i}</option>`).join('');
 function exSummary(k){if(!k.sets)return 'Sin series válidas todavía';
+  if(k.plyo)return `${k.sets} series${k.unilateral?' por pierna':''} · ${k.contacts} contactos${intTxt(k.byInt)?' ('+intTxt(k.byInt)+')':''}${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}`;
   return `${k.sets} series${k.unilateral?' por lado':''} · ${k.reps} reps · ${fmtKg(k.vol)} kg${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}${k.unilateral&&k.asymVol!=null?' · asimetría '+dec(k.asymVol,1)+' %':''}`}
 V.strength=()=>{
   const st=stById(S.arg);if(!st)return'';const prev=lastTimes(st),tot=strengthStats(st);
@@ -1328,22 +1374,22 @@ V.strength=()=>{
     h+=`<div class="card ex">
     <div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
-      <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label></div>
-    ${mgChips(e,i)}
-    ${e.plan?`<span class="hint num plan-hint">${ic('clock','sm')} Programado: ${planSetsText(e.plan,e.unilateral)}</span>`:''}${prevHint(prev,e)}${(()=>{const r=recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
-    <div class="sets"><div class="set-h"><span>Serie</span><span>Reps</span><span>Kg</span><span>RPE</span><span></span></div>
+      <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
+    ${e.plyo?'':mgChips(e,i)}
+    ${e.plan?`<span class="hint num plan-hint">${ic('clock','sm')} Programado: ${e.plyo?plyoSetsText(e.plan,e.unilateral):planSetsText(e.plan,e.unilateral)}</span>`:''}${prevHint(prev,e)}${(()=>{const r=!e.plyo&&recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
+    <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':'Kg'}</span><span>RPE</span><span></span></div>
     ${e.sets.map((s,j)=>`<div class="set${e.unilateral?' side-'+s.side:''}"><span class="set-n">${e.unilateral?`${Math.floor(j/2)+1}<small>${s.side}</small>`:j+1}</span>
-      <input type="number" inputmode="numeric" min="0" data-ex="${i}" data-set="${j}" data-f="reps" value="${s.reps??''}" aria-label="Repeticiones serie ${j+1}">
-      <input type="number" inputmode="decimal" min="0" step="0.5" data-ex="${i}" data-set="${j}" data-f="kg" value="${s.kg??''}" aria-label="Kg serie ${j+1}">
+      <input type="number" inputmode="numeric" min="0" data-ex="${i}" data-set="${j}" data-f="reps" value="${s.reps??''}" aria-label="${e.plyo?'Contactos':'Repeticiones'} serie ${j+1}">
+      ${e.plyo?`<select data-ex="${i}" data-set="${j}" data-f="int" aria-label="Intensidad serie ${j+1}">${intOpts(s.int)}</select>`:`<input type="number" inputmode="decimal" min="0" step="0.5" data-ex="${i}" data-set="${j}" data-f="kg" value="${s.kg??''}" aria-label="Kg serie ${j+1}">`}
       <select data-ex="${i}" data-set="${j}" data-f="rpe" aria-label="RPE serie ${j+1}">${rpeOpts(s.rpe)}</select>
       ${e.unilateral&&s.side==='D'?'<span></span>':`<button class="icon-btn" data-act="stDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${e.unilateral?Math.floor(j/2)+1+' (ambos lados)':j+1}">×</button>`}</div>`).join('')}
     </div>
-    <div class="ex-f"><button class="btn small" data-act="stAddSet" data-i="${i}">+ Serie</button><span class="hint num" id="exs${i}">${exSummary(k)}</span></div>${e.unilateral?`<span class="hint">I = izquierda · D = derecha. «+ Serie» añade una serie para cada lado.</span>`:''}</div>`});
+    <div class="ex-f"><button class="btn small" data-act="stAddSet" data-i="${i}">+ Serie</button><span class="hint num" id="exs${i}">${exSummary(k)}</span></div>${e.unilateral?`<span class="hint">I = izquierda · D = derecha. «+ Serie» añade una serie para cada lado.</span>`:''}${e.plyo?`<span class="hint">Contactos = apoyos con el suelo (cada salto o bote cuenta 1; en unilaterales, por pierna). Intensidad: baja (botes, comba, saltos en el sitio) · media (saltos a cajón, CMJ, saltos horizontales) · alta (drop jumps, multisaltos, unilaterales, con lastre).</span>`:''}</div>`});
   if(!st.exercises.length)h+=`<div class="empty">Añade el primer ejercicio. Cada serie guarda repeticiones, kg y RPE (CR-10).</div>`;
   h+=`<datalist id="exlist">${exerciseNames(st.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
   <button class="btn wide" data-act="stAddEx">+ Añadir ejercicio</button>
   <div class="card"><span class="lbl">Total de la sesión</span><div class="stats" id="stTot">${stTotHTML(tot)}</div>
-  ${info('RPE de cada serie en escala CR-10: 3 moderado · 5 duro · 7 muy duro · 10 máximo. Para ejercicios con el peso corporal deja 0 kg o pon el lastre.<br><br>Grupos musculares: un toque lo marca como principal, otro como secundario (cuenta ½ serie) y otro lo quita. Se propone una asignación según el nombre y se recuerda la tuya para la próxima vez.','Ayuda')}</div>
+  ${info('RPE de cada serie en escala CR-10: 3 moderado · 5 duro · 7 muy duro · 10 máximo. Para ejercicios con el peso corporal deja 0 kg o pon el lastre.<br><br>Pliometría: marca la casilla (se activa sola si el nombre lo indica: salto, CMJ, drop jump, multisaltos…) y anota contactos e intensidad en vez de kg. No suma a los kg ni al reparto por grupos.<br><br>Grupos musculares: un toque lo marca como principal, otro como secundario (cuenta ½ serie) y otro lo quita. Se propone una asignación según el nombre y se recuerda la tuya para la próxima vez.','Ayuda')}</div>
   ${st.status==='open'?`<button class="btn primary wide" data-act="stFinish">Terminar sesión</button>`:`<button class="btn primary wide" data-act="stDone">Guardar cambios</button>`}`;
   return h;
 };
@@ -1388,7 +1434,7 @@ function mgCard(uid){
     <div class="acwr-key"><span><i style="background:var(--accent)"></i>Principal</span><span><i style="background:var(--accent);opacity:.4"></i>Secundario (½)</span></div>
     ${info('Recuento fraccional: cada serie suma 1 al grupo principal del ejercicio y 0,5 a los secundarios. En unilaterales cuenta una serie por cada par izquierda-derecha. Los grupos de cada ejercicio se asignan en el registro de la sesión.')}
   </div>`}
-const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series')+stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio');
+const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series fuerza')+(t.contacts?stat(t.contacts,'Contactos'):'')+stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio');
 let stSaveT=null;
 // Una sesión de fuerza recién abierta sin nada anotado es un borrador: no cuenta como «en curso» y se descarta al salir
 const stEmpty=st=>!st.planId&&!(st.exercises||[]).some(e=>normTxt(e.name)||e.sets.some(x=>(x.reps!=null&&x.reps!=='')||(x.kg!=null&&x.kg!=='')));
@@ -1406,12 +1452,17 @@ V.ssum=()=>{
   const st=stById(S.arg);if(!st)return'';const fk=rmKey(),t=strengthStats(st,fk),l=stLoad(st),p=prof(st.userId);
   const maxV=Math.max(1,...t.ex.map(e=>e.vol));
   let h=`<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(st.startTime)} · ${esc(p?.name||'')}</span>${st.example?'<span class="tag ex">Ejemplo</span>':''}</div>
-  <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series')}${stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie')}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
+  <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series fuerza')}${t.contacts?stat(t.contacts,'Contactos'):''}${stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie')}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
   ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}
   ${(()=>{const mv=muscleVolume([st]),c=MG.filter(([g])=>mv.groups[g].sets>0).map(([g,l])=>`<span class="chipset">${l} ${dec(mv.groups[g].sets,Number.isInteger(mv.groups[g].sets)?0:1)}</span>`);return c.length?`<span class="lbl">Series por grupo</span><div class="chips">${c.join('')}</div>`:''})()}</div>
   <section class="sec"><h3>Ejercicios</h3>
   <div class="field"><label for="rmF">Fórmula del 1RM estimado</label><select id="rmF">${Object.entries(RM_FORMULAS).map(([k,v])=>`<option value="${k}"${k===fk?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>`;
+  const maxC=Math.max(1,...t.ex.map(e=>e.contacts||0));
   t.ex.forEach((e,i)=>{const src=st.exercises[i];
+    if(e.plyo){h+=`<div class="card ex"><div class="sec-h"><b>${esc(e.name||'Sin nombre')}${normTxt(e.variant)?` <span class="muted" style="font-weight:400">· ${esc(e.variant)}</span>`:''}</b><span class="tag str">Pliometría</span></div>
+      <div class="zb-r st-bar"><span class="k"></span><div class="zb-t"><div class="zb-f" style="width:${e.contacts/maxC*100}%;background:var(--z4)"></div></div><span class="v">${e.contacts}</span><span class="p">cont.</span></div>
+      <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${e.unilateral?s.side+' ':''}${s.reps}${s.int?' '+INTS[s.int]:''}${s.rpe!=null&&s.rpe!==''?' @'+s.rpe:''}</span>`).join('')}</div>
+      <span class="hint num">${exSummary(e)}</span></div>`;return}
     const rm=e.unilateral?'':e.e1rm?`1RM est. ${fmtKg(e.e1rm)} kg <span class="muted">(${e.rmSet.reps}×${fmtKg(e.rmSet.kg)})</span>`:(e.top?'Sin serie de ≤ 10 reps para estimar el 1RM':'');
     const sideRow=k=>{const x=e.sides[k];return `<tr><td><b>${SIDE[k]}</b></td><td class="num">${fmtKg(x.vol)} kg</td><td class="num">${x.reps} reps</td><td class="num">${x.e1rm?'1RM '+fmtKg(x.e1rm)+' kg':'—'}</td></tr>`};
     const uniTbl=e.unilateral?`<table class="ztable uni-t">${sideRow('I')}${sideRow('D')}</table>
@@ -1435,7 +1486,7 @@ $('#app').addEventListener('input',e=>{
     if(f==='startTime'){const t=new Date(el.value).getTime();if(!isNaN(t))st.startTime=t}else st[f]=el.value;
     saveStSoon(st);return}
   if(el.dataset.ex==null)return;const ex=st.exercises[+el.dataset.ex];if(!ex)return;
-  if(el.dataset.f==='unilateral')return; // se gestiona en 'change'
+  if(el.dataset.f==='unilateral'||el.dataset.f==='plyo')return; // se gestiona en 'change'
   if(el.dataset.f==='name'||el.dataset.f==='variant')ex[el.dataset.f]=el.value;
   else{const s=ex.sets[+el.dataset.set];const v=el.value;s[el.dataset.f]=v===''?null:+v;
     // Anotar el RPE de una serie = serie terminada: empieza el descanso (en unilaterales, al anotar el lado derecho)
@@ -1450,7 +1501,9 @@ $('#app').addEventListener('change',e=>{
     else{ex.unilateral=false;ex.sets=ex.sets.filter(x=>x.side!=='D').map(({side,...x})=>x)}
     if(!ex.sets.length)ex.sets=ex.unilateral?[{side:'I',reps:null,kg:null,rpe:null},{side:'D',reps:null,kg:null,rpe:null}]:[{reps:null,kg:null,rpe:null}];
     saveSt(st).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
-  if(S.view==='strength'&&(e.target.dataset.f==='name'||e.target.dataset.f==='variant')){const st=stById(S.arg);DB.put('strength',st).then(rerenderKeepFocus)}
+  if(S.view==='strength'&&e.target.dataset.f==='plyo'){const st=stById(S.arg),ex=st.exercises[+e.target.dataset.ex];ex.plyo=e.target.checked;ex.plyoAuto=false;saveSt(st).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
+  if(S.view==='strength'&&(e.target.dataset.f==='name'||e.target.dataset.f==='variant')){const st=stById(S.arg),ex=st.exercises[+e.target.dataset.ex];
+    if(ex&&e.target.dataset.f==='name'&&(ex.plyo==null||ex.plyoAuto)){ex.plyo=isPlyoName(ex.name);ex.plyoAuto=true}DB.put('strength',st).then(rerenderKeepFocus)}
   if(e.target.id==='rmF'){lsSet('rmFormula',e.target.value);const y=scrollY;render();scrollTo(0,y)}
   if(e.target.id==='stNotes2'){const st=stById(S.arg);st.notes=e.target.value;saveSt(st);toast('Notas guardadas')}});
 setInterval(()=>{const c=$('#stClock');const st=S.view==='strength'&&stById(S.arg);if(c&&st)c.textContent=fmtDur(Date.now()-st.startTime)},1000);
@@ -1612,6 +1665,15 @@ async function alertUser(title,body){try{navigator.vibrate?.([300,120,300,120,50
     if(r)await r.showNotification(title,{body,tag:'imdt-alert',renotify:true,vibrate:[400,150,400,150,700],icon:'icon-192.png',badge:'icon-192.png',silent:false})}catch(e){}}
 function askNotif(){if(!('Notification' in window)||Notification.permission!=='default'||lsGet('notifAsked'))return;lsSet('notifAsked','1');
   toast('Permite las notificaciones para que vibre con la pantalla bloqueada');try{Notification.requestPermission()}catch(e){}}
+// Sesión aeróbica con la app en segundo plano: notificación silenciosa con tiempo y FC (se actualiza cada 15 s)
+let recNT=null;
+async function recNotif(on){clearInterval(recNT);recNT=null;let r=null;try{r=await navigator.serviceWorker?.getRegistration()}catch(e){}
+  if(!on||!r||!('Notification' in window)||Notification.permission!=='granted'){try{for(const n of await r?.getNotifications({tag:'imdt-rec'})||[])n.close()}catch(e){}return}
+  const show=()=>{const x=S.rec;if(!x){recNotif(false);return}const ok=Date.now()-BLE.last<5000&&hasSource(),b=ok?BLE.bpm:null,z=b!=null?zoneOf(b,x.zoneLimits):null,iv=x.blocks?ivState(x):null;
+    r.showNotification(`${x.running?'Grabando':'En pausa'} · ${fmtDur(recActive(x))}`,{tag:'imdt-rec',silent:true,renotify:false,icon:'icon-192.png',badge:'icon-192.png',
+      body:`${b!=null?`${b} ppm · Z${z}`:'Sin señal del pulsómetro'}${iv&&iv.i<x.blocks.length?` · bloque ${iv.i+1}/${x.blocks.length} Z${x.blocks[iv.i].zone}, quedan ${fmtDur(iv.left)}`:''}`}).catch(()=>{})};
+  show();recNT=setInterval(show,15000)}
+document.addEventListener('visibilitychange',()=>{if(S.rec){recNotif(document.hidden);if(!document.hidden){keepAwake(true);if(S.view==='live')updLive()}}});
 document.addEventListener('visibilitychange',async()=>{if(document.hidden)return;
   try{const r=await navigator.serviceWorker?.getRegistration();for(const n of await r?.getNotifications({tag:'imdt-alert'})||[])n.close()}catch(e){}
   restTick();if(S.rec)ivTick(S.rec)});
@@ -1625,9 +1687,10 @@ function restTick(){if(!REST.end)return;const left=REST.end-Date.now();
   const t=$('#restT');if(t){t.textContent=fmtDur(left);$('#restP').style.width=(100-left/(REST.dur*10))+'%'}}
 function renderRest(){const bar=$('#restBar'),on=S.view==='strength'&&stById(S.arg)?.status==='open';bar.hidden=!on;document.body.classList.toggle('has-rest',on);if(!on)return;
   const run=REST.end>Date.now(),fresh=REST.done&&Date.now()-REST.done<4000;
-  bar.innerHTML=run?`<div class="rest-in run"><div class="rest-p"><i id="restP"></i></div>${ic('clock')}<span class="rest-l">Descanso</span><b class="num" id="restT">${fmtDur(REST.end-Date.now())}</b>
+  const hr=hasSource()?`<span class="rest-hr num">${ic('heart','sm')}<span id="restHr">${BLE.bpm??'—'}</span></span>`:'';
+  bar.innerHTML=run?`<div class="rest-in run${hr?' has-hr':''}"><div class="rest-p"><i id="restP"></i></div>${ic('clock')}<span class="rest-l">Descanso</span><b class="num" id="restT">${fmtDur(REST.end-Date.now())}</b>${hr}
       <button class="btn small" data-act="restAdd" data-v="-15">−15</button><button class="btn small" data-act="restAdd" data-v="15">+15</button><button class="btn small primary" data-act="restStop">Saltar</button></div>`
-    :`<div class="rest-in">${ic('clock')}<span class="rest-l">${fresh?'¡Siguiente serie!':'Descanso'}</span><b class="num">${fmtDur(restDefault()*1000)}</b>
+    :`<div class="rest-in${hr?' has-hr':''}">${ic('clock')}<span class="rest-l">${fresh?'¡Siguiente serie!':'Descanso'}</span><b class="num">${fmtDur(restDefault()*1000)}</b>${hr}
       <button class="btn small" data-act="restDef" data-v="-15" aria-label="Menos descanso">−</button><button class="btn small" data-act="restDef" data-v="15" aria-label="Más descanso">+</button><button class="btn small primary" data-act="restGo">${ic('chev','sm')}Iniciar</button></div>`;
   if(run)restTick()}
 /* ================= Recuperación de la FC ================= */
@@ -1831,8 +1894,8 @@ async function newPlanFor(pid,ds){const pl={id:uid(),userId:pid,title:'Entrenami
   exercises:[{name:'',variant:'',unilateral:false,sets:[{reps:8,kg:null,rpe:7},{reps:8,kg:null,rpe:7},{reps:8,kg:null,rpe:7}]}],hr:{type:'Carrera',minutes:40,zone:2}};
   await savePlan(pl);go('plan',pl.id)}
 // Ejercicios de una sesión anterior → objetivos del plan (en unilaterales, una serie por par izq.-der.)
-function exercisesFromSession(st){return st.exercises.filter(e=>normTxt(e.name)).map(e=>({name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,muscles:e.muscles&&!e.mAuto?{...e.muscles}:undefined,
-  sets:(e.unilateral?e.sets.filter(x=>x.side!=='D'):e.sets).filter(x=>+x.reps>0).map(x=>({reps:+x.reps||null,kg:+x.kg||null,rpe:x.rpe===''||x.rpe==null?null:+x.rpe}))}))}
+function exercisesFromSession(st){return st.exercises.filter(e=>normTxt(e.name)).map(e=>({name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,...(e.plyo?{plyo:true}:{}),muscles:e.muscles&&!e.mAuto?{...e.muscles}:undefined,
+  sets:(e.unilateral?e.sets.filter(x=>x.side!=='D'):e.sets).filter(x=>+x.reps>0).map(x=>({reps:+x.reps||null,kg:+x.kg||null,...(e.plyo?{int:+x.int||null}:{}),rpe:x.rpe===''||x.rpe==null?null:+x.rpe}))}))}
 V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=isClient(),done=pl.status==='done';
   const doneSes=pl.doneId&&(stById(pl.doneId)||S.sessions.find(x=>x.id===pl.doneId));
   const st=PSTATUS[pl.status]||PSTATUS.pending;
@@ -1846,7 +1909,7 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
         ${pl.hr.type?`<span class="hint">Tipo: ${esc(pl.hr.type)}</span>`:''}<span class="hint">Durante la sesión la app te indica cada bloque y avisa con pitido y vibración al cambiar.</span></div>`}
     else if(pl.kind==='hr'){const h2=pl.hr||{},lim=p?zoneLimits(p):null,z=+h2.zone;
       h+=`<div class="card"><span class="lbl">Objetivo</span><div class="stats">${stat((h2.minutes||'—')+' min','Duración')}${stat(z?'Z'+z:'—','Zona')}${stat(z&&lim?`${lim[z-1]}–${z<5?lim[z]-1:p.hrMax}`:'—','ppm')}</div>${h2.type?`<span class="hint">Tipo: ${esc(h2.type)}</span>`:''}</div>`}
-    else h+=`<section class="sec"><h3>Ejercicios</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}</div><div class="chips">${e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}</span>`).join('')}</div></div>`).join('')}</div></section>`}
+    else h+=`<section class="sec"><h3>Ejercicios</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}${e.plyo?' <span class="tag str">Pliometría</span>':''}</div><div class="chips">${e.plyo?e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'} cont.${x.int?' '+INT[x.int].toLowerCase():''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}</span>`).join(''):e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}</span>`).join('')}</div></div>`).join('')}</div></section>`}
   else{
     h+=`<div class="field"><label for="plTitle">Título</label><input id="plTitle" data-pf="title" value="${esc(pl.title||'')}"></div>
       <div class="g2"><div class="field"><label for="plDate">Día</label><input id="plDate" type="date" data-pf="date" value="${esc(pl.date||'')}"></div>
@@ -1874,16 +1937,16 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
     else{const prev=stOf(pl.userId).slice(0,12);
       if(prev.length)h+=`<div class="field"><label for="plCopy">Copiar ejercicios de una sesión anterior</label><select id="plCopy"><option value="">Elegir sesión…</option>${prev.map(x=>`<option value="${x.id}">${esc(x.type)} · ${fmtDate(x.startTime)}</option>`).join('')}</select></div>`;
       pl.exercises.forEach((e,i)=>{h+=`<div class="card ex"><div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
-        <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label></div>
-        ${(()=>{const pct=e.load==='pct',rm=planRM(pl.userId,e);return `<div class="load-row"><span class="lbl">Carga</span><div class="seg two mini" role="radiogroup" aria-label="Unidad de carga"><button type="button" role="radio" aria-checked="${!pct}" class="${pct?'':'on'}" data-act="plLoad" data-i="${i}" data-v="kg">Kg</button><button type="button" role="radio" aria-checked="${pct}" class="${pct?'on':''}" data-act="plLoad" data-i="${i}" data-v="pct">%1RM</button></div>
+        <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
+        ${e.plyo?'':(()=>{const pct=e.load==='pct',rm=planRM(pl.userId,e);return `<div class="load-row"><span class="lbl">Carga</span><div class="seg two mini" role="radiogroup" aria-label="Unidad de carga"><button type="button" role="radio" aria-checked="${!pct}" class="${pct?'':'on'}" data-act="plLoad" data-i="${i}" data-v="kg">Kg</button><button type="button" role="radio" aria-checked="${pct}" class="${pct?'on':''}" data-act="plLoad" data-i="${i}" data-v="pct">%1RM</button></div>
           <span class="hint num" id="plrm${i}">${pct?(rm?`1RM est. ${fmtKg(rm)} kg → ${pctKgText(e,rm)}`:'Sin 1RM estimado de este ejercicio: se usarán los kg que calcule su app si tiene registros'):(rm?`1RM est. ${fmtKg(rm)} kg`:'')}</span></div>`})()}
-        <div class="sets"><div class="set-h"><span>Serie</span><span>Reps</span><span>${e.load==='pct'?'%1RM':'Kg'}</span><span>RPE obj.</span><span></span></div>
+        <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':e.load==='pct'?'%1RM':'Kg'}</span><span>RPE obj.</span><span></span></div>
         ${e.sets.map((x,j)=>`<div class="set"><span class="set-n">${j+1}</span>
           <input type="number" inputmode="numeric" min="0" data-pe="${i}" data-ps="${j}" data-pk="reps" value="${x.reps??''}" aria-label="Repeticiones serie ${j+1}">
-          ${e.load==='pct'?`<input type="number" inputmode="decimal" min="0" max="120" step="2.5" data-pe="${i}" data-ps="${j}" data-pk="pct" value="${x.pct??''}" placeholder="%" aria-label="Porcentaje del 1RM serie ${j+1}">`:`<input type="number" inputmode="decimal" min="0" step="0.5" data-pe="${i}" data-ps="${j}" data-pk="kg" value="${x.kg??''}" placeholder="—" aria-label="Kg serie ${j+1}">`}
+          ${e.plyo?`<select data-pe="${i}" data-ps="${j}" data-pk="int" aria-label="Intensidad serie ${j+1}">${intOpts(x.int)}</select>`:e.load==='pct'?`<input type="number" inputmode="decimal" min="0" max="120" step="2.5" data-pe="${i}" data-ps="${j}" data-pk="pct" value="${x.pct??''}" placeholder="%" aria-label="Porcentaje del 1RM serie ${j+1}">`:`<input type="number" inputmode="decimal" min="0" step="0.5" data-pe="${i}" data-ps="${j}" data-pk="kg" value="${x.kg??''}" placeholder="—" aria-label="Kg serie ${j+1}">`}
           <select data-pe="${i}" data-ps="${j}" data-pk="rpe" aria-label="RPE objetivo serie ${j+1}">${rpeOpts(x.rpe)}</select>
           <button class="icon-btn" data-act="plDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${j+1}">×</button></div>`).join('')}</div>
-        <div class="ex-f"><button class="btn small" data-act="plAddSet" data-i="${i}">+ Serie</button>${e.unilateral?'<span class="hint">Cada serie se hace con los dos lados</span>':''}</div></div>`});
+        <div class="ex-f"><button class="btn small" data-act="plAddSet" data-i="${i}">+ Serie</button><span class="hint num">${e.plyo?(k=>k.contacts?k.contacts*(e.unilateral?2:1)+' contactos'+(e.unilateral?' (las dos piernas)':''):'')(strengthStats({exercises:[e]}).ex[0]):''}${e.unilateral&&!e.plyo?'Cada serie se hace con los dos lados':''}</span></div></div>`});
       h+=`<datalist id="exlist">${exerciseNames(pl.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist><button class="btn wide" data-act="plAddEx">+ Añadir ejercicio</button>`}
     h+=`<div class="card"><div class="field"><label for="plNotes">Indicaciones para el deportista</label><textarea id="plNotes" data-pf="notes" placeholder="Calentamiento, descansos, técnica, parte de cardio…">${esc(pl.notes||'')}</textarea></div></div>`}
   // Acciones
@@ -1898,7 +1961,9 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
 async function startPlan(pl){const p=prof(pl.userId);if(!p){toast('No se encuentra el perfil de este entrenamiento');return}
   if(pl.kind==='hr'){if(S.rec){toast('Ya hay una sesión grabándose');return}S.form={type:pl.hr?.type||pl.title,planId:pl.id};go('pre',p.id,{keepForm:true});return}
   const cur=pl.doneId&&stById(pl.doneId);if(pl.status==='inprogress'&&cur&&cur.status==='open'){go('strength',cur.id);return}
-  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)).map(e=>({name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,
+  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)).map(e=>e.plyo?{name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,plyo:true,plyoAuto:false,
+    plan:e.sets.map(x=>({reps:x.reps??null,int:x.int??null,rpe:x.rpe??null})),
+    sets:e.unilateral?e.sets.flatMap(x=>[{side:'I',reps:x.reps??null,int:x.int??null,kg:null,rpe:null},{side:'D',reps:x.reps??null,int:x.int??null,kg:null,rpe:null}]):e.sets.map(x=>({reps:x.reps??null,int:x.int??null,kg:null,rpe:null}))}:({name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,
     ...(e.muscles?{muscles:{...e.muscles},mAuto:false}:{}),plan:e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),pct:e.load==='pct'?x.pct??null:null,rpe:x.rpe??null})),
     sets:e.unilateral?e.sets.flatMap(x=>{const k=planKg(p.id,e,x);return [{side:'I',reps:x.reps??null,kg:k,rpe:null},{side:'D',reps:x.reps??null,kg:k,rpe:null}]}):e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),rpe:null}))}));
   const st={id:uid(),userId:p.id,kind:'strength',type:pl.title||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,rpePre:null,rpePost:null,rpePostTime:null,notes:'',status:'open',planId:pl.id,
@@ -1912,7 +1977,7 @@ $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;con
   if(el.dataset.pb!=null){const b=pl.hr.blocks[+el.dataset.pb];if(!b)return;const k=el.dataset.pbk;b[k]=el.value===''?null:+String(el.value).replace(',','.');
     if(k==='zone'){savePlan(pl).then(rerenderKeepFocus);return}const w=$('#plIvBar');if(w)w.innerHTML=ivBar(ivBlocks(pl.hr)||[])}
   else if(el.dataset.pf){const f=el.dataset.pf;if(f.startsWith('hr.')){pl.hr=pl.hr||{};const k=f.slice(3);pl.hr[k]=k==='type'?el.value:(el.value===''?null:+el.value);if(k==='zone'){savePlanSoon(pl);const y=scrollY;render();scrollTo(0,y);return}}else pl[f]=el.value}
-  else if(el.dataset.pe!=null&&el.dataset.pk!=='unilateral'){const ex=pl.exercises[+el.dataset.pe];if(!ex)return;
+  else if(el.dataset.pe!=null&&el.dataset.pk!=='unilateral'&&el.dataset.pk!=='plyo'){const ex=pl.exercises[+el.dataset.pe];if(!ex)return;
     if(el.dataset.ps!=null){const x=ex.sets[+el.dataset.ps];x[el.dataset.pk]=el.value===''?null:+el.value;
       if(ex.load==='pct'){const rm=planRM(pl.userId,ex);x.kg=rm&&x.pct?roundKg(rm*x.pct/100):null;const h=$('#plrm'+el.dataset.pe);if(h&&rm)h.textContent=`1RM est. ${fmtKg(rm)} kg → ${pctKgText(ex,rm)}`}}
     else ex[el.dataset.pk]=el.value}
@@ -1920,6 +1985,8 @@ $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;con
   savePlanSoon(pl);const t=$('#plTot');if(t)t.textContent=planSummary(pl)});
 $('#app').addEventListener('change',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
   if(el.dataset.pk==='unilateral'){pl.exercises[+el.dataset.pe].unilateral=el.checked;savePlan(pl).then(rerenderKeepFocus)}
+  if(el.dataset.pk==='plyo'){const ex=pl.exercises[+el.dataset.pe];ex.plyo=el.checked;ex.plyoAuto=false;if(ex.plyo)for(const x of ex.sets){x.kg=null;x.pct=null;if(x.reps>12)x.reps=8}savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y)})}
+  if(el.dataset.pk==='name'){const ex=pl.exercises[+el.dataset.pe];if(ex&&(ex.plyo==null||ex.plyoAuto)&&isPlyoName(ex.name)!==!!ex.plyo){ex.plyo=isPlyoName(ex.name);ex.plyoAuto=true;savePlan(pl).then(rerenderKeepFocus)}}
   if(el.id==='plCopy'&&el.value){const st=stById(el.value);if(!st)return;pl.exercises=exercisesFromSession(st);if(!pl.title||pl.title==='Entrenamiento de fuerza')pl.title=st.type;
     savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y);toast(`Copiados ${pl.exercises.length} ejercicios de «${st.type}». Ajusta las cargas.`)})}});
 /* ================= Compartir con el deportista ================= */
@@ -2202,7 +2269,7 @@ function renderDrawer(){
   const dual=coachDev();$('#dSwitch').hidden=!dual;if(dual)$('#dSwitch').innerHTML=`<button class="${cl?'':'on'}" data-d="toCoach">${ic('list','sm')}Entrenador</button><button class="${cl?'on':''}" data-d="toMe">${ic('user','sm')}Mi perfil</button>`;
   const mb=$('#meBtn'),me=prof(meId());mb.hidden=!dual||S.view==='live'||S.view==='recov'||S.view==='welcome';
   if(!mb.hidden){mb.innerHTML=cl?`${ic('list','sm')}<span>Entrenador</span>`:me?`<span class="avatar">${esc(me.name.trim()[0]?.toUpperCase()||'?')}</span><span>Yo</span>`:`${ic('user','sm')}<span>Yo</span>`;mb.setAttribute('aria-label',cl?'Cambiar a modo entrenador':'Ir a mi perfil')}
-  $('#chip').classList.toggle('compact',!mb.hidden&&!['pre','live','test','recov'].includes(S.view));$('#dTests').classList.toggle('on',S.view==='tests'||S.view==='test');
+  S.chipCompact=!mb.hidden&&!['pre','live','test','recov'].includes(S.view);$('#chip').classList.toggle('compact',S.chipCompact);$('#dTests').classList.toggle('on',S.view==='tests'||S.view==='test');
   const ps=sortProfiles(S.profiles);
   $('#dList').innerHTML=ps.length?ps.map(p=>{const ss=allOf(p.id),last=ss[0],pend=ss.some(s=>s.rpePost==null);
     return `<button class="d-item${p.id===act?' on':''}" data-d="profile" data-id="${p.id}"${p.id===act?' aria-current="page"':''}><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span><span class="grow"><span class="t">${esc(p.name)}${p.id===meId()?' <span class="tag up">Tú</span>':''}${S.rec?.userId===p.id?' · grabando':''}</span><span class="s">${last?'Última: '+fmtDate(last.startTime):'Sin sesiones'} · ${ss.length} ses.</span></span>${pend?'<span class="d-pend" title="RPE post pendiente"></span>':''}</button>`}).join('')
@@ -2220,6 +2287,7 @@ drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)r
   if(d==='tests')return navFromDrawer(()=>toRoot('tests',activeProfileId()||[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))[0]?.id||null));
   if(d==='profile')return navFromDrawer(()=>toRoot('profile',b.dataset.id));
   if(d==='new')return navFromDrawer(()=>toRoot('edit',null));
+  if(d==='hr')return navFromDrawer(()=>openHrModal());
   if(d==='send')return navFromDrawer(()=>sendToCoach());
   if(d==='invite')return navFromDrawer(()=>inviteClient());
   if(d==='import')return navFromDrawer(()=>$('#importFile').click());
@@ -2328,8 +2396,9 @@ const A={
   rpe(b){const n=b.dataset.name,v=+b.dataset.v;S.form[n]=v;b.parentElement.querySelectorAll('.rpe-row').forEach(x=>{const on=+x.dataset.v===v;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});
     if(n==='stRpePre'){const st=stById(S.arg);st.rpePre=v;saveSt(st);const sm=b.closest('details')?.querySelector('summary');if(sm)sm.innerHTML=`RPE pre · ¿cómo llegas? <span class="tag">${v}</span>`}},
   clearPre(){S.form.rpePre=null;document.querySelectorAll('.rpe-row.on').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-checked','false')})},
-  async connectAll(){try{await BLE.pick(true)}catch(e){if(e.name==='NotFoundError')return;BLE.set('off');toast(e.name==='NoHR'?e.message:e.name==='SecurityError'?'Bluetooth bloqueado aquí. Abre la app desde su enlace en Chrome.':e.message||'No se pudo conectar')}},
-  async connect(){try{await BLE.pick()}catch(e){
+  async copyBleLog(){const t=`IMDTraining · ${navigator.userAgent}\n`+BLOG.join('\n');try{await navigator.clipboard.writeText(t);toast('Diagnóstico copiado: pégamelo en el chat')}catch(e){toast('No se pudo copiar')}},
+  async connectAll(){try{await BLE.pick(true)}catch(e){blog(`${e.name}: ${e.message}`);if(e.name==='NotFoundError')return;BLE.set('off');toast(e.name==='NoHR'?e.message:e.name==='SecurityError'?'Bluetooth bloqueado aquí. Abre la app desde su enlace en Chrome.':e.message||'No se pudo conectar')}},
+  async connect(){try{await BLE.pick()}catch(e){blog(`${e.name}: ${e.message}`);
     if(e.name==='NotFoundError')return;if(e.name==='NoHR'){BLE.set('off');toast(e.message);return}
     BLE.set('off');toast(e.name==='SecurityError'?'Bluetooth bloqueado aquí. Abre la app desde su enlace en Chrome.':e.message||'No se pudo conectar')}},
   sim(){BLE.startSim()},
@@ -2341,7 +2410,7 @@ const A={
     if(S.form.planId){r.planId=S.form.planId;const pl=planById(r.planId);if(pl){pl.status='inprogress';pl.doneId=r.id;await savePlan(pl);const bs=ivBlocks(pl.hr);if(bs){r.blocks=bs.map(x=>({min:+x.min,zone:+x.zone}));r.ivi=0;r.ivBase=0;r.ivRes=[];actx();askNotif();keepAlive('iv',true)}}}
     r.startTime=Date.now();r.running=true;r.segStart=r.startTime;S.rec=r;
     await saveRec();S.autosave=setInterval(saveRec,15000);
-    keepAwake(true);S.stack=S.stack.filter(x=>x[0]!=='pre');go('live',null,{push:false});
+    keepAwake(true);actx();askNotif();keepAlive('rec',true);S.stack=S.stack.filter(x=>x[0]!=='pre');go('live',null,{push:false});
     clearInterval(S.tick);S.tick=setInterval(()=>{if(S.rec)ivTick(S.rec);if(S.view==='live')updLive()},1000);
   },
   pause(){const r=S.rec,now=Date.now();
@@ -2442,8 +2511,8 @@ const A={
     st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);render();toast('RPE guardado')},
   stEdit(){go('strength',S.arg)},
   async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;const pid=stById(id)?.planId;if(pid)await unmarkPlan(pid,id);await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
-  stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;variante;unilateral;lado;serie;reps;kg;rpe;volumen_kg'];
-    for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,e.variant||'',e.unilateral?'sí':'no',e.unilateral?(s.side==='I'?'izquierda':'derecha'):'',e.unilateral?Math.floor(j/2)+1:j+1,s.reps,dec(+s.kg||0,1),s.rpe??'',dec(s.reps*(+s.kg||0),1)].map(v=>String(v).replace(/;/g,',')).join(';')));
+  stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;variante;unilateral;lado;serie;reps_o_contactos;kg;rpe;volumen_kg;tipo;intensidad'];
+    for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,e.variant||'',e.unilateral?'sí':'no',e.unilateral?(s.side==='I'?'izquierda':'derecha'):'',e.unilateral?Math.floor(j/2)+1:j+1,s.reps,e.plyo?'':dec(+s.kg||0,1),s.rpe??'',e.plyo?'':dec(s.reps*(+s.kg||0),1),e.plyo?'pliometria':'fuerza',e.plyo?INT[+s.int]||'':''].map(v=>String(v).replace(/;/g,',')).join(';')));
     download(`${slug(p.name)}_${fileDate(st.startTime)}_fuerza.csv`,rows.join('\r\n'),'text/csv')},
   acwrMethod(b){lsSet('acwrMethod',b.dataset.v);render()},
   loadView(b){lsSet('loadView',b.dataset.v);render()},
@@ -2463,7 +2532,7 @@ const A={
   async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
     const last=tr.samples.at(-1);m.endTime=last?last[0]:m.startTime;if(!m.activeMs)m.activeMs=m.endTime-m.startTime;
     await finalize(m,tr);go('summary',id);toast('Sesión recuperada')},
-  async discard(id){await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);render()}
+  async discard(id){if(S.rec?.id===id)return;await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);render()}
 };
 async function saveProfile(){
   const f=readForm(),e=validate(f),er=$('#ferr');
@@ -2479,6 +2548,7 @@ function actClick(e){const b=e.target.closest('[data-act]');if(!b||b.tagName==='
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){A.wClose?.();return}actClick(e)});
 $('#restBar').addEventListener('click',actClick);
 $('#meBtn').addEventListener('click',()=>switchMode());
+$('#chip').addEventListener('click',()=>openHrModal());$('#chip').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openHrModal()}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden)A.wClose();
   if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[role="button"][data-act]')){e.preventDefault();e.target.click()}});
 $('#app').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)});
