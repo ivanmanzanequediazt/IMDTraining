@@ -767,7 +767,7 @@ const BLE={dev:null,status:'off',bpm:null,bat:null,contact:null,last:0,manual:fa
     this.timer=setTimeout(async()=>{try{await this.connect()}catch(e){if(!this.dev.gatt.connected)this.onDrop()}},delay);
   },
   disconnect(){this.manual=true;clearTimeout(this.timer);try{this.dev?.gatt?.connected&&this.dev.gatt.disconnect()}catch(e){}this.bpm=null;this.set('off')},
-  onValue(dv){if(this.first){this.first=false;const by=[...new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength)].map(x=>x.toString(16).padStart(2,'0')).join(' ');blog(`Primer dato: ${by}`)}const p=parseHR(dv);
+  onValue(dv){const gap=this.last?Date.now()-this.last:0;if(this.status==='on'&&gap>5000&&!this.first)blog(`Hueco de ${Math.round(gap/1000)} s sin datos${document.hidden?' (app en segundo plano)':''}`);if(this.first){this.first=false;const by=[...new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength)].map(x=>x.toString(16).padStart(2,'0')).join(' ');blog(`Primer dato: ${by}`)}const p=parseHR(dv);
     if(this.first===false){this.first=null;blog(`FC leída: ${p.bpm} ppm${p.contact===false?' (sin contacto con la piel)':''}`)}this.bpm=p.bpm;this.contact=p.contact;this.last=Date.now();onHR(p)},
   startSim(){
     if(this.dev)this.disconnect();this.stopSim();this.manual=false;
@@ -833,6 +833,7 @@ async function finishRec(){
   clearInterval(S.autosave);S.rec=null;keepAwake(false);keepAlive('rec',false);recNotif(false);
   return meta.id;
 }
+setInterval(()=>{if(BLE.status==='on'&&BLE.last&&Date.now()-BLE.last>8000&&!BLE.gapLogged){BLE.gapLogged=true;blog(`Sin datos desde hace ${Math.round((Date.now()-BLE.last)/1000)} s (sigue conectado)${document.hidden?' · app en segundo plano':''}`)}if(Date.now()-BLE.last<5000)BLE.gapLogged=false},2000);
 function onHR(p){
   const t=Date.now();updChip();
   if(S.rec)recAdd(p,t);
@@ -1238,7 +1239,7 @@ V.pre=()=>{
   <button class="btn primary wide" id="startBtn" data-act="start">Empezar sesión</button>`;
 };
 // Ventana del pulsómetro: conectar sin entrar en una sesión aeróbica (fuerza, test, bienestar…)
-function openHrModal(){if(S.view==='live')return;if(S.view==='pre'){$('#devBox')?.scrollIntoView({block:'center',behavior:'smooth'});return}
+function openHrModal(){if(S.view==='pre'){$('#devBox')?.scrollIntoView({block:'center',behavior:'smooth'});return}
   S.modalKind='hr';$('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="hrTitle"><div class="sec-h"><h2 id="hrTitle">Pulsómetro</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
     <div class="card" id="devBox"></div>
     <span class="hint">Queda conectado mientras usas la app: en las sesiones de fuerza verás la FC en la barra de descanso, y la tendrás lista para los test, el bienestar o una sesión aeróbica.</span></div>`;
@@ -1249,8 +1250,8 @@ function updDevice(){
     if(st==='on'||st==='sim')h=`<div class="row" style="justify-content:space-between"><span><b>${esc(BLE.name())}</b><br><span class="hint">${st==='sim'?'Datos simulados':'Conectado'}${BLE.bat!=null&&st==='on'?' · batería '+BLE.bat+' %':''}</span></span><span class="num" style="font:700 40px var(--display)"><span id="preHr">${BLE.bpm??'—'}</span> <span class="unit">ppm</span></span></div><button class="btn small" data-act="disconnect">Desconectar</button>`;
     else if(st==='conn'||st==='re')h=`<b>${st==='re'?'Reconectando…':'Conectando…'}</b><span class="hint">Asegúrate de que el pulsómetro o la emisión del reloj están activos.</span><button class="btn small" data-act="disconnect">Cancelar</button>`;
     else h=`<div class="row"><button class="btn primary" data-act="connect" ${btOK?'':'disabled'}>${ic('heart','sm')}Pulsómetro</button><button class="btn" data-act="connectAll" ${btOK?'':'disabled'}>Reloj</button><button class="btn small" data-act="sim">Simulador</button></div>${lsGet('lastDevice')?`<span class="hint">Último usado: ${esc(lsGet('lastDevice'))}</span>`:''}
-      ${info(`Enciende el pulsómetro (HW9 u otro con Bluetooth) y póntelo. Si no aparece en la lista, activa la ubicación del móvil y cierra otras apps que lo estén usando (Strava, Coospo…).<br><br><b>Reloj (Galaxy Watch, Wear OS…)</b>: no envía la FC por Bluetooth estándar por sí solo. Instala en el reloj una app que la emita (por ejemplo Heart for Bluetooth), ábrela y empieza la emisión. Si no aparece al pulsar «Conectar pulsómetro», usa <button class="link" data-act="connectAll" ${btOK?'':'disabled'}>buscar en todos los dispositivos</button>.`,'¿No aparece tu pulsómetro o reloj?')}`;
-    if(st==='on'&&BLE.bpm==null)h+=`<div class="note slim"><span class="hint"><b>Esperando datos…</b> Si es un reloj: abre la app que emite la FC, pulsa empezar y deja su pantalla encendida. Algunas apps solo emiten mientras están abiertas.</span></div>`;
+      ${info(`Enciende el pulsómetro (HW9 u otro con Bluetooth) y póntelo. Si no aparece en la lista, activa la ubicación del móvil y cierra otras apps que lo estén usando (Strava, Coospo…).<br><br><b>Reloj (Galaxy Watch, Wear OS…)</b>: no envía la FC por Bluetooth estándar por sí solo.<br>1. Instala en el reloj una app que la emita (por ejemplo Heart for Bluetooth), ábrela y empieza la emisión.<br>2. Pulsa «Reloj» aquí y elige tu reloj.<br>3. <b>Para que siga enviando con la pantalla del reloj apagada</b>: en el móvil, abre Galaxy Wearable → Ajustes del reloj → Aplicaciones → la app de emisión y activa «Permitir actividad en segundo plano». Quita también el ahorro de batería del reloj mientras entrenas.<br>4. Si aun así se corta, activa en el reloj la pantalla siempre encendida (Ajustes → Pantalla).<br>El sensor de muñeca reacciona más tarde que una banda en los cambios bruscos de intensidad: para series e intervalos, mejor la banda.`,'¿Usas un reloj o no aparece tu pulsómetro?')}`;
+    if(st==='on'&&BLE.bpm==null)h+=`<div class="note slim"><span class="hint"><b>Esperando datos…</b> Si es un reloj: abre la app que emite la FC y pulsa empezar. Si solo envía con la pantalla del reloj encendida, activa «Permitir actividad en segundo plano» para esa app en Galaxy Wearable (más detalles en la ayuda de abajo).</span></div>`;
     h+=`<details class="ble-diag"><summary>Diagnóstico de la conexión</summary><pre id="bleLog">${esc(BLOG.join('\n')||'Todavía no hay intentos de conexión.')}</pre><button class="btn small" data-act="copyBleLog">Copiar diagnóstico</button></details>`;
     b.innerHTML=h}
   const sb=$('#startBtn');if(sb)sb.disabled=!hasSource();
@@ -1673,7 +1674,7 @@ async function recNotif(on){clearInterval(recNT);recNT=null;let r=null;try{r=awa
     r.showNotification(`${x.running?'Grabando':'En pausa'} · ${fmtDur(recActive(x))}`,{tag:'imdt-rec',silent:true,renotify:false,icon:'icon-192.png',badge:'icon-192.png',
       body:`${b!=null?`${b} ppm · Z${z}`:'Sin señal del pulsómetro'}${iv&&iv.i<x.blocks.length?` · bloque ${iv.i+1}/${x.blocks.length} Z${x.blocks[iv.i].zone}, quedan ${fmtDur(iv.left)}`:''}`}).catch(()=>{})};
   show();recNT=setInterval(show,15000)}
-document.addEventListener('visibilitychange',()=>{if(S.rec){recNotif(document.hidden);if(!document.hidden){keepAwake(true);if(S.view==='live')updLive()}}});
+document.addEventListener('visibilitychange',()=>{blog(document.hidden?'App en segundo plano / pantalla del móvil bloqueada':'App de nuevo en primer plano');if(S.rec){recNotif(document.hidden);if(!document.hidden){keepAwake(true);if(S.view==='live')updLive()}}});
 document.addEventListener('visibilitychange',async()=>{if(document.hidden)return;
   try{const r=await navigator.serviceWorker?.getRegistration();for(const n of await r?.getNotifications({tag:'imdt-alert'})||[])n.close()}catch(e){}
   restTick();if(S.rec)ivTick(S.rec)});
@@ -2408,7 +2409,7 @@ const A={
     const p=prof(S.arg);S.form.type=($('#stype').value||'Otro').trim();lsSet('lastType_'+p.id,S.form.type);
     const r=newRec(p,{rpePre:S.form.rpePre,type:S.form.type});
     if(S.form.planId){r.planId=S.form.planId;const pl=planById(r.planId);if(pl){pl.status='inprogress';pl.doneId=r.id;await savePlan(pl);const bs=ivBlocks(pl.hr);if(bs){r.blocks=bs.map(x=>({min:+x.min,zone:+x.zone}));r.ivi=0;r.ivBase=0;r.ivRes=[];actx();askNotif();keepAlive('iv',true)}}}
-    r.startTime=Date.now();r.running=true;r.segStart=r.startTime;S.rec=r;
+    r.startTime=Date.now();r.running=true;r.segStart=r.startTime;S.rec=r;blog(`Sesión aeróbica iniciada (${BLE.status==='sim'?'simulador':BLE.name()}, último dato hace ${BLE.last?Math.round((Date.now()-BLE.last)/1000):'—'} s)`);
     await saveRec();S.autosave=setInterval(saveRec,15000);
     keepAwake(true);actx();askNotif();keepAlive('rec',true);S.stack=S.stack.filter(x=>x[0]!=='pre');go('live',null,{push:false});
     clearInterval(S.tick);S.tick=setInterval(()=>{if(S.rec)ivTick(S.rec);if(S.view==='live')updLive()},1000);
