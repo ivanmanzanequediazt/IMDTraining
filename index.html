@@ -516,6 +516,13 @@ function summarize(samples,lim){
   return {zoneMs,avgHr:sumT?Math.round(sumB/sumT):null,maxHr:max||null,coveredMs:sumT};
 }
 const srpe=s=>s.rpePost==null?null:Math.round(s.rpePost*s.activeMs/60000);
+// TRIMP de Edwards (1993): minutos en cada zona × su peso (Z1 = 1 … Z5 = 5; Z0 no suma)
+const trimp=s=>s.zoneMs?Math.round(s.zoneMs.reduce((a,ms,z)=>a+ms/60000*z,0)):null;
+// Pico de FC sostenido (3 muestras seguidas) para no tomar como FC máxima un pico aislado del sensor
+function hrMaxCard(s){const p=prof(s?.userId);if(!p||!s.peakHr||s.peakHr<=p.hrMax||s.hrMaxSeen)return'';
+  return `<div class="note"><b>Has superado tu FC máxima</b><span class="hint num">Pico sostenido en esta sesión: <b>${s.peakHr} ppm</b>. FC máxima del perfil: ${p.hrMax} ppm${p.hrMaxEstimated?' (estimada)':''}. Si fue un esfuerzo real y no un error del sensor, actualízala para que las zonas sean correctas.${p.method==='manual'?' Ojo: las zonas de este perfil son manuales; revísalas después en Editar.':''}</span>
+    <div class="row"><button class="btn small primary" data-act="hrMaxUpd" data-id="${s.id}">Usar ${s.peakHr} ppm y recalcular zonas</button><button class="btn small" data-act="hrMaxSkip" data-id="${s.id}">Ignorar</button></div></div>`}
+function sustainedPeak(sm){let pk=0;for(let i=0;i+2<sm.length;i++){const a=sm[i],c=sm[i+2];if(a[2]!==c[2]||c[0]-a[0]>6000)continue;const m=Math.min(a[1],sm[i+1][1],c[1]);if(m>pk)pk=m}return pk||null}
 // Carga diaria (UA) desde el primer día con datos hasta hoy, un valor por día natural
 function dayKey(t){const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()}
 function dailyLoads(items,today=Date.now()){
@@ -573,24 +580,26 @@ const asym=(a,b)=>{const hi=Math.max(a,b),lo=Math.min(a,b);return hi>0?(hi-lo)/h
 function strengthStats(st,formula='brzycki'){
   let vol=0,sets=0,reps=0,rs=0,rn=0;
   let contacts=0,plyoSets=0;const byInt={1:0,2:0,3:0};
-  const ex=(st.exercises||[]).map(e=>{let v=0,r=0,n=0,es=0,en=0,top=null,e1=0,rmSet=null;
+  let ris=0,rin=0;
+  const ex=(st.exercises||[]).map(e=>{let v=0,r=0,n=0,es=0,en=0,xs=0,xn=0,top=null,e1=0,rmSet=null;
     if(e.plyo){const sd={I:0,D:0},bi={1:0,2:0,3:0};let c=0;
-      for(const s of e.sets||[]){const rp=+s.reps;if(!(rp>0))continue;n++;c+=rp;if(+s.int)bi[+s.int]+=rp;if(e.unilateral&&s.side in sd)sd[s.side]++;if(s.rpe!=null&&s.rpe!==''){es+=+s.rpe;en++}}
-      const series=e.unilateral?Math.max(sd.I,sd.D):n;contacts+=c;plyoSets+=series;rs+=es;rn+=en;for(const k in bi)byInt[k]+=bi[k];
-      return {name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,label:exLabel(e),plyo:true,contacts:c,byInt:bi,vol:0,sets:series,reps:0,rpe:en?es/en:null,top:null,e1rm:null,rmSet:null}}
+      for(const s of e.sets||[]){const rp=+s.reps;if(!(rp>0))continue;n++;c+=rp;if(+s.int)bi[+s.int]+=rp;if(e.unilateral&&s.side in sd)sd[s.side]++;if(s.rpe!=null&&s.rpe!==''){es+=+s.rpe;en++}if(s.rir!=null&&s.rir!==''){xs+=+s.rir;xn++}}
+      const series=e.unilateral?Math.max(sd.I,sd.D):n;contacts+=c;plyoSets+=series;rs+=es;rn+=en;ris+=xs;rin+=xn;for(const k in bi)byInt[k]+=bi[k];
+      return {name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,label:exLabel(e),plyo:true,contacts:c,byInt:bi,vol:0,sets:series,reps:0,rpe:en?es/en:null,rir:xn?xs/xn:null,top:null,e1rm:null,rmSet:null}}
     const sd={I:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null},D:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null}};
     for(const s of e.sets||[]){const rp=+s.reps,kg=+s.kg||0;if(!(rp>0))continue;
       n++;r+=rp;v+=rp*kg;
       if(s.rpe!=null&&s.rpe!==''){es+=+s.rpe;en++}
+      if(s.rir!=null&&s.rir!==''){xs+=+s.rir;xn++}
       const est=kg>0?oneRM(kg,rp,formula):null;
       if(kg>0){if(est!=null&&est>e1){e1=est;rmSet=s}if(!top||kg>+top.kg||(kg===+top.kg&&rp>+top.reps))top=s}
       if(e.unilateral&&sd[s.side]){const x=sd[s.side];x.vol+=rp*kg;x.reps+=rp;x.sets++;if(est!=null&&est>x.e1rm){x.e1rm=est;x.rmSet=s}}}
     const series=e.unilateral?Math.max(sd.I.sets,sd.D.sets):n;
-    vol+=v;sets+=series;reps+=r;rs+=es;rn+=en;
+    vol+=v;sets+=series;reps+=r;rs+=es;rn+=en;ris+=xs;rin+=xn;
     for(const k of ['I','D'])sd[k].e1rm=sd[k].e1rm?Math.round(sd[k].e1rm*2)/2:null;
     const uni=e.unilateral?{sides:sd,asymVol:asym(sd.I.vol,sd.D.vol),asymRM:sd.I.e1rm&&sd.D.e1rm?asym(sd.I.e1rm,sd.D.e1rm):null}:{};
-    return {name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,label:exLabel(e),vol:Math.round(v*10)/10,sets:series,reps:r,rpe:en?es/en:null,top,e1rm:e1?Math.round(e1*2)/2:null,rmSet,...uni}});
-  return {vol:Math.round(vol),sets,reps,rpe:rn?rs/rn:null,ex,contacts,plyoSets,byInt};
+    return {name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,label:exLabel(e),vol:Math.round(v*10)/10,sets:series,reps:r,rpe:en?es/en:null,rir:xn?xs/xn:null,top,e1rm:e1?Math.round(e1*2)/2:null,rmSet,...uni}});
+  return {vol:Math.round(vol),sets,reps,rpe:rn?rs/rn:null,rir:rin?ris/rin:null,ex,contacts,plyoSets,byInt};
 }
 const stLoad=st=>st.rpePost==null||!(st.durationMin>0)?null:Math.round(st.rpePost*st.durationMin);
 /* ===== Grupos musculares ===== */
@@ -817,7 +826,7 @@ async function saveRec(){
 function upsertSession(m){const i=S.sessions.findIndex(s=>s.id===m.id);if(i<0)S.sessions.push(m);else S.sessions[i]=m}
 async function finalize(meta,track){
   const s=summarize(track.samples,meta.zoneLimits);
-  meta.avgHr=s.avgHr;meta.maxHr=s.maxHr;meta.zoneMs=s.zoneMs;
+  meta.avgHr=s.avgHr;meta.maxHr=s.maxHr;meta.zoneMs=s.zoneMs;meta.peakHr=sustainedPeak(track.samples);
   meta.noSignalMs=Math.max(0,meta.activeMs-s.coveredMs);meta.status='done';
   await DB.put('sessions',meta);await DB.put('tracks',track);upsertSession(meta);
 }
@@ -969,6 +978,7 @@ function drawAcwr(el,ser){
     c.fillStyle=ink;c.textAlign='left';c.textBaseline='middle';c.font='700 13px '+css('--display');c.fillText(dec(lv,2),Math.min(X(li)+8,w-26),Y(lv))}
 }
 function drawProfileCharts(){const id=S.arg;
+  drawBars($('#trw'),loadBuckets(sessOf(id).filter(x=>x.zoneMs).map(x=>({t:x.startTime,load:trimp(x)})),lsGet('loadView')==='month'?'month':'week'));
   drawAcwr($('#acwr'),acwrSeries(dailyLoads(loadItems(id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'));
   drawBars($('#wk'),loadBuckets(loadItems(id),lsGet('loadView')==='month'?'month':'week'));
   drawBars($('#wkMini'),loadBuckets(loadItems(id),'week'));
@@ -1108,7 +1118,7 @@ function recRow(r){const wk=Date.now()-7*864e5,isNew=r.n>1&&[r.kg,r.rep,r.rm].so
 function exerciseHistory(uid,key){const fk=rmKey(),out=[];
   for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime)){const i=st.exercises.findIndex(e=>exKey(e)===key&&!e.plyo);if(i<0)continue;
     const e=st.exercises[i],k=strengthStats({exercises:[e]},fk).ex[0];if(!k.sets)continue;
-    out.push({id:st.id,t:st.startTime,rm:k.e1rm,top:k.top,vol:k.vol,sets:k.sets,reps:k.reps,rpe:k.rpe,rmSet:k.rmSet})}
+    out.push({id:st.id,t:st.startTime,rm:k.e1rm,top:k.top,vol:k.vol,sets:k.sets,reps:k.reps,rpe:k.rpe,rir:k.rir,rmSet:k.rmSet})}
   return out}
 V.exprog=()=>{const p=prof(S.arg),key=S.progKey,rec=exerciseRecords(p.id).find(r=>r.key===key),hist=exerciseHistory(p.id,key);
   if(!rec||!hist.length)return `<div class="empty">No hay datos de este ejercicio.</div>`;
@@ -1117,7 +1127,7 @@ V.exprog=()=>{const p=prof(S.arg),key=S.progKey,rec=exerciseRecords(p.id).find(r
     <div class="stats">${stat(l?fmtKg(l.rm):'—','1RM est. actual')}${stat(rec.rm?fmtKg(rec.rm.v):'—','Mejor 1RM est.')}${stat(d!=null?(d>=0?'+':'')+dec(d,1)+'%':'—','Cambio')}</div></div>
   ${rms.length>=2?`<div class="card"><span class="lbl">1RM estimado (kg)</span><div class="chart"><canvas id="pg1" style="height:180px" role="img" aria-label="Evolución del 1RM estimado"></canvas></div></div>`:''}
   <div class="card"><span class="lbl">Volumen-carga por sesión (kg)</span><canvas id="pg2" style="height:150px" role="img" aria-label="Volumen por sesión"></canvas></div>
-  <section class="sec"><h3>Sesiones</h3><div class="list">${[...hist].reverse().map(x=>`<button class="item" data-act="openStrength" data-id="${x.id}"><span class="grow"><span class="t num">${x.top?(x.top.kg?fmtKg(x.top.kg)+' kg × '+x.top.reps:x.top.reps+' reps'):'—'}</span><span class="s num">${fmtDate(x.t)} · ${x.sets} series · ${fmtKg(x.vol)} kg${x.rpe!=null?' · RPE '+dec(x.rpe,1):''}</span></span>${x.rm?`<span class="tag num">1RM ${fmtKg(x.rm)}</span>`:''}</button>`).join('')}</div></section>
+  <section class="sec"><h3>Sesiones</h3><div class="list">${[...hist].reverse().map(x=>`<button class="item" data-act="openStrength" data-id="${x.id}"><span class="grow"><span class="t num">${x.top?(x.top.kg?fmtKg(x.top.kg)+' kg × '+x.top.reps:x.top.reps+' reps'):'—'}</span><span class="s num">${fmtDate(x.t)} · ${x.sets} series · ${fmtKg(x.vol)} kg${x.rpe!=null?' · RPE '+dec(x.rpe,1):''}${x.rir!=null?' · RIR '+dec(x.rir,1):''}</span></span>${x.rm?`<span class="tag num">1RM ${fmtKg(x.rm)}</span>`:''}</button>`).join('')}</div></section>
   ${info(`1RM estimado con ${esc(RM_FORMULAS[rmKey()].name)} con la mejor serie de hasta 10 repeticiones de cada sesión. La mejor serie es la de más kg.`,'Cómo se calcula')}`};
 function drawTrend(el,pts){if(!el||!pts.length)return;const {c,w,h}=cv(el),L=36,R=34,T=12,B=22,pw=w-L-R,ph=h-T-B;
   const vs=pts.map(x=>x.v),lo=Math.min(...vs),hi=Math.max(...vs),pad2=Math.max(2,(hi-lo)*.15),y0=lo-pad2,y1=hi+pad2,t0=pts[0].t,t1=pts[pts.length-1].t;
@@ -1154,7 +1164,7 @@ function recordsHTML(p){
 function sessItem(s){const l=loadOfAny(s),right=l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`;
   if(s.kind==='st'){const k=strengthStats(s);
     return `<button class="item" data-act="openStrength" data-id="${s.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
-  return `<button class="item" data-act="openSession" data-id="${s.id}"><span class="kind hr">${ic('heart')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">Aeróbico · ${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm</span></span>${right}</button>`}
+  return `<button class="item" data-act="openSession" data-id="${s.id}"><span class="kind hr">${ic('heart')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">Aeróbico · ${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm${s.zoneMs?' · TRIMP '+trimp(s):''}</span></span>${right}</button>`}
 const kpi=(val,label,act,tab,extra='')=>`<button class="kpi" data-act="${act}" data-v="${tab}">${extra}<b class="num">${val}</b><span>${label}</span></button>`;
 V.profile=()=>{
   const p=prof(S.arg);if(!p)return'';const tab=tabsFor().some(t=>t[0]===S.ptab)&&S.ptab!=='test'?S.ptab:'res';
@@ -1202,7 +1212,13 @@ V.profile=()=>{
       <div class="seg two" role="radiogroup" aria-label="Agrupar carga por">
         <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
         <button type="button" data-act="loadView" data-v="month" class="${view==='month'?'on':''}" aria-checked="${view==='month'}" role="radio">Meses</button></div>
-      <canvas id="wk" style="height:170px" role="img" aria-label="Carga sRPE por ${view==='week'?'semana':'mes'}"></canvas></div>`}
+      <canvas id="wk" style="height:170px" role="img" aria-label="Carga sRPE por ${view==='week'?'semana':'mes'}"></canvas></div>
+    ${(()=>{const hs=sessOf(p.id).filter(x=>x.zoneMs);if(!hs.length)return'';const w7=Date.now()-7*864e5,t7=hs.filter(x=>x.startTime>=w7),tr=t7.reduce((a,x)=>a+trimp(x),0),sr=t7.reduce((a,x)=>a+(srpe(x)||0),0),wr=t7.filter(x=>srpe(x)!=null);
+      const ratio=wr.length?wr.reduce((a,x)=>a+srpe(x),0)/Math.max(1,wr.reduce((a,x)=>a+trimp(x),0)):null;
+      return `<div class="card"><div class="sec-h"><span class="lbl">TRIMP aeróbico por ${view==='week'?'semana':'mes'}</span></div>
+        <div class="stats">${stat(tr,'TRIMP 7 días')}${stat(t7.length,'Sesiones aeróbicas')}${stat(ratio!=null?dec(ratio,1):'—','sRPE / TRIMP')}</div>
+        <canvas id="trw" style="height:150px" role="img" aria-label="TRIMP de Edwards por ${view==='week'?'semana':'mes'}"></canvas>
+        ${info('TRIMP de Edwards: minutos en cada zona multiplicados por su peso (Z1 ×1, Z2 ×2, Z3 ×3, Z4 ×4, Z5 ×5). Es la carga interna medida con la FC y complementa a la sRPE, que es la percibida. Edwards lo definió con %FCmáx; si el perfil usa Karvonen, las zonas son de FC de reserva. Si la relación sRPE/TRIMP sube con el mismo tipo de sesión, el deportista percibe más esfuerzo para la misma respuesta cardíaca: puede indicar fatiga. Solo cuenta las sesiones aeróbicas con pulsómetro y no entra en el ACWR, que se calcula con la sRPE.','Cómo se calcula')}</div>`})()}`}
   else if(tab==='str'){
     const sts=stOf(p.id),view=lsGet('loadView')==='month'?'month':'week',wk7=Date.now()-7*864e5,v7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)});
     if(!sts.length)h+=`<div class="empty">Todavía no hay sesiones de fuerza.</div><button class="btn primary wide" data-act="newStrength">${ic('dumbbell')}Registrar una sesión de fuerza</button>`;
@@ -1311,7 +1327,7 @@ function updLive(){
   const lp=$('#lPlan');if(lp){const pl=planById(r.planId),z=+pl?.hr?.zone;lp.textContent=`llevas ${fmtDur(recActive(r))}${z?' · '+fmtDur(r.inc.zoneMs[z])+' en Z'+z:''}`}
 }
 V.post=()=>{const f=S.form;if(f.rpePost===undefined)f.rpePost=null;const s=S.sessions.find(x=>x.id===S.arg);
-  return `<div class="card"><span class="lbl">Sesión terminada</span><div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}</div></div>
+  return `<div class="card"><span class="lbl">Sesión terminada</span><div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}${stat(trimp(s)??'—','TRIMP')}</div></div>${hrMaxCard(s)}
   <section class="sec"><h3>RPE de la sesión</h3><span class="hint">¿Cómo de dura ha sido la sesión en conjunto? Lo ideal es contestarlo unos 30 minutos después de terminar. Puedes dejarlo para luego.</span>${rpeScale('rpePost','post',f.rpePost)}</section>
   <div class="card"><div class="field"><label for="snotes">Notas</label><textarea id="snotes" placeholder="Sensaciones, contenido de la sesión…">${esc(s.notes)}</textarea></div></div>
   <button class="btn primary wide" data-act="savePost">Guardar RPE</button>
@@ -1319,7 +1335,7 @@ V.post=()=>{const f=S.form;if(f.rpePost===undefined)f.rpePost=null;const s=S.ses
 V.summary=()=>{
   const s=S.sessions.find(x=>x.id===S.arg);if(!s)return'';const p=prof(s.userId),l=srpe(s);
   return `<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(s.startTime)} · ${esc(p?.name||'')}</span>${s.example?'<span class="tag ex">Ejemplo</span>':''}</div>
-  <div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}${stat(s.rpePre??'—','RPE pre')}${stat(s.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
+  <div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}${stat(s.rpePre??'—','RPE pre')}${stat(s.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}${stat(trimp(s)??'—','TRIMP')}</div>${hrMaxCard(s)}
   ${s.hrr?`<div class="hrr"><span class="lbl">Recuperación 1 min</span><b class="num">−${s.hrr.drop} ppm</b><span class="hint num">${s.hrr.start} → ${s.hrr.end} ppm · ${hrrTxt(s.hrr)}</span>${info('Caída de la FC en el primer minuto tras terminar, en reposo. Cuanto más baja, mejor recuperación. Orientativo: &lt; 12 ppm baja · 12–19 normal · 20–29 buena · ≥ 30 muy buena. Lo más útil es compararla con tus propias sesiones: si baja menos de lo habitual a la misma intensidad, puede indicar fatiga.','Cómo se interpreta')}</div>`:''}
   <div class="chart"><canvas id="sc" class="tall" role="img" aria-label="Frecuencia cardíaca de la sesión con zonas. Desliza o usa las flechas para leer cada momento."></canvas></div>
   <span class="hint">Desliza el dedo o pasa el ratón por la gráfica para ver la FC de cada momento.</span></div>
@@ -1362,17 +1378,23 @@ function prevHint(prev,e){
   if(others.length)return `<span class="hint">Primera vez con ${normTxt(e.variant)||e.unilateral?'esta variante':'el ejercicio sin variante'}. Registrado antes como: ${others.map(o=>esc((o.variant.trim()||'sin variante')+(o.uni?' (unilateral)':''))).join(', ')}.</span>`;
   return '';
 }
+// Esfuerzo por serie: RPE (CR-10) o RIR (repeticiones en reserva). Se elige por perfil
+const effMode=uid=>prof(uid)?.effort==='rir'?'rir':'rpe';
+const defSet=uid=>effMode(uid)==='rir'?{reps:8,kg:null,rpe:null,rir:2}:{reps:8,kg:null,rpe:7};
+const rirOpts=v=>`<option value=""${v==null||v===''?' selected':''}>—</option>`+[0,1,2,3,4,5].map(i=>`<option value="${i}"${+v===i&&v!==''&&v!=null?' selected':''}>${i===5?'5+':i}</option>`).join('');
+const effTxt=x=>(x.rpe!=null&&x.rpe!==''?' @'+x.rpe:'')+(x.rir!=null&&x.rir!==''?' RIR'+(+x.rir>=5?'5+':x.rir):'');
+const effSeg=uid=>{const m=effMode(uid);return `<div class="load-row"><span class="lbl">Esfuerzo por serie</span><div class="seg two mini" role="radiogroup" aria-label="Escala de esfuerzo"><button type="button" role="radio" aria-checked="${m==='rpe'}" class="${m==='rpe'?'on':''}" data-act="effMode" data-v="rpe">RPE</button><button type="button" role="radio" aria-checked="${m==='rir'}" class="${m==='rir'?'on':''}" data-act="effMode" data-v="rir">RIR</button></div></div>`};
 const rpeOpts=v=>`<option value=""${v==null||v===''?' selected':''}>—</option>`+[0,1,2,3,4,5,6,7,8,9,10].map(i=>`<option value="${i}"${+v===i&&v!==''&&v!=null?' selected':''}>${i}</option>`).join('');
 function exSummary(k){if(!k.sets)return 'Sin series válidas todavía';
-  if(k.plyo)return `${k.sets} series${k.unilateral?' por pierna':''} · ${k.contacts} contactos${intTxt(k.byInt)?' ('+intTxt(k.byInt)+')':''}${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}`;
-  return `${k.sets} series${k.unilateral?' por lado':''} · ${k.reps} reps · ${fmtKg(k.vol)} kg${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}${k.unilateral&&k.asymVol!=null?' · asimetría '+dec(k.asymVol,1)+' %':''}`}
+  if(k.plyo)return `${k.sets} series${k.unilateral?' por pierna':''} · ${k.contacts} contactos${intTxt(k.byInt)?' ('+intTxt(k.byInt)+')':''}${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}${k.rir!=null?' · RIR '+dec(k.rir,1):''}`;
+  return `${k.sets} series${k.unilateral?' por lado':''} · ${k.reps} reps · ${fmtKg(k.vol)} kg${k.rpe!=null?' · RPE '+dec(k.rpe,1):''}${k.rir!=null?' · RIR '+dec(k.rir,1):''}${k.unilateral&&k.asymVol!=null?' · asimetría '+dec(k.asymVol,1)+' %':''}`}
 V.strength=()=>{
-  const st=stById(S.arg);if(!st)return'';const prev=lastTimes(st),tot=strengthStats(st);
+  const st=stById(S.arg);if(!st)return'';const prev=lastTimes(st),tot=strengthStats(st),em=effMode(st.userId);
   let h=`<div class="card"><div class="g2">
     <div class="field"><label for="stName">Sesión</label><input id="stName" data-sf="type" list="sttypes" value="${esc(st.type)}"><datalist id="sttypes">${ST_TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div>
     <div class="field"><label for="stStart">Inicio</label><input id="stStart" data-sf="startTime" type="datetime-local" value="${toLocalInput(st.startTime)}"></div></div>
     ${st.status==='open'?`<span class="hint">En curso · <b class="num" id="stClock">${fmtDur(Date.now()-st.startTime)}</b>. Si registras una sesión pasada, cambia la hora de inicio.</span>`:''}</div>
-  <details class="card"${st.rpePre!=null?'':''}><summary>RPE pre · ¿cómo llegas?${st.rpePre!=null?` <span class="tag">${st.rpePre}</span>`:' <span class="hint">(opcional)</span>'}</summary>${rpeScale('stRpePre','pre',st.rpePre)}</details>`;
+  ${effSeg(st.userId)}<details class="card"${st.rpePre!=null?'':''}><summary>RPE pre · ¿cómo llegas?${st.rpePre!=null?` <span class="tag">${st.rpePre}</span>`:' <span class="hint">(opcional)</span>'}</summary>${rpeScale('stRpePre','pre',st.rpePre)}</details>`;
   if(autoMuscles(st))saveStSoon(st);
   const recs=new Map(exerciseRecords(st.userId).map(r=>[r.key,r]));
   st.exercises.forEach((e,i)=>{const k=strengthStats({exercises:[e]}).ex[0],vars=variantsOf(st.userId,e.name);
@@ -1382,11 +1404,11 @@ V.strength=()=>{
       <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
     ${e.plyo?'':mgChips(e,i)}
     ${e.plan?`<span class="hint num plan-hint">${ic('clock','sm')} Programado: ${e.plyo?plyoSetsText(e.plan,e.unilateral):planSetsText(e.plan,e.unilateral)}</span>`:''}${prevHint(prev,e)}${(()=>{const r=!e.plyo&&recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
-    <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':'Kg'}</span><span>RPE</span><span></span></div>
+    <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':'Kg'}</span><span>${em==='rir'?'RIR':'RPE'}</span><span></span></div>
     ${e.sets.map((s,j)=>`<div class="set${e.unilateral?' side-'+s.side:''}"><span class="set-n">${e.unilateral?`${Math.floor(j/2)+1}<small>${s.side}</small>`:j+1}</span>
       <input type="number" inputmode="numeric" min="0" data-ex="${i}" data-set="${j}" data-f="reps" value="${s.reps??''}" aria-label="${e.plyo?'Contactos':'Repeticiones'} serie ${j+1}">
       ${e.plyo?`<select data-ex="${i}" data-set="${j}" data-f="int" aria-label="Intensidad serie ${j+1}">${intOpts(s.int)}</select>`:`<input type="number" inputmode="decimal" min="0" step="0.5" data-ex="${i}" data-set="${j}" data-f="kg" value="${s.kg??''}" aria-label="Kg serie ${j+1}">`}
-      <select data-ex="${i}" data-set="${j}" data-f="rpe" aria-label="RPE serie ${j+1}">${rpeOpts(s.rpe)}</select>
+      ${em==='rir'?`<select data-ex="${i}" data-set="${j}" data-f="rir" aria-label="RIR serie ${j+1}">${rirOpts(s.rir)}</select>`:`<select data-ex="${i}" data-set="${j}" data-f="rpe" aria-label="RPE serie ${j+1}">${rpeOpts(s.rpe)}</select>`}
       ${e.unilateral&&s.side==='D'?'<span></span>':`<button class="icon-btn" data-act="stDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${e.unilateral?Math.floor(j/2)+1+' (ambos lados)':j+1}">×</button>`}</div>`).join('')}
     </div>
     <div class="ex-f"><button class="btn small" data-act="stAddSet" data-i="${i}">+ Serie</button><span class="hint num" id="exs${i}">${exSummary(k)}</span></div>${e.unilateral?`<span class="hint">I = izquierda · D = derecha. «+ Serie» añade una serie para cada lado.</span>`:''}${e.plyo?`<span class="hint">Contactos = apoyos con el suelo (cada salto o bote cuenta 1; en unilaterales, por pierna). Intensidad: baja (botes, comba, saltos en el sitio) · media (saltos a cajón, CMJ, saltos horizontales) · alta (drop jumps, multisaltos, unilaterales, con lastre).</span>`:''}</div>`});
@@ -1394,7 +1416,7 @@ V.strength=()=>{
   h+=`<datalist id="exlist">${exerciseNames(st.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
   <button class="btn wide" data-act="stAddEx">+ Añadir ejercicio</button>
   <div class="card"><span class="lbl">Total de la sesión</span><div class="stats" id="stTot">${stTotHTML(tot)}</div>
-  ${info('RPE de cada serie en escala CR-10: 3 moderado · 5 duro · 7 muy duro · 10 máximo. Para ejercicios con el peso corporal deja 0 kg o pon el lastre.<br><br>Pliometría: marca la casilla (se activa sola si el nombre lo indica: salto, CMJ, drop jump, multisaltos…) y anota contactos e intensidad en vez de kg. No suma a los kg ni al reparto por grupos.<br><br>Grupos musculares: un toque lo marca como principal, otro como secundario (cuenta ½ serie) y otro lo quita. Se propone una asignación según el nombre y se recuerda la tuya para la próxima vez.','Ayuda')}</div>
+  ${info('Esfuerzo de cada serie, a elegir arriba: <b>RPE</b> en escala CR-10 (3 moderado · 5 duro · 7 muy duro · 10 máximo) o <b>RIR</b>, repeticiones que te quedaban en reserva (0 = al fallo, 2 = podías hacer 2 más; Zourdos et al., 2016). La elección se guarda en el perfil. La sRPE de la sesión sigue siendo CR-10. Para ejercicios con el peso corporal deja 0 kg o pon el lastre.<br><br>Pliometría: marca la casilla (se activa sola si el nombre lo indica: salto, CMJ, drop jump, multisaltos…) y anota contactos e intensidad en vez de kg. No suma a los kg ni al reparto por grupos.<br><br>Grupos musculares: un toque lo marca como principal, otro como secundario (cuenta ½ serie) y otro lo quita. Se propone una asignación según el nombre y se recuerda la tuya para la próxima vez.','Ayuda')}</div>
   ${st.status==='open'?`<button class="btn primary wide" data-act="stFinish">Terminar sesión</button>`:`<button class="btn primary wide" data-act="stDone">Guardar cambios</button>`}`;
   return h;
 };
@@ -1439,7 +1461,7 @@ function mgCard(uid){
     <div class="acwr-key"><span><i style="background:var(--accent)"></i>Principal</span><span><i style="background:var(--accent);opacity:.4"></i>Secundario (½)</span></div>
     ${info('Recuento fraccional: cada serie suma 1 al grupo principal del ejercicio y 0,5 a los secundarios. En unilaterales cuenta una serie por cada par izquierda-derecha. Los grupos de cada ejercicio se asignan en el registro de la sesión.')}
   </div>`}
-const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series fuerza')+(t.contacts?stat(t.contacts,'Contactos'):'')+stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio');
+const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series fuerza')+(t.contacts?stat(t.contacts,'Contactos'):'')+(t.rir!=null?stat(dec(t.rir,1),'RIR medio'):'')+(t.rpe!=null||t.rir==null?stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio'):'');
 let stSaveT=null;
 // Una sesión de fuerza recién abierta sin nada anotado es un borrador: no cuenta como «en curso» y se descarta al salir
 const stEmpty=st=>!st.planId&&!(st.exercises||[]).some(e=>normTxt(e.name)||e.sets.some(x=>(x.reps!=null&&x.reps!=='')||(x.kg!=null&&x.kg!=='')));
@@ -1457,7 +1479,7 @@ V.ssum=()=>{
   const st=stById(S.arg);if(!st)return'';const fk=rmKey(),t=strengthStats(st,fk),l=stLoad(st),p=prof(st.userId);
   const maxV=Math.max(1,...t.ex.map(e=>e.vol));
   let h=`<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(st.startTime)} · ${esc(p?.name||'')}</span>${st.example?'<span class="tag ex">Ejemplo</span>':''}</div>
-  <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series fuerza')}${t.contacts?stat(t.contacts,'Contactos'):''}${stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie')}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
+  <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series fuerza')}${t.contacts?stat(t.contacts,'Contactos'):''}${t.rir!=null?stat(dec(t.rir,1),'RIR medio'):''}${t.rpe!=null||t.rir==null?stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie'):''}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
   ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}
   ${(()=>{const mv=muscleVolume([st]),c=MG.filter(([g])=>mv.groups[g].sets>0).map(([g,l])=>`<span class="chipset">${l} ${dec(mv.groups[g].sets,Number.isInteger(mv.groups[g].sets)?0:1)}</span>`);return c.length?`<span class="lbl">Series por grupo</span><div class="chips">${c.join('')}</div>`:''})()}</div>
   <section class="sec"><h3>Ejercicios</h3>
@@ -1466,7 +1488,7 @@ V.ssum=()=>{
   t.ex.forEach((e,i)=>{const src=st.exercises[i];
     if(e.plyo){h+=`<div class="card ex"><div class="sec-h"><b>${esc(e.name||'Sin nombre')}${normTxt(e.variant)?` <span class="muted" style="font-weight:400">· ${esc(e.variant)}</span>`:''}</b><span class="tag str">Pliometría</span></div>
       <div class="zb-r st-bar"><span class="k"></span><div class="zb-t"><div class="zb-f" style="width:${e.contacts/maxC*100}%;background:var(--z4)"></div></div><span class="v">${e.contacts}</span><span class="p">cont.</span></div>
-      <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${e.unilateral?s.side+' ':''}${s.reps}${s.int?' '+INTS[s.int]:''}${s.rpe!=null&&s.rpe!==''?' @'+s.rpe:''}</span>`).join('')}</div>
+      <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${e.unilateral?s.side+' ':''}${s.reps}${s.int?' '+INTS[s.int]:''}${effTxt(s)}</span>`).join('')}</div>
       <span class="hint num">${exSummary(e)}</span></div>`;return}
     const rm=e.unilateral?'':e.e1rm?`1RM est. ${fmtKg(e.e1rm)} kg <span class="muted">(${e.rmSet.reps}×${fmtKg(e.rmSet.kg)})</span>`:(e.top?'Sin serie de ≤ 10 reps para estimar el 1RM':'');
     const sideRow=k=>{const x=e.sides[k];return `<tr><td><b>${SIDE[k]}</b></td><td class="num">${fmtKg(x.vol)} kg</td><td class="num">${x.reps} reps</td><td class="num">${x.e1rm?'1RM '+fmtKg(x.e1rm)+' kg':'—'}</td></tr>`};
@@ -1475,7 +1497,7 @@ V.ssum=()=>{
     h+=`<div class="card ex"><div class="sec-h"><b>${esc(e.name||'Sin nombre')}${normTxt(e.variant)?` <span class="muted" style="font-weight:400">· ${esc(e.variant)}</span>`:''}</b><span class="hint num" style="text-align:right">${rm}</span></div>
     <div class="zb-r st-bar"><span class="k"></span><div class="zb-t"><div class="zb-f" style="width:${e.vol/maxV*100}%;background:var(--accent)"></div></div><span class="v">${fmtKg(e.vol)}</span><span class="p">kg</span></div>
     ${uniTbl}
-    <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${e.unilateral?s.side+' ':''}${s.reps}×${fmtKg(s.kg)}${s.rpe!=null&&s.rpe!==''?' @'+s.rpe:''}</span>`).join('')}</div>
+    <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${e.unilateral?s.side+' ':''}${s.reps}×${fmtKg(s.kg)}${effTxt(s)}</span>`).join('')}</div>
     <span class="hint num">${exSummary(e)}</span></div>`});
   if(!t.ex.length)h+=`<div class="empty">Esta sesión no tiene ejercicios.</div>`;
   h+=`<span class="hint">1RM estimado con ${esc(RM_FORMULAS[fk].name)} a partir de la serie que da el valor más alto, usando solo series de 1 a 10 repeticiones. Las fórmulas suponen series cercanas al fallo: si la serie quedó lejos del fallo (RPE bajo), el 1RM real será mayor. Error habitual del ±10 %.</span></section>
@@ -1495,7 +1517,7 @@ $('#app').addEventListener('input',e=>{
   if(el.dataset.f==='name'||el.dataset.f==='variant')ex[el.dataset.f]=el.value;
   else{const s=ex.sets[+el.dataset.set];const v=el.value;s[el.dataset.f]=v===''?null:+v;
     // Anotar el RPE de una serie = serie terminada: empieza el descanso (en unilaterales, al anotar el lado derecho)
-    if(el.dataset.f==='rpe'&&v!==''&&st.status==='open'&&s.side!=='I')startRest()}
+    if((el.dataset.f==='rpe'||el.dataset.f==='rir')&&v!==''&&st.status==='open'&&s.side!=='I')startRest()}
   const k=strengthStats({exercises:[ex]}).ex[0],x=$('#exs'+el.dataset.ex);if(x)x.textContent=exSummary(k);
   const tt=$('#stTot');if(tt)tt.innerHTML=stTotHTML(strengthStats(st));
   saveStSoon(st);
@@ -1820,7 +1842,7 @@ function planSummary(pl){if(pl.kind==='hr'){const h=pl.hr||{},bs=ivBlocks(h);
     return `${h.minutes||'—'} min${h.zone?' · Z'+h.zone:''}${h.type?' · '+h.type:''}`}
   const ex=(pl.exercises||[]).filter(e=>normTxt(e.name));return `${ex.length} ejercicio${ex.length===1?'':'s'} · ${ex.reduce((a,e)=>a+e.sets.length,0)} series`}
 function planSetsText(sets,uni){const v=(sets||[]).filter(x=>x.reps||x.kg||x.pct);if(!v.length)return'';
-  const f=x=>`${x.reps??'—'}${x.pct?' × '+x.pct+' %'+(x.kg?' ('+fmtKg(x.kg)+' kg)':''):x.kg?' × '+fmtKg(x.kg)+' kg':''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}`;
+  const f=x=>`${x.reps??'—'}${x.pct?' × '+x.pct+' %'+(x.kg?' ('+fmtKg(x.kg)+' kg)':''):x.kg?' × '+fmtKg(x.kg)+' kg':''}${effTxt(x)}`;
   const same=v.every(x=>f(x)===f(v[0]));return (same?`${v.length} × ${f(v[0])}`:v.map(f).join(' · '))+(uni?' por lado':'')}
 // Prescripción por %1RM: 1RM estimado del ejercicio en los registros de ese perfil
 const roundKg=x=>x>=20?Math.round(x/2.5)*2.5:Math.round(x*2)/2;
@@ -1896,11 +1918,11 @@ async function sendWeek(){const pid=S.arg,p=prof(pid),w=weekInfo(S.calOff||0);
   if(r==='cancel')return;for(const pl of ok){pl.sentAt=Date.now();await savePlan(pl)}render();
   const skip=all.length-ok.length;toast((r==='shared'?`Semana enviada: ${ok.length} entrenamiento${ok.length===1?'':'s'}`:'Archivo guardado en Descargas: envíaselo por WhatsApp')+(skip?` · ${skip} sin completar no se ha${skip===1?'':'n'} enviado`:''))}
 async function newPlanFor(pid,ds){const pl={id:uid(),userId:pid,title:'Entrenamiento de fuerza',kind:'strength',date:ds||todayStr(),notes:'',status:'pending',createdAt:Date.now(),
-  exercises:[{name:'',variant:'',unilateral:false,sets:[{reps:8,kg:null,rpe:7},{reps:8,kg:null,rpe:7},{reps:8,kg:null,rpe:7}]}],hr:{type:'Carrera',minutes:40,zone:2}};
+  exercises:[{name:'',variant:'',unilateral:false,sets:[0,1,2].map(()=>defSet(pid))}],hr:{type:'Carrera',minutes:40,zone:2}};
   await savePlan(pl);go('plan',pl.id)}
 // Ejercicios de una sesión anterior → objetivos del plan (en unilaterales, una serie por par izq.-der.)
 function exercisesFromSession(st){return st.exercises.filter(e=>normTxt(e.name)).map(e=>({name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,...(e.plyo?{plyo:true}:{}),muscles:e.muscles&&!e.mAuto?{...e.muscles}:undefined,
-  sets:(e.unilateral?e.sets.filter(x=>x.side!=='D'):e.sets).filter(x=>+x.reps>0).map(x=>({reps:+x.reps||null,kg:+x.kg||null,...(e.plyo?{int:+x.int||null}:{}),rpe:x.rpe===''||x.rpe==null?null:+x.rpe}))}))}
+  sets:(e.unilateral?e.sets.filter(x=>x.side!=='D'):e.sets).filter(x=>+x.reps>0).map(x=>({reps:+x.reps||null,kg:+x.kg||null,...(e.plyo?{int:+x.int||null}:{}),rpe:x.rpe===''||x.rpe==null?null:+x.rpe,rir:x.rir===''||x.rir==null?null:+x.rir}))}))}
 V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=isClient(),done=pl.status==='done';
   const doneSes=pl.doneId&&(stById(pl.doneId)||S.sessions.find(x=>x.id===pl.doneId));
   const st=PSTATUS[pl.status]||PSTATUS.pending;
@@ -1914,7 +1936,7 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
         ${pl.hr.type?`<span class="hint">Tipo: ${esc(pl.hr.type)}</span>`:''}<span class="hint">Durante la sesión la app te indica cada bloque y avisa con pitido y vibración al cambiar.</span></div>`}
     else if(pl.kind==='hr'){const h2=pl.hr||{},lim=p?zoneLimits(p):null,z=+h2.zone;
       h+=`<div class="card"><span class="lbl">Objetivo</span><div class="stats">${stat((h2.minutes||'—')+' min','Duración')}${stat(z?'Z'+z:'—','Zona')}${stat(z&&lim?`${lim[z-1]}–${z<5?lim[z]-1:p.hrMax}`:'—','ppm')}</div>${h2.type?`<span class="hint">Tipo: ${esc(h2.type)}</span>`:''}</div>`}
-    else h+=`<section class="sec"><h3>Ejercicios</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}${e.plyo?' <span class="tag str">Pliometría</span>':''}</div><div class="chips">${e.plyo?e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'} cont.${x.int?' '+INT[x.int].toLowerCase():''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}</span>`).join(''):e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${x.rpe!=null&&x.rpe!==''?' @'+x.rpe:''}</span>`).join('')}</div></div>`).join('')}</div></section>`}
+    else h+=`<section class="sec"><h3>Ejercicios</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}${e.plyo?' <span class="tag str">Pliometría</span>':''}</div><div class="chips">${e.plyo?e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'} cont.${x.int?' '+INT[x.int].toLowerCase():''}${effTxt(x)}</span>`).join(''):e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${effTxt(x)}</span>`).join('')}</div></div>`).join('')}</div></section>`}
   else{
     h+=`<div class="field"><label for="plTitle">Título</label><input id="plTitle" data-pf="title" value="${esc(pl.title||'')}"></div>
       <div class="g2"><div class="field"><label for="plDate">Día</label><input id="plDate" type="date" data-pf="date" value="${esc(pl.date||'')}"></div>
@@ -1939,17 +1961,17 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
         <div class="field"><label for="plMin">Minutos</label><input id="plMin" type="number" inputmode="numeric" data-pf="hr.minutes" value="${h2.minutes??''}"></div>
         <div class="field"><label for="plZone">Zona</label><select id="plZone" data-pf="hr.zone">${[1,2,3,4,5].map(z=>`<option value="${z}"${+h2.zone===z?' selected':''}>Z${z}</option>`).join('')}</select></div></div>
         ${p?`<span class="hint num">Z${h2.zone} para ${esc(p.name)}: ${(()=>{const lim=zoneLimits(p),z=+h2.zone;return `${lim[z-1]}–${z<5?lim[z]-1:p.hrMax} ppm`})()}</span>`:''}</div>`}
-    else{const prev=stOf(pl.userId).slice(0,12);
+    else{const prev=stOf(pl.userId).slice(0,12),em=effMode(pl.userId);h+=effSeg(pl.userId);
       if(prev.length)h+=`<div class="field"><label for="plCopy">Copiar ejercicios de una sesión anterior</label><select id="plCopy"><option value="">Elegir sesión…</option>${prev.map(x=>`<option value="${x.id}">${esc(x.type)} · ${fmtDate(x.startTime)}</option>`).join('')}</select></div>`;
       pl.exercises.forEach((e,i)=>{h+=`<div class="card ex"><div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
         <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
         ${e.plyo?'':(()=>{const pct=e.load==='pct',rm=planRM(pl.userId,e);return `<div class="load-row"><span class="lbl">Carga</span><div class="seg two mini" role="radiogroup" aria-label="Unidad de carga"><button type="button" role="radio" aria-checked="${!pct}" class="${pct?'':'on'}" data-act="plLoad" data-i="${i}" data-v="kg">Kg</button><button type="button" role="radio" aria-checked="${pct}" class="${pct?'on':''}" data-act="plLoad" data-i="${i}" data-v="pct">%1RM</button></div>
           <span class="hint num" id="plrm${i}">${pct?(rm?`1RM est. ${fmtKg(rm)} kg → ${pctKgText(e,rm)}`:'Sin 1RM estimado de este ejercicio: se usarán los kg que calcule su app si tiene registros'):(rm?`1RM est. ${fmtKg(rm)} kg`:'')}</span></div>`})()}
-        <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':e.load==='pct'?'%1RM':'Kg'}</span><span>RPE obj.</span><span></span></div>
+        <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':e.load==='pct'?'%1RM':'Kg'}</span><span>${em==='rir'?'RIR obj.':'RPE obj.'}</span><span></span></div>
         ${e.sets.map((x,j)=>`<div class="set"><span class="set-n">${j+1}</span>
           <input type="number" inputmode="numeric" min="0" data-pe="${i}" data-ps="${j}" data-pk="reps" value="${x.reps??''}" aria-label="Repeticiones serie ${j+1}">
           ${e.plyo?`<select data-pe="${i}" data-ps="${j}" data-pk="int" aria-label="Intensidad serie ${j+1}">${intOpts(x.int)}</select>`:e.load==='pct'?`<input type="number" inputmode="decimal" min="0" max="120" step="2.5" data-pe="${i}" data-ps="${j}" data-pk="pct" value="${x.pct??''}" placeholder="%" aria-label="Porcentaje del 1RM serie ${j+1}">`:`<input type="number" inputmode="decimal" min="0" step="0.5" data-pe="${i}" data-ps="${j}" data-pk="kg" value="${x.kg??''}" placeholder="—" aria-label="Kg serie ${j+1}">`}
-          <select data-pe="${i}" data-ps="${j}" data-pk="rpe" aria-label="RPE objetivo serie ${j+1}">${rpeOpts(x.rpe)}</select>
+          ${em==='rir'?`<select data-pe="${i}" data-ps="${j}" data-pk="rir" aria-label="RIR objetivo serie ${j+1}">${rirOpts(x.rir)}</select>`:`<select data-pe="${i}" data-ps="${j}" data-pk="rpe" aria-label="RPE objetivo serie ${j+1}">${rpeOpts(x.rpe)}</select>`}
           <button class="icon-btn" data-act="plDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${j+1}">×</button></div>`).join('')}</div>
         <div class="ex-f"><button class="btn small" data-act="plAddSet" data-i="${i}">+ Serie</button><span class="hint num">${e.plyo?(k=>k.contacts?k.contacts*(e.unilateral?2:1)+' contactos'+(e.unilateral?' (las dos piernas)':''):'')(strengthStats({exercises:[e]}).ex[0]):''}${e.unilateral&&!e.plyo?'Cada serie se hace con los dos lados':''}</span></div></div>`});
       h+=`<datalist id="exlist">${exerciseNames(pl.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist><button class="btn wide" data-act="plAddEx">+ Añadir ejercicio</button>`}
@@ -1967,9 +1989,9 @@ async function startPlan(pl){const p=prof(pl.userId);if(!p){toast('No se encuent
   if(pl.kind==='hr'){if(S.rec){toast('Ya hay una sesión grabándose');return}S.form={type:pl.hr?.type||pl.title,planId:pl.id};go('pre',p.id,{keepForm:true});return}
   const cur=pl.doneId&&stById(pl.doneId);if(pl.status==='inprogress'&&cur&&cur.status==='open'){go('strength',cur.id);return}
   const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)).map(e=>e.plyo?{name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,plyo:true,plyoAuto:false,
-    plan:e.sets.map(x=>({reps:x.reps??null,int:x.int??null,rpe:x.rpe??null})),
+    plan:e.sets.map(x=>({reps:x.reps??null,int:x.int??null,rpe:x.rpe??null,rir:x.rir??null})),
     sets:e.unilateral?e.sets.flatMap(x=>[{side:'I',reps:x.reps??null,int:x.int??null,kg:null,rpe:null},{side:'D',reps:x.reps??null,int:x.int??null,kg:null,rpe:null}]):e.sets.map(x=>({reps:x.reps??null,int:x.int??null,kg:null,rpe:null}))}:({name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,
-    ...(e.muscles?{muscles:{...e.muscles},mAuto:false}:{}),plan:e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),pct:e.load==='pct'?x.pct??null:null,rpe:x.rpe??null})),
+    ...(e.muscles?{muscles:{...e.muscles},mAuto:false}:{}),plan:e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),pct:e.load==='pct'?x.pct??null:null,rpe:x.rpe??null,rir:x.rir??null})),
     sets:e.unilateral?e.sets.flatMap(x=>{const k=planKg(p.id,e,x);return [{side:'I',reps:x.reps??null,kg:k,rpe:null},{side:'D',reps:x.reps??null,kg:k,rpe:null}]}):e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),rpe:null}))}));
   const st={id:uid(),userId:p.id,kind:'strength',type:pl.title||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,rpePre:null,rpePost:null,rpePostTime:null,notes:'',status:'open',planId:pl.id,
     exercises:ex.length?ex:[{name:'',sets:[{reps:null,kg:null,rpe:null}]}]};
@@ -2350,6 +2372,9 @@ const A={
   wSkip(){lsSet('wellSkip_'+S.wellFor,todayStr());closeModal()},
   wClose(){if(S.modalKind==='well')lsSet('wellSkip_'+S.wellFor,todayStr());closeModal()},
   newPlan(){newPlanFor(S.arg)},
+  async effMode(_,b){const uid=S.view==='plan'?planById(S.arg)?.userId:stById(S.arg)?.userId,p=prof(uid);if(!p)return;p.effort=b.dataset.v;await DB.put('profiles',p);
+    if(S.view==='plan'){const pl=planById(S.arg);for(const e of pl.exercises||[])for(const x of e.sets){if(p.effort==='rir'&&x.rpe!=null&&x.rpe!==''&&(x.rir==null||x.rir==='')){x.rir=Math.max(0,Math.min(5,10-x.rpe));x.rpe=null}else if(p.effort==='rpe'&&x.rir!=null&&x.rir!==''&&(x.rpe==null||x.rpe==='')){x.rpe=Math.max(5,10-x.rir);x.rir=null}}await savePlan(pl)}const y=scrollY;render();scrollTo(0,y);
+    toast(p.effort==='rir'?'Anotarás el esfuerzo en RIR (repeticiones en reserva)':'Anotarás el esfuerzo en RPE (CR-10)')},
   meSet(id){lsSet('meId',id);lsSet('coachDev','1');if(S.modalKind==='me')enterMe();else{render();toast('Marcado como tu perfil')}},
   meUnset(){lsSet('meId','');render();toast('Ya no es tu perfil')},
   meNew(){closeModal();lsSet('mode','client');lsSet('coachDev','1');S.modeFallback=null;S.stack=[];S.view='edit';S.arg=null;S.form={};render();window.scrollTo(0,0)},
@@ -2370,9 +2395,9 @@ const A={
   async plBlkDel(_,b){const pl=planById(S.arg);pl.hr.blocks.splice(+b.dataset.i,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plBlkRep(){const pl=planById(S.arg),bs=pl.hr.blocks;bs.push(...bs.slice(-2).map(x=>({...x})));await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plKind(_,b){const pl=planById(S.arg);pl.kind=b.dataset.v;if(pl.kind==='hr'&&(!pl.title||pl.title==='Entrenamiento de fuerza'))pl.title='Sesión aeróbica';if(pl.kind==='strength'&&pl.title==='Sesión aeróbica')pl.title='Entrenamiento de fuerza';await savePlan(pl);render()},
-  async plAddEx(){const pl=planById(S.arg);pl.exercises.push({name:'',variant:'',unilateral:false,sets:[{reps:8,kg:null,rpe:7}]});await savePlan(pl);render();const n=document.querySelectorAll('.ex-name');n[n.length-1]?.focus();n[n.length-1]?.scrollIntoView({block:'center'})},
+  async plAddEx(){const pl=planById(S.arg);pl.exercises.push({name:'',variant:'',unilateral:false,sets:[defSet(pl.userId)]});await savePlan(pl);render();const n=document.querySelectorAll('.ex-name');n[n.length-1]?.focus();n[n.length-1]?.scrollIntoView({block:'center'})},
   async plDelEx(_,b){const pl=planById(S.arg);pl.exercises.splice(+b.dataset.i,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
-  async plAddSet(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i],l=e.sets[e.sets.length-1];e.sets.push(l?{...l}:{reps:8,kg:null,rpe:7});await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plAddSet(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i],l=e.sets[e.sets.length-1];e.sets.push(l?{...l}:defSet(pl.userId));await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plDelSet(_,b){const pl=planById(S.arg);pl.exercises[+b.dataset.i].sets.splice(+b.dataset.j,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plLoad(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i],v=b.dataset.v;if(e.load===v||(v==='kg'&&!e.load))return;const rm=planRM(pl.userId,e);
     if(v==='pct'){e.load='pct';for(const x of e.sets){x.pct=rm&&x.kg?Math.round(x.kg/rm*100/2.5)*2.5:(x.pct??null);x.kg=rm&&x.pct?roundKg(rm*x.pct/100):null}if(!rm)toast('Este perfil aún no tiene 1RM estimado en este ejercicio')}
@@ -2516,8 +2541,8 @@ const A={
     st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);render();toast('RPE guardado')},
   stEdit(){go('strength',S.arg)},
   async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;const pid=stById(id)?.planId;if(pid)await unmarkPlan(pid,id);await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
-  stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;variante;unilateral;lado;serie;reps_o_contactos;kg;rpe;volumen_kg;tipo;intensidad'];
-    for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,e.variant||'',e.unilateral?'sí':'no',e.unilateral?(s.side==='I'?'izquierda':'derecha'):'',e.unilateral?Math.floor(j/2)+1:j+1,s.reps,e.plyo?'':dec(+s.kg||0,1),s.rpe??'',e.plyo?'':dec(s.reps*(+s.kg||0),1),e.plyo?'pliometria':'fuerza',e.plyo?INT[+s.int]||'':''].map(v=>String(v).replace(/;/g,',')).join(';')));
+  stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;variante;unilateral;lado;serie;reps_o_contactos;kg;rpe;volumen_kg;tipo;intensidad;rir'];
+    for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,e.variant||'',e.unilateral?'sí':'no',e.unilateral?(s.side==='I'?'izquierda':'derecha'):'',e.unilateral?Math.floor(j/2)+1:j+1,s.reps,e.plyo?'':dec(+s.kg||0,1),s.rpe??'',e.plyo?'':dec(s.reps*(+s.kg||0),1),e.plyo?'pliometria':'fuerza',e.plyo?INT[+s.int]||'':'',s.rir??''].map(v=>String(v).replace(/;/g,',')).join(';')));
     download(`${slug(p.name)}_${fileDate(st.startTime)}_fuerza.csv`,rows.join('\r\n'),'text/csv')},
   acwrMethod(b){lsSet('acwrMethod',b.dataset.v);render()},
   loadView(b){lsSet('loadView',b.dataset.v);render()},
@@ -2525,10 +2550,10 @@ const A={
   async exportSession(){const s=S.sessions.find(x=>x.id===S.arg),tr=await DB.get('tracks',s.id);
     const rows=['timestamp_iso;segundos;bpm;zona',...(tr?.samples||[]).map(([t,b])=>`${new Date(t).toISOString()};${dec((t-s.startTime)/1000)};${b};Z${zoneOf(b,s.zoneLimits)}`)];
     download(`${slug(prof(s.userId)?.name)}_${fileDate(s.startTime)}_${slug(s.type)}.csv`,rows.join('\r\n'),'text/csv')},
-  exportSummary(){const p=prof(S.arg);const rows=['usuario;fecha;modalidad;tipo;duracion_min;fc_media;fc_max;min_z0;min_z1;min_z2;min_z3;min_z4;min_z5;rpe_pre;rpe_post;srpe;volumen_kg;series;reps;rpe_medio_series'];
+  exportSummary(){const p=prof(S.arg);const rows=['usuario;fecha;modalidad;tipo;duracion_min;fc_media;fc_max;min_z0;min_z1;min_z2;min_z3;min_z4;min_z5;rpe_pre;rpe_post;srpe;volumen_kg;series;reps;rpe_medio_series;rir_medio_series;trimp_edwards;contactos_pliometria'];
     for(const s of [...allOf(p.id)].reverse()){let r;
-      if(s.kind==='st'){const k=strengthStats(s);r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Fuerza',s.type,s.durationMin??'','','','','','','','','',s.rpePre??'',s.rpePost??'',stLoad(s)??'',k.vol,k.sets,k.reps,k.rpe!=null?dec(k.rpe,2):'']}
-      else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Aeróbico',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','',''];
+      if(s.kind==='st'){const k=strengthStats(s);r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Fuerza',s.type,s.durationMin??'','','','','','','','','',s.rpePre??'',s.rpePost??'',stLoad(s)??'',k.vol,k.sets,k.reps,k.rpe!=null?dec(k.rpe,2):'',k.rir!=null?dec(k.rir,2):'','',k.contacts||'']}
+      else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Aeróbico',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','','','',trimp(s)??'',''];
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
   async backup(){const data={app:'imdtraining',version:4,strength:await DB.all('strength'),tests:await DB.all('tests'),plans:await DB.all('plans'),wellness:await DB.all('wellness'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
@@ -2538,6 +2563,9 @@ const A={
   async recover(id){const m=S.sessions.find(s=>s.id===id),tr=await DB.get('tracks',id)||{id,samples:[],rr:[],pauses:[]};
     const last=tr.samples.at(-1);m.endTime=last?last[0]:m.startTime;if(!m.activeMs)m.activeMs=m.endTime-m.startTime;
     await finalize(m,tr);go('summary',id);toast('Sesión recuperada')},
+  async hrMaxUpd(id){const s=S.sessions.find(x=>x.id===id),p=prof(s?.userId);if(!p)return;const old=p.hrMax;p.hrMax=s.peakHr;p.hrMaxEstimated=false;await DB.put('profiles',p);
+    s.hrMaxSeen=true;await DB.put('sessions',s);render();toast(`FC máxima: ${old} → ${p.hrMax} ppm. Zonas recalculadas para las próximas sesiones${p.remote&&!isClient()?`. Díselo a ${p.name} para que lo cambie también en su app`:''}`)},
+  async hrMaxSkip(id){const s=S.sessions.find(x=>x.id===id);if(!s)return;s.hrMaxSeen=true;await DB.put('sessions',s);render()},
   async discard(id){if(S.rec?.id===id)return;await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);render()}
 };
 async function saveProfile(){
