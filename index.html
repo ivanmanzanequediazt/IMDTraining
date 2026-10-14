@@ -440,6 +440,10 @@ body.has-rest .wrap{padding-bottom:90px}
 .d-theme{display:flex;align-items:center;gap:10px;padding:0 8px 10px}
 .d-theme .seg{flex:1}.d-theme .seg button{padding:7px 4px;font-size:13px}
 .vamt td{vertical-align:top}.vamt td .hint{font-size:11px}
+.send-nudge{align-items:center}
+.card.share.flash{animation:flash 1.6s ease 2}
+@keyframes flash{50%{box-shadow:0 0 0 3px var(--accent)}}
+.warnTxt{color:var(--warn)}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
@@ -533,6 +537,9 @@ const srpe=s=>s.rpePost==null?null:Math.round(s.rpePost*s.activeMs/60000);
 // TRIMP de Edwards (1993): minutos en cada zona × su peso (Z1 = 1 … Z5 = 5; Z0 no suma)
 const trimp=s=>s.zoneMs?Math.round(s.zoneMs.reduce((a,ms,z)=>a+ms/60000*z,0)):null;
 // Pico de FC sostenido (3 muestras seguidas) para no tomar como FC máxima un pico aislado del sensor
+// Deportista: invitar a enviar justo después de registrar
+function sendNudge(uid){const p=prof(uid);if(!isClient()||selfCoached()||!p||p.remote||!newSinceSent(p))return'';
+  return `<div class="note info slim send-nudge">${ic('send')}<span class="hint grow"><b>¿Se lo mandas a tu entrenador?</b> ${newSinceSent(p)} registro${newSinceSent(p)===1?'':'s'} sin enviar.</span><button class="btn small primary" data-act="send">Enviar</button></div>`}
 function hrMaxCard(s){const p=prof(s?.userId);if(!p||!s.peakHr||s.peakHr<=p.hrMax||s.hrMaxSeen)return'';
   return `<div class="note"><b>Has superado tu FC máxima</b><span class="hint num">Pico sostenido en esta sesión: <b>${s.peakHr} ppm</b>. FC máxima del perfil: ${p.hrMax} ppm${p.hrMaxEstimated?' (estimada)':''}. Si fue un esfuerzo real y no un error del sensor, actualízala para que las zonas sean correctas.${p.method==='manual'?' Ojo: las zonas de este perfil son manuales; revísalas después en Editar.':''}</span>
     <div class="row"><button class="btn small primary" data-act="hrMaxUpd" data-id="${s.id}">Usar ${s.peakHr} ppm y recalcular zonas</button><button class="btn small" data-act="hrMaxSkip" data-id="${s.id}">Ignorar</button></div></div>`}
@@ -857,6 +864,8 @@ async function finishRec(){
   return meta.id;
 }
 setInterval(()=>{if(BLE.status==='on'&&BLE.last&&Date.now()-BLE.last>8000&&!BLE.gapLogged){BLE.gapLogged=true;blog(`Sin datos desde hace ${Math.round((Date.now()-BLE.last)/1000)} s (sigue conectado)${document.hidden?' · app en segundo plano':''}`)}if(Date.now()-BLE.last<5000)BLE.gapLogged=false},2000);
+function askSendFocus(){if(!(isClient()&&myProfile()))return;S.ptab='res';toRoot('profile',myProfile().id);setTimeout(()=>{const c=$('.card.share');c?.scrollIntoView({block:'center',behavior:'smooth'});c?.classList.add('flash')},300);toast('Pulsa «Enviar a mi entrenador»')}
+window.addEventListener('hashchange',()=>{const h=location.hash;if(!h.startsWith('#d=')&&h!=='#enviar')return;try{history.replaceState({},'',location.pathname+location.search)}catch(e){}if(h==='#enviar')askSendFocus();else importLink(h.slice(3))});
 function onHR(p){
   const t=Date.now();updChip();
   if(S.rec)recAdd(p,t);
@@ -1038,7 +1047,7 @@ function alertsHTML(uid,noGlobal){let h=noGlobal?'':backupNudge();const mine=x=>
   return h}
 function profileCard(p){const all=allOf(p.id),last=all[0],ser=acwrSeries(dailyLoads(loadItems(p.id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio),pend=all.some(s=>s.rpePost==null);
   return `<button class="pcard" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span>
-    <span class="grow"><span class="t">${esc(p.name)}${pend?'<i class="pdot" title="RPE pendiente"></i>':''}</span><span class="s">${last?'Última sesión '+ago(last.startTime):'Sin sesiones'}</span>
+    <span class="grow"><span class="t">${esc(p.name)}${pend?'<i class="pdot" title="RPE pendiente"></i>':''}</span><span class="s">${last?'Última sesión '+ago(last.startTime):'Sin sesiones'}${p.remote&&p.lastImport&&Date.now()-p.lastImport>=7*864e5?` · <b class="warnTxt">sin datos hace ${Math.floor((Date.now()-p.lastImport)/864e5)} d</b>`:''}</span>
     <span class="tags">${p.id===meId()?'<span class="tag up">Tú</span>':''}${p.example?'<span class="tag ex">Ejemplo</span>':''}${p.remote?'<span class="tag str">Cliente</span>':''}</span></span>
     <span class="acwr-mini" style="--c:${zc(st.z)}"><b class="num">${cur?.ratio!=null?dec(cur.ratio,2):'—'}</b><span>ACWR</span></span></button>`}
 V.home=()=>{
@@ -1050,7 +1059,7 @@ V.home=()=>{
   h+=`</section><section class="sec"><h3>Clientes</h3><div class="actions">
     <button class="action" data-act="invite">${ic('userPlus')}<b>Invitar</b><span>Envía el enlace</span></button>
     <button class="action" data-act="import">${ic('download')}<b>Importar</b><span>Datos recibidos</span></button></div>
-    ${info('Pásale a cada cliente el enlace de invitación: crea su perfil en su móvil y te envía sus datos en un archivo. En el móvil, lo más cómodo es compartir ese archivo desde WhatsApp a IMDTraining (con la app instalada) y se importa solo; también puedes usar «Importar». Si el perfil ya existía, se actualiza y solo se suman las sesiones nuevas.','Cómo funciona')}</section>
+    ${info('Pásale a cada cliente el enlace de invitación: crea su perfil en su móvil y, al pulsar «Enviar a mi entrenador», te llega por WhatsApp un enlace con sus datos. Solo tienes que tocarlo y se importa. Los planes y sesiones que tú le mandes le llegan igual. Si un envío es muy grande (por ejemplo, todo el historial), va como archivo: compártelo desde WhatsApp a IMDTraining o usa «Importar». Si el perfil ya existía, se actualiza y solo se suman las sesiones nuevas.','Cómo funciona')}</section>
   <details class="card more"><summary>${ic('save')}<span>Copia de seguridad</span></summary><span class="hint">Los datos se guardan solo en este móvil y en este navegador. Exporta una copia de vez en cuando.</span>
     <div class="row"><button class="btn small" data-act="backup">Exportar copia</button><button class="btn small" data-act="importBackup">Importar copia</button></div></details>`;
   return h;
@@ -1349,7 +1358,7 @@ V.post=()=>{const f=S.form;if(f.rpePost===undefined)f.rpePost=null;const s=S.ses
   <div class="ctrls"><button class="btn" data-act="later">Anotar más tarde</button><button class="btn" data-act="remind">Avisarme en 30 min</button></div>`};
 V.summary=()=>{
   const s=S.sessions.find(x=>x.id===S.arg);if(!s)return'';const p=prof(s.userId),l=srpe(s);
-  return `<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(s.startTime)} · ${esc(p?.name||'')}</span>${s.example?'<span class="tag ex">Ejemplo</span>':''}</div>
+  return `${s.rpePost!=null?sendNudge(s.userId):''}<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(s.startTime)} · ${esc(p?.name||'')}</span>${s.example?'<span class="tag ex">Ejemplo</span>':''}</div>
   <div class="stats">${stat(fmtDur(s.activeMs),'Duración')}${stat(s.avgHr??'—','FC media')}${stat(s.maxHr??'—','FC máx')}${stat(s.rpePre??'—','RPE pre')}${stat(s.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}${stat(trimp(s)??'—','TRIMP')}</div>${hrMaxCard(s)}
   ${s.hrr?`<div class="hrr"><span class="lbl">Recuperación 1 min</span><b class="num">−${s.hrr.drop} ppm</b><span class="hint num">${s.hrr.start} → ${s.hrr.end} ppm · ${hrrTxt(s.hrr)}</span>${info('Caída de la FC en el primer minuto tras terminar, en reposo. Cuanto más baja, mejor recuperación. Orientativo: &lt; 12 ppm baja · 12–19 normal · 20–29 buena · ≥ 30 muy buena. Lo más útil es compararla con tus propias sesiones: si baja menos de lo habitual a la misma intensidad, puede indicar fatiga.','Cómo se interpreta')}</div>`:''}
   <div class="chart"><canvas id="sc" class="tall" role="img" aria-label="Frecuencia cardíaca de la sesión con zonas. Desliza o usa las flechas para leer cada momento."></canvas></div>
@@ -1493,7 +1502,7 @@ V.stpost=()=>{const st=stById(S.arg);const t=strengthStats(st);if(S.form.rpePost
 V.ssum=()=>{
   const st=stById(S.arg);if(!st)return'';const fk=rmKey(),t=strengthStats(st,fk),l=stLoad(st),p=prof(st.userId);
   const maxV=Math.max(1,...t.ex.map(e=>e.vol));
-  let h=`<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(st.startTime)} · ${esc(p?.name||'')}</span>${st.example?'<span class="tag ex">Ejemplo</span>':''}</div>
+  let h=`${st.rpePost!=null?sendNudge(st.userId):''}<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(st.startTime)} · ${esc(p?.name||'')}</span>${st.example?'<span class="tag ex">Ejemplo</span>':''}</div>
   <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series fuerza')}${t.contacts?stat(t.contacts,'Contactos'):''}${t.rir!=null?stat(dec(t.rir,1),'RIR medio'):''}${t.rpe!=null||t.rir==null?stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie'):''}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
   ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}
   ${(()=>{const mv=muscleVolume([st]),c=MG.filter(([g])=>mv.groups[g].sets>0).map(([g,l])=>`<span class="chipset">${l} ${dec(mv.groups[g].sets,Number.isInteger(mv.groups[g].sets)?0:1)}</span>`);return c.length?`<span class="lbl">Series por grupo</span><div class="chips">${c.join('')}</div>`:''})()}</div>
@@ -1571,12 +1580,22 @@ function newSinceSent(p){const t=+lsGet('lastSent_'+p.id)||0;
 function shareCard(p){
   if(isClient()&&!p.remote){const t=+lsGet('lastSent_'+p.id)||0,n=newSinceSent(p);
     return `<div class="card share"><div class="sec-h"><span class="lbl">Tu entrenador</span>${n?`<span class="tag pend">${n} sin enviar</span>`:''}</div>
-      <span class="hint">${t?`Último envío ${ago(t)}.`:'Todavía no has enviado tus datos.'} Se envía tu perfil con todas tus sesiones y test en un archivo; tu entrenador lo importa en su app.</span>
-      <button class="btn primary" data-act="send">Enviar mis datos a mi entrenador</button></div>`}
-  if(!isClient()&&p.remote)return `<div class="note info"><b>Perfil de cliente</b><span class="hint">Datos recibidos ${p.lastImport?ago(p.lastImport):''}. Para actualizarlos, importa el nuevo archivo que te envíe. Los cambios que hagas aquí en el perfil se sustituyen al importar un envío nuevo; las sesiones y test se suman.</span></div>`;
+      <span class="hint">${t?`Último envío ${ago(t)}.`:'Todavía no has enviado tus datos.'} Se envía un enlace por WhatsApp con lo nuevo; tu entrenador solo tiene que tocarlo.</span>
+      <button class="btn primary" data-act="send">${ic('send')}Enviar a mi entrenador</button><button class="link" data-act="sendFull">Enviar copia completa (archivo)</button></div>`}
+  if(!isClient()&&p.remote){const d=p.lastImport?Math.floor((Date.now()-p.lastImport)/864e5):null;
+    return `<div class="note info"><b>Perfil de cliente</b><span class="hint">Datos recibidos ${p.lastImport?ago(p.lastImport):'—'}${d>=7?` · <b class="warnTxt">hace ${d} días</b>`:''}. Cuando te envíe un enlace, solo tienes que tocarlo. Los cambios que hagas aquí en el perfil se sustituyen con su próximo envío; las sesiones y test se suman.</span>
+      <button class="btn small" data-act="askData" data-id="${p.id}">${ic('send','sm')}Pedirle sus datos</button></div>`}
   return ''}
-async function sendToCoach(){
+// Envío rápido: lo nuevo desde el último envío (con 14 días de margen para incluir RPE anotados después), por enlace
+async function sendToCoach(full){
   const p=myProfile();if(!p){toast('Crea primero tu perfil');return}
+  if(!full){const last=+lsGet('lastSent_'+p.id)||0,since=last?last-14*864e5:0,inT=x=>(x.startTime??x.date??x.at??0)>=since;
+    const sess=S.sessions.filter(s=>s.userId===p.id&&s.status==='done'&&inT(s)),tracks=[];for(const s of sess){const t=await DB.get('tracks',s.id);if(t)tracks.push(t)}
+    const data={app:'imdtraining',kind:'client',version:4,partial:!!last,exported:new Date().toISOString(),profiles:[p],sessions:sess,tracks,
+      strength:S.strength.filter(s=>s.userId===p.id&&s.status==='done'&&inT(s)),tests:S.tests.filter(t=>t.userId===p.id&&inT(t)),wellness:S.wellness.filter(w=>w.userId===p.id&&(w.at||0)>=since)};
+    const n=data.sessions.length+data.strength.length+data.tests.length;
+    const r=await shareSmart(data,`imdtraining_${slug(p.name)}_${fileDate(Date.now())}`,'Datos para mi entrenador',`📊 Entrenamientos de ${p.name} (${n} registro${n===1?'':'s'}). Toca el enlace para importarlos en IMDTraining:`,`Datos de entrenamiento de ${p.name} (IMDTraining)`);
+    if(r==='cancel')return;lsSet('lastSent_'+p.id,Date.now());render();toast(r==='shared'?'Datos enviados a tu entrenador':sentMsg(r));return}
   const sess=S.sessions.filter(s=>s.userId===p.id&&s.status==='done'),tracks=[];
   for(const s of sess){const t=await DB.get('tracks',s.id);if(t)tracks.push(t)}
   const data={app:'imdtraining',kind:'client',version:3,exported:new Date().toISOString(),profiles:[p],sessions:sess,tracks,
@@ -1928,10 +1947,11 @@ async function sendWeek(){const pid=S.arg,p=prof(pid),w=weekInfo(S.calOff||0);
   if(!ok.length){toast(all.length?'Completa los entrenamientos (título y ejercicios) antes de enviarlos':'No hay entrenamientos pendientes esta semana');return}
   const day=ds=>new Date(ds+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric'}).replace('.','');
   const data={app:'imdtraining',kind:'plan',version:4,exported:new Date().toISOString(),forProfileId:pid,forName:p?.name||'',plans:ok.map(pl=>({...pl,status:'pending',doneId:null,doneAt:null}))};
-  const r=await shareFile(data,`imdtraining_semana_${slug(p?.name)}_${ok[0].date}`,`Semana ${w.range} · ${p?.name||''}`,
-    `Tu semana (${w.range}):\n${ok.map(x=>`· ${day(x.date)}: ${x.title}`).join('\n')}\nÁbrela con IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
+  const lst=ok.map(x=>`· ${day(x.date)}: ${x.title}`).join('\n');
+  const r=await shareSmart(data,`imdtraining_semana_${slug(p?.name)}_${ok[0].date}`,`Semana ${w.range} · ${p?.name||''}`,`📅 Tu semana (${w.range}):\n${lst}\nToca el enlace para abrirla en IMDTraining:`,
+    `Tu semana (${w.range}):\n${lst}\nÁbrela con IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
   if(r==='cancel')return;for(const pl of ok){pl.sentAt=Date.now();await savePlan(pl)}render();
-  const skip=all.length-ok.length;toast((r==='shared'?`Semana enviada: ${ok.length} entrenamiento${ok.length===1?'':'s'}`:'Archivo guardado en Descargas: envíaselo por WhatsApp')+(skip?` · ${skip} sin completar no se ha${skip===1?'':'n'} enviado`:''))}
+  const skip=all.length-ok.length;toast((r==='shared'?`Semana enviada: ${ok.length} entrenamiento${ok.length===1?'':'s'}`:sentMsg(r))+(skip?` · ${skip} sin completar no se ha${skip===1?'':'n'} enviado`:''))}
 async function newPlanFor(pid,ds){const pl={id:uid(),userId:pid,title:'Entrenamiento de fuerza',kind:'strength',date:ds||todayStr(),notes:'',status:'pending',createdAt:Date.now(),
   exercises:[{name:'',variant:'',unilateral:false,sets:[0,1,2].map(()=>defSet(pid))}],hr:{type:'Carrera',minutes:40,zone:2}};
   await savePlan(pl);go('plan',pl.id)}
@@ -2032,6 +2052,26 @@ $('#app').addEventListener('change',e=>{if(S.view!=='plan'||isClient())return;co
   if(el.id==='plCopy'&&el.value){const st=stById(el.value);if(!st)return;pl.exercises=exercisesFromSession(st);if(!pl.title||pl.title==='Entrenamiento de fuerza')pl.title=st.type;
     savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y);toast(`Copiados ${pl.exercises.length} ejercicios de «${st.type}». Ajusta las cargas.`)})}});
 /* ================= Compartir con el deportista ================= */
+/* ===== Envío por enlace: los datos van comprimidos dentro del propio enlace (tras #, nunca llegan a ningún servidor) ===== */
+const LINK_MAX=60000; // WhatsApp admite mensajes de hasta unos 65 000 caracteres
+const b64u=u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+const unb64u=str=>{const s=atob(str.replace(/-/g,'+').replace(/_/g,'/'));const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
+async function packData(obj){const cs=new CompressionStream('deflate-raw');const buf=await new Response(new Blob([JSON.stringify(obj)]).stream().pipeThrough(cs)).arrayBuffer();return '1'+b64u(new Uint8Array(buf))}
+async function unpackData(str){if(str[0]!=='1')throw new Error('versión');const ds=new DecompressionStream('deflate-raw');return JSON.parse(await new Response(new Blob([unb64u(str.slice(1))]).stream().pipeThrough(ds)).text())}
+const appUrl=()=>location.origin+location.pathname;
+// Curva de FC compacta para enlaces: un punto cada 5 s, tiempos relativos (las cifras de la sesión ya vienen calculadas)
+function compactTrack(tr){if(!tr?.samples?.length)return {id:tr?.id,c:1,t0:0,dt:[],b:[],p:tr?.pauses||[]};const out={id:tr.id,c:1,t0:tr.samples[0][0],dt:[],b:[],p:tr.pauses||[]},sg=[];let last=-1e9,lt=tr.samples[0][0],ls=null,any=false;
+  for(const [t,b,g] of tr.samples){if(t-last<5000&&g===ls)continue;out.dt.push(Math.round((t-lt)/1000));out.b.push(b);sg.push(g||0);if(g)any=true;last=t;lt=t;ls=g}
+  if(any)out.sg=sg;return out}
+function expandTrack(tr){if(!tr?.c)return tr;let t=tr.t0;return {id:tr.id,samples:tr.dt.map((d,i)=>{t+=d*1000;return [t,tr.b[i],tr.sg?tr.sg[i]:0]}),rr:[],pauses:tr.p||[]}}
+// Comparte por enlace si cabe en un mensaje; si no, como archivo (como antes)
+async function shareSmart(data,base,title,linkText,fileText){let link=null;
+  try{if('CompressionStream' in window){const d={...data};if(d.tracks)d.tracks=d.tracks.map(compactTrack);link=appUrl()+'#d='+await packData(d)}}catch(e){link=null}
+  if(link&&link.length<=LINK_MAX){const msg=`${linkText}\n${link}`;
+    try{if(navigator.share){await navigator.share({text:msg});return 'shared'}}catch(e){if(e.name==='AbortError')return 'cancel'}
+    try{await navigator.clipboard.writeText(msg);return 'copied'}catch(e){}}
+  return await shareFile(data,base,title,fileText)}
+const sentMsg=(r,who)=>r==='shared'?`Enviado${who?' a '+who:''}`:r==='copied'?'Enlace copiado: pégalo en WhatsApp':'Archivo guardado en Descargas: envíalo por WhatsApp';
 async function shareFile(data,base,title,text){const txt=JSON.stringify(data);
   try{if(navigator.canShare){for(const [ext,type] of [['json','application/json'],['txt','text/plain']]){const f=new File([txt],`${base}.${ext}`,{type});
       if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title,text});return 'shared'}}}}
@@ -2040,19 +2080,19 @@ async function shareFile(data,base,title,text){const txt=JSON.stringify(data);
 async function sendPlan(pl){const p=prof(pl.userId);if(!pl.title){toast('Ponle un título al entrenamiento');return}
   if(pl.kind!=='hr'&&!(pl.exercises||[]).some(e=>normTxt(e.name))){toast('Añade al menos un ejercicio');return}
   const data={app:'imdtraining',kind:'plan',version:4,exported:new Date().toISOString(),forProfileId:pl.userId,forName:p?.name||'',plans:[{...pl,status:'pending',doneId:null,doneAt:null}]};
-  const r=await shareFile(data,`imdtraining_entreno_${slug(p?.name)}_${slug(pl.title)}`,`Entrenamiento: ${pl.title}`,`${pl.title} (${planDateTxt(pl.date).toLowerCase()}) para ${p?.name||''}. Ábrelo con IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
-  if(r==='cancel')return;pl.sentAt=Date.now();await savePlan(pl);render();toast(r==='shared'?'Entrenamiento enviado':'Archivo guardado en Descargas: envíaselo por WhatsApp')}
+  const r=await shareSmart(data,`imdtraining_entreno_${slug(p?.name)}_${slug(pl.title)}`,`Entrenamiento: ${pl.title}`,`🏋️ ${pl.title} (${planDateTxt(pl.date).toLowerCase()}). Toca el enlace para abrirlo en IMDTraining:`,`${pl.title} (${planDateTxt(pl.date).toLowerCase()}) para ${p?.name||''}. Ábrelo con IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
+  if(r==='cancel')return;pl.sentAt=Date.now();await savePlan(pl);render();toast(sentMsg(r,p?.name))}
 // Enviar al deportista una sesión o un test registrado por el entrenador
 async function sendToAthlete(kind,id){let x,data,label;
   if(kind==='hr'){x=S.sessions.find(s=>s.id===id);const tr=await DB.get('tracks',id);data={sessions:[x],tracks:tr?[tr]:[]};label=x.type}
   else if(kind==='st'){x=stById(id);data={strength:[x]};label=x.type}
   else{x=testById(id);data={tests:[x]};label=TEST_TYPES[x.type]?.short||'Test'}
   const p=prof(x.userId);
-  const r=await shareFile({app:'imdtraining',kind:'session',version:4,exported:new Date().toISOString(),forProfileId:x.userId,forName:p?.name||'',...data},
-    `imdtraining_${slug(p?.name)}_${slug(label)}_${fileDate(x.startTime??x.date)}`,`${label} · ${p?.name||''}`,`Tu sesión de ${label} (${fmtDate(x.startTime??x.date)}). Guárdala en IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
+  const r=await shareSmart({app:'imdtraining',kind:'session',version:4,exported:new Date().toISOString(),forProfileId:x.userId,forName:p?.name||'',...data},
+    `imdtraining_${slug(p?.name)}_${slug(label)}_${fileDate(x.startTime??x.date)}`,`${label} · ${p?.name||''}`,`✅ Tu sesión de ${label} (${fmtDate(x.startTime??x.date)}). Toca el enlace para guardarla en IMDTraining:`,`Tu sesión de ${label} (${fmtDate(x.startTime??x.date)}). Guárdala en IMDTraining: mantén pulsado el archivo → Compartir → IMDTraining.`);
   if(r==='cancel')return;x.sharedAt=Date.now();
   if(kind==='hr')await DB.put('sessions',x);else if(kind==='st')await saveSt(x);else await saveTest(x);
-  render();toast(r==='shared'?'Enviado al deportista':'Archivo guardado en Descargas: envíaselo por WhatsApp')}
+  render();toast(sentMsg(r,p?.name))}
 const athleteBtn=(kind,id,x)=>isClient()?'':`<button class="btn" data-act="toAthlete" data-k="${kind}" data-id="${id}">${ic('send')}${x?.sharedAt?'Reenviar':'Enviar'} al deportista</button>`;
 // Abrir en la app lo que envía el entrenador (entrenamiento programado o sesión/test ya hecho)
 async function importForAthlete(d){
@@ -2487,6 +2527,10 @@ const A={
   import:()=>$('#importFile').click(),
   importBackup:()=>$('#importFile').click(),
   send:()=>sendToCoach(),
+  async askData(id){const p=prof(id);const msg=`¡Hola${p?' '+p.name.split(' ')[0]:''}! ¿Me mandas tus entrenamientos de IMDTraining? Toca este enlace y pulsa «Enviar a mi entrenador»:\n${appUrl()}#enviar`;
+    try{if(navigator.share){await navigator.share({text:msg});return}}catch(e){if(e.name==='AbortError')return}
+    try{await navigator.clipboard.writeText(msg);toast('Mensaje copiado: pégalo en WhatsApp')}catch(e){toast(msg)}},
+  sendFull:()=>sendToCoach(true),
   async chooseMode(b){const m=b.dataset.v;lsSet('mode',m);if(m==='coach')lsSet('coachDev','1');if(!lsGet('mode'))S.modeFallback=m;
     if(m==='coach'){if(!S.profiles.length&&!lsGet('seeded')){await seedExample();lsSet('seedv','6');await loadAll()}S.stack=[];go('home',null,{push:false})}
     else{S.stack=[];clientRoot();render()}},
@@ -2671,7 +2715,13 @@ for(const k of ['method','delProfile','rpe','finish','delSession'])A[k]=((f)=>(x
 async function importShared(){
   try{const cache=await caches.open('imdt-share'),keys=await cache.keys(),files=[];
     for(const k of keys){const r=await cache.match(k);files.push(new File([await r.blob()],decodeURIComponent(r.headers.get('x-name')||'datos.json')));await cache.delete(k)}
-    if(files.length){
+    await importIncoming(files)}
+  catch(e){toast('No se pudo leer el archivo compartido')}}
+// Enlace con datos (#d=…) abierto desde WhatsApp
+async function importLink(code){try{const d=await unpackData(code);await importIncoming([new File([JSON.stringify(d)],'enlace.json',{type:'application/json'})])}
+  catch(e){toast('El enlace está incompleto o dañado. Pide que te lo vuelvan a enviar')}}
+async function importIncoming(files){
+  try{if(files.length){
       // Primera vez que se abre la app y llega un entrenamiento o sesión del entrenador: modo deportista
       if(!lsGet('mode')&&!S.modeFallback){let kind=null;try{kind=JSON.parse((await files[0].text()).replace(/^\uFEFF/,'')).kind}catch(e){}
         const m=kind==='plan'||kind==='session'?'client':'coach';lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m;
@@ -2689,6 +2739,7 @@ async function importFiles(files){
       if(!txt.startsWith('{'))throw new Error('formato');d=JSON.parse(txt)}
     catch(e){res.errors.push(`«${file.name}» no se puede leer como archivo de datos`);continue}
     if(!['imdtraining','imdt-training','pulsometro'].includes(d.app)){res.errors.push(`«${file.name}» no es un archivo de IMDTraining`);continue}
+    if(d.tracks)d.tracks=d.tracks.map(expandTrack);
     // Entrenamientos programados y sesiones que envía el entrenador al deportista
     if(d.kind==='plan'||d.kind==='session'){const r=await importForAthlete(d);if(r.error)res.errors.push(r.error);else res.athlete.push(...r.items);continue}
     if(isClient()){res.errors.push(`«${file.name}» son datos para el entrenador: ábrelo en modo entrenador`);continue}
@@ -2800,8 +2851,13 @@ async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB
   await DB.open();await loadAll();
   try{navigator.storage?.persist?.()}catch(e){}
   for(const st of S.strength.filter(x=>x.status==='open'&&stEmpty(x)))dropDraft(st.id);
+  // Enlace con datos o petición de envío
+  const linkCode=location.hash.startsWith('#d=')?location.hash.slice(3):null,askSend=location.hash==='#enviar';
+  if(linkCode||askSend)try{history.replaceState({},'',location.pathname+location.search)}catch(e){}
+  let linkKind=null;if(linkCode)try{linkKind=(await unpackData(linkCode)).kind}catch(e){}
   // Modo: enlace de invitación (#cliente), elección guardada o deducido de los datos que ya hay
   let m=lsGet('mode');
+  if(!m&&linkKind){m=linkKind==='plan'||linkKind==='session'?'client':'coach';lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m}
   if(!m){const own=S.profiles.filter(p=>!p.example&&!p.remote);
     if(location.hash==='#cliente')m='client';
     else if(own.length===1&&own[0].owner==='client'&&S.profiles.length===1)m='client';
@@ -2821,6 +2877,8 @@ async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB
   if(!m)S.view='welcome';else if(m==='client')clientRoot();
   syncDrawerMode();render();updChip();
   if(sharedN!=null){try{history.replaceState({},'',location.pathname)}catch(e){}await importShared()}
+  if(linkCode)await importLink(linkCode);
+  if(askSend)askSendFocus();
   // Instalación como app (solo desde su propio enlace https)
   if('serviceWorker' in navigator&&!inFrame&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
