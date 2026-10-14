@@ -2,6 +2,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>IMDTraining</title>
 <meta name="theme-color" content="#0E150F">
+<script>try{var t=localStorage.getItem('theme')||'dark';if(t==='auto')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;if(t==='light')document.querySelector('meta[name=theme-color]').content='#F4F1EA'}catch(e){}</script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -18,8 +19,18 @@
   --display:'Barlow Condensed','Arial Narrow',system-ui,sans-serif;
   --body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  --scrim:rgba(4,8,5,.7);
   color-scheme:dark;
 }
+/* Tema claro: fondo hueso cálido, tarjetas blancas y morado más oscuro para que contraste */
+:root[data-theme="light"]{
+  --bg:#F4F1EA; --surface:#FFFFFF; --ink:#1B221C; --muted:#5D6A5E; --line:#DDD7CA; --soft:#ECE7DC;
+  --accent:#8743BE; --accent-ink:#FFFFFF; --bone:#1B221C; --warn:#C2621C; --ok:#2E8A3F;
+  --z0:#8E9A91; --z1:#7189A8; --z2:#2F7FCB; --z3:#3A9E4D; --z4:#E07F1A; --z5:#D63B44;
+  --scrim:rgba(27,34,28,.45);
+  color-scheme:light;
+}
+.logo{color:var(--ink)}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -280,7 +291,7 @@ details.more:not([open]),details.danger-zone:not([open]){gap:0}
 .plan-actions{display:grid;grid-template-columns:1fr;gap:10px}
 .big-btn{min-height:58px;font-size:18px}
 .plan-head .pname{margin-top:2px}
-#modal{position:fixed;inset:0;z-index:40;background:rgba(4,8,5,.7);display:flex;align-items:flex-end;justify-content:center;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px))}
+#modal{position:fixed;inset:0;z-index:40;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px))}
 @media (min-width:640px){#modal{align-items:center}}
 body.modal-open{overflow:hidden}
 .modal-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px 16px;width:min(520px,100%);max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
@@ -344,7 +355,7 @@ body.has-rest .wrap{padding-bottom:90px}
   padding:calc(14px + env(safe-area-inset-top,0px)) 12px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;
   transform:translateX(-102%);transition:transform .22s ease;overflow-y:auto;overscroll-behavior:contain}
 #drawer.open{transform:none;box-shadow:0 0 48px rgba(0,0,0,.55)}
-#scrim{position:fixed;inset:0;z-index:25;background:rgba(4,8,5,.6)}
+#scrim{position:fixed;inset:0;z-index:25;background:var(--scrim)}
 .d-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px}
 .d-brand{font:700 24px var(--display);letter-spacing:.02em}
 .brand .b1{color:var(--accent)}
@@ -426,10 +437,13 @@ body.has-rest .wrap{padding-bottom:90px}
 @media (max-width:440px){.rest-in.has-hr .rest-l{display:none}.rest-in.has-hr b{font-size:22px}}
 .rest-in .rest-hr .ic{color:var(--z5)}
 .ble-diag{margin-top:8px}.ble-diag summary{cursor:pointer;color:var(--muted);font-size:13px}.ble-diag pre{white-space:pre-wrap;font:12px/1.5 var(--mono);background:var(--soft);padding:8px;border-radius:8px;max-height:200px;overflow:auto;margin:6px 0}
+.d-theme{display:flex;align-items:center;gap:10px;padding:0 8px 10px}
+.d-theme .seg{flex:1}.d-theme .seg button{padding:7px 4px;font-size:13px}
+.vamt td{vertical-align:top}.vamt td .hint{font-size:11px}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
-  <div class="d-head"><span class="d-brand brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="#EDE6D6" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="#EDE6D6" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="b1">IMDT</span><span class="b2">raining</span></span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
+  <div class="d-head"><span class="d-brand brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="currentColor" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="b1">IMDT</span><span class="b2">raining</span></span></span><button class="back d-close" data-d="close" aria-label="Cerrar menú">×</button></div>
   <div class="d-switch" id="dSwitch" hidden></div>
   <button class="d-item d-plain" data-d="home" id="dHome">Inicio</button>
   <button class="d-item d-plain" data-d="tests" id="dTests">Test</button>
@@ -439,14 +453,14 @@ body.has-rest .wrap{padding-bottom:90px}
   <button class="d-item d-plain" data-d="invite" id="dInvite">Invitar a un cliente</button>
   <button class="d-item d-plain" data-d="import" id="dImport">Importar datos de un cliente</button>
   <button class="d-item d-plain" data-d="hr" id="dHr">Pulsómetro</button>
-  <div class="d-foot"><button class="d-item d-plain" data-d="backup">Copia de seguridad</button><button class="d-item d-plain" data-d="mode" id="dMode">Cambiar modo</button></div>
+  <div class="d-foot"><div class="d-theme" role="radiogroup" aria-label="Tema de la app"><span class="lbl">Tema</span><div class="seg" id="dTheme"></div></div><button class="d-item d-plain" data-d="backup">Copia de seguridad</button><button class="d-item d-plain" data-d="mode" id="dMode">Cambiar modo</button></div>
 </nav>
 <div id="scrim" hidden></div>
 
 <header class="bar"><div class="bar-in">
   <button class="menu" id="menuBtn" aria-label="Abrir menú de perfiles" aria-controls="drawer" aria-expanded="false"><i></i><i></i><i></i></button>
   <button class="back" id="back" aria-label="Volver" hidden>‹</button>
-  <h1 id="ttl" class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="#EDE6D6" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="#EDE6D6" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="b1">IMDT</span><span class="b2">raining</span></span></h1>
+  <h1 id="ttl" class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="currentColor" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="b1">IMDT</span><span class="b2">raining</span></span></h1>
   <button class="mebtn" id="meBtn" hidden></button>
   <span class="chip tap" id="chip" role="button" tabindex="0" aria-label="Pulsómetro: conectar o ver estado"><span class="dot"></span><span id="chipt">Sin pulsómetro</span></span>
 </div></header>
@@ -458,7 +472,7 @@ body.has-rest .wrap{padding-bottom:90px}
 
 <script>
 'use strict';
-const BRAND_MARK='<svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="#EDE6D6" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="#EDE6D6" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const BRAND_MARK='<svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="164" fill="none" stroke="currentColor" stroke-opacity=".14" stroke-width="40"/><circle cx="256" cy="256" r="164" fill="none" stroke="#A866DB" stroke-width="40" stroke-linecap="round" stroke-dasharray="804 1031" transform="rotate(-90 256 256)"/><polyline points="150,268 206,268 232,196 268,332 298,222 318,268 362,268" fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const BRAND_HTML=BRAND_MARK+'<span><span class="b1">IMDT</span><span class="b2">raining</span></span>';
 /* ================= Utilidades ================= */
 const $=(s,r=document)=>r.querySelector(s);
@@ -849,7 +863,7 @@ function onHR(p){
   if(S.view==='live')updLive();
   if(S.view==='pre'||S.modalKind==='hr'){const e=$('#preHr');if(e)e.textContent=p.bpm}
   {const e=$('#restHr');if(e)e.textContent=p.bpm}
-  if(S.view==='test'){const e=$('#tHr');if(e)e.textContent=p.bpm}
+  if(S.view==='test'){const e=$('#tHr');if(e)e.textContent=p.bpm;const t=testById(S.arg);if(t?.type==='vam'&&p.bpm>(+t.vam?.hrPeak||0)&&p.bpm<230){t.vam=t.vam||{};t.vam.hrPeak=p.bpm;saveTestSoon(t);const i=$('#vH');if(i&&document.activeElement!==i)i.value=p.bpm}}
 }
 
 /* ================= Pantalla encendida ================= */
@@ -1152,8 +1166,9 @@ function recordsHTML(p){
   const recs=exerciseRecords(p.id),ts=testsOf(p.id).slice().reverse();
   const cmj=ts.filter(t=>t.type==='jump').map(t=>({v:jumpCalc(t).cmj?.best,t:t.date})).filter(x=>x.v>0);
   const vo2=ts.filter(t=>t.type==='vo2').map(t=>({v:vo2Calc(t).hr?.vo2,t:t.date})).filter(x=>x.v>0);
-  let h=`<section class="sec"><h3>Test</h3><div class="rec-cards">${testRecordCard('CMJ','cm',cmj,1)}${testRecordCard('VO2máx','ml/kg/min',vo2,1)}</div>
-    ${info('CMJ: mejor altura de todos los test de saltos. VO2máx: mejor estimación por frecuencia cardíaca de los test en cicloergómetro. Ambos se comparan con el último test realizado.','Qué se muestra')}</section>
+  const vam=ts.filter(t=>t.type==='vam').map(t=>({v:vamCalc(t).vam,t:t.date})).filter(x=>x.v>0);
+  let h=`<section class="sec"><h3>Test</h3><div class="rec-cards">${testRecordCard('CMJ','cm',cmj,1)}${testRecordCard('VO2máx','ml/kg/min',vo2,1)}${testRecordCard('VAM','km/h',vam,1)}</div>
+    ${info('CMJ: mejor altura de todos los test de saltos. VO2máx: mejor estimación por frecuencia cardíaca de los test en cicloergómetro. VAM: mejor velocidad aeróbica máxima de los test de carrera. Ambos se comparan con el último test realizado.','Qué se muestra')}</section>
     <section class="sec"><h3>Fuerza</h3>`;
   if(!recs.length)return h+`<div class="empty">Los récords aparecerán cuando registres sesiones de fuerza.</div></section>`;
   const groups=MG.map(([g,label])=>[label,recs.filter(r=>r.muscles[g]==='p')]).filter(x=>x[1].length);
@@ -2082,7 +2097,55 @@ async function refreshInstall(){const b=$('#installBody');if(!b)return;
 const TEST_TYPES={
   vo2:{short:'VO2máx',name:'VO2máx · cicloergómetro',desc:'Submáximo por etapas (YMCA o libre). Estima el VO2máx con la FC y con el RPE.'},
   vt2:{short:'VT2',name:'VT2 · segundo umbral',desc:'Incremental hasta el agotamiento. Estima el VT2 por la deflexión de la FC o usa el medido.'},
-  jump:{short:'Saltos',name:'Saltos · CMJ, SJ y Abalakov',desc:'Alturas de My Jump Lab. Potencia pico (Sayers) e índices de elasticidad y brazos.'}};
+  jump:{short:'Saltos',name:'Saltos · CMJ, SJ y Abalakov',desc:'Alturas de My Jump Lab. Potencia pico (Sayers) e índices de elasticidad y brazos.'},
+  vam:{short:'VAM',name:'VAM · carrera',desc:'VAMEVAL, Léger-Boucher, Course Navette o 5 min. VAM, VO2máx estimado y ritmos de entrenamiento.'}};
+// VAM: protocolos incrementales (velocidad inicial km/h, incremento km/h, duración del estadio s) y test de 5 min
+const VAM_PROTOS={
+  vameval:{n:'VAMEVAL',start:8,inc:0.5,dur:60,d:'Pista con conos cada 20 m y señal sonora. Empieza a 8 km/h y sube 0,5 km/h cada minuto (Cazorla y Léger, 1993).'},
+  umtt:{n:'Léger-Boucher',start:8,inc:1,dur:120,d:'Test de pista de la Universidad de Montreal (UMTT, 1980): sube 1 km/h cada 2 min. Algunas versiones empiezan a 6 km/h: ajusta la velocidad inicial si es tu caso.'},
+  navette:{n:'Course Navette',start:8.5,inc:0.5,dur:60,d:'Ida y vuelta de 20 m (Léger et al., 1988). Empieza a 8,5 km/h y sube 0,5 km/h cada minuto (palier). Por los giros, la velocidad final es menor que la VAM en pista: el resultado principal es el VO2máx.'},
+  min5:{n:'5 minutos',d:'Correr la máxima distancia posible en 5 min (Berthon et al., 1997). VAM ≈ velocidad media.'},
+  custom:{n:'Otro',start:8,inc:0.5,dur:60,d:'Protocolo incremental propio: indica la velocidad inicial, el incremento y la duración de cada estadio.'}};
+const paceTxt=v=>{if(!(v>0))return'—';const s=Math.round(3600/v);return `${Math.floor(s/60)}:${pad(s%60)}`};
+function vamCalc(t){const v=t.vam||{},P=VAM_PROTOS[v.proto]||VAM_PROTOS.vameval,a=age(prof(t.userId)?.birthDate);
+  let vam=null,vFinal=null,how='';
+  if(v.proto==='min5'){if(+v.dist>0){vam=+v.dist/1000/(5/60);how='Distancia en 5 min'}}
+  else{const start=+(v.start??P.start),inc=+(v.inc??P.inc),dur=+(v.dur??P.dur);
+    if(+v.vFinal>0)vFinal=+v.vFinal;else if(+v.stage>0)vFinal=start+(+v.stage-1)*inc;
+    if(vFinal){vam=vFinal+(+v.extra>0&&dur>0?Math.min(1,+v.extra/dur)*inc:0);how=+v.extra>0?'Último estadio completo + fracción del siguiente (Kuipers)':'Último estadio completo'}}
+  if(!vam)return {};
+  let vo2,vo2how;
+  if(v.proto==='navette'){if(a!=null&&a<18){vo2=31.025+3.238*vam-3.248*a+0.1536*a*vam;vo2how='Léger et al. (1988), fórmula para 6–17 años'}else{vo2=-24.4+6*vam;vo2how='Léger et al. (1988), fórmula para adultos: −24,4 + 6 × velocidad'}}
+  else{vo2=3.5*vam;vo2how='Léger y Mercier (1984): 3,5 × VAM (coste de la carrera en llano)'}
+  return {vam,vFinal,how,vo2,vo2how}}
+function vamForm(t){const v=t.vam||(t.vam={proto:'vameval'}),P=VAM_PROTOS[v.proto]||VAM_PROTOS.vameval,inc=v.proto!=='min5';
+  const st=+(v.start??P.start),ic2=+(v.inc??P.inc),du=+(v.dur??P.dur);
+  return `<div class="card"><span class="lbl">Protocolo</span>
+    <div class="chips-f" role="radiogroup" aria-label="Protocolo">${Object.entries(VAM_PROTOS).map(([k,x])=>`<button type="button" role="radio" aria-checked="${v.proto===k}" class="fchip ${v.proto===k?'on':''}" data-act="vamProto" data-v="${k}">${x.n}</button>`).join('')}</div>
+    <span class="hint">${P.d}</span>
+    ${inc?`<div class="g3"><div class="field"><label for="vS">Inicio km/h</label><input id="vS" type="number" inputmode="decimal" step="0.5" data-v="start" value="${st}"></div>
+      <div class="field"><label for="vI">+km/h</label><input id="vI" type="number" inputmode="decimal" step="0.5" data-v="inc" value="${ic2}"></div>
+      <div class="field"><label for="vD">Estadio (s)</label><input id="vD" type="number" inputmode="numeric" data-v="dur" value="${du}"></div></div>`:''}</div>
+  <div class="card"><span class="lbl">Resultado del test</span>
+    ${inc?`<div class="g2"><div class="field"><label for="vSt">Último estadio completo</label><input id="vSt" type="number" inputmode="numeric" min="1" data-v="stage" value="${v.stage??''}" placeholder="nº"><span class="hint num" id="vStV">${+v.stage>0?'= '+dec(st+(+v.stage-1)*ic2,1)+' km/h':'El 1.º es a '+dec(st,1)+' km/h'}</span></div>
+      <div class="field"><label for="vF">o velocidad final (km/h)</label><input id="vF" type="number" inputmode="decimal" step="0.1" data-v="vFinal" value="${v.vFinal??''}" placeholder="km/h"><span class="hint">Si la anotas, manda sobre el estadio</span></div></div>
+      <div class="field"><label for="vE">Segundos corridos del estadio siguiente (opcional)</label><input id="vE" type="number" inputmode="numeric" min="0" data-v="extra" value="${v.extra??''}" placeholder="s"><span class="hint">Afina la VAM con la fracción del estadio que no llegó a completar (corrección de Kuipers).</span></div>`
+     :`<div class="field"><label for="vDi">Distancia en 5 min (m)</label><input id="vDi" type="number" inputmode="numeric" data-v="dist" value="${v.dist??''}" placeholder="m"></div>`}
+    <div class="field"><label for="vH">FC máxima alcanzada (ppm)</label><div class="row" style="flex-wrap:nowrap"><input id="vH" type="number" inputmode="numeric" data-v="hrPeak" value="${v.hrPeak??''}" placeholder="ppm" style="max-width:120px"><button class="btn small" data-act="vamHr">Anotar FC actual</button></div>
+      <span class="hint">Si llevas el pulsómetro conectado, se guarda sola la más alta mientras esta pantalla está abierta.</span></div></div>`}
+function vamResultsHTML(t){const r=vamCalc(t),v=t.vam||{},p=prof(t.userId);
+  if(!r.vam)return `<p class="hint" style="margin:0">${v.proto==='min5'?'Escribe la distancia recorrida.':'Escribe el último estadio completo o la velocidad final.'}</p>`;
+  const prev=testsOf(t.userId).filter(x=>x.type==='vam'&&x.id!==t.id&&x.date<t.date)[0],pv=prev?vamCalc(prev).vam:null;
+  const ZN=[[60,'Recuperación, rodaje muy suave'],[70,'Continuo extensivo'],[80,'Continuo medio'],[85,'Umbral'],[90,'Fartlek, series largas'],[95,'Series largas a ritmo alto'],[100,'Series a VAM (p. ej. 30-30)'],[105,'Intermitente 30-30 / 15-15'],[110,'Intermitente corto 15-15'],[120,'Intermitente muy corto 10-20']];
+  const nav=v.proto==='navette';
+  let h=`<div class="stats">${stat(dec(r.vam,1),nav?'Vel. final km/h':'VAM km/h')}${stat(paceTxt(r.vam),'min/km a VAM')}${stat(dec(r.vo2,1),'VO2máx estimado')}${stat(v.hrPeak||'—','FC máx test')}${stat(pv?(r.vam-pv>=0?'+':'')+dec(r.vam-pv,1):'—','Δ km/h')}</div>
+    <span class="hint">${r.how}. VO2máx: ${r.vo2how}.${pv?` Δ frente al test del ${fmtDate(prev.date)}.`:''}</span>`;
+  if(+v.hrPeak>0&&p&&+v.hrPeak>p.hrMax)h+=`<div class="note"><b>FC máxima por encima de la del perfil</b><span class="hint num">${v.hrPeak} ppm en el test frente a ${p.hrMax} del perfil. Un test máximo es buen momento para medirla.</span><button class="btn small primary" data-act="vamHrMax">Usar ${v.hrPeak} ppm como FC máxima</button></div>`;
+  if(nav)return h+`<span class="hint">En la Course Navette la velocidad final no equivale a la VAM en pista (los giros frenan), así que no se calculan ritmos de carrera. Para ritmos, usa VAMEVAL, Léger-Boucher o el test de 5 min.</span>`;
+  h+=`<span class="lbl" style="margin-top:6px">Ritmos de entrenamiento</span><div class="tbl"><table class="ztable vamt"><thead><tr><th>% VAM</th><th>km/h</th><th>min/km</th><th>m en 15″</th><th>m en 30″</th></tr></thead><tbody>
+    ${ZN.map(([pc,l])=>{const s=r.vam*pc/100;return `<tr><td><b>${pc} %</b><br><span class="hint">${l}</span></td><td class="num">${dec(s,1)}</td><td class="num">${paceTxt(s)}</td><td class="num">${Math.round(s/3.6*15)}</td><td class="num">${Math.round(s/3.6*30)}</td></tr>`}).join('')}</tbody></table></div>
+    <span class="hint">Los metros en 15″ y 30″ sirven para marcar con conos los intermitentes (por ejemplo, 30-30 al 100 % de la VAM). Los rangos son orientativos; ajústalos con el RPE y la FC.</span>`;
+  return h}
 const JUMPS={cmj:{n:'CMJ',d:'Contramovimiento con las manos en la cadera'},sj:{n:'SJ',d:'Squat jump: desde 90° de rodilla, sin contramovimiento'},abk:{n:'Abalakov',d:'Contramovimiento con impulso de brazos'}};
 const testById=id=>S.tests.find(t=>t.id===id);
 const testsOf=uid=>S.tests.filter(t=>t.userId===uid).sort((a,b)=>b.date-a.date);
@@ -2101,11 +2164,12 @@ const PTABS=[['res','Inicio','pulse'],['ses','Sesiones','list'],['load','Carga',
 const tabsFor=()=>isClient()?PTABS.filter(t=>t[0]!=='load'):PTABS; // la carga y el ACWR solo los ve el entrenador
 function profileTabs(uid,on){return `<nav class="ptabs" role="tablist" aria-label="Secciones del perfil">${tabsFor().map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${on===k}" class="${on===k?'on':''}" data-act="ptab" data-v="${k}" data-id="${uid}">${ic(i)}<span>${l}</span></button>`).join('')}</nav>`}
 function testHeadline(t){
+  if(t.type==='vam'){const r=vamCalc(t);return r.vam?`VAM ${dec(r.vam,1)} km/h · VO2máx ≈ ${dec(r.vo2,1)}`:'Sin resultado todavía'}
   if(t.type==='vo2'){const r=vo2Calc(t);return r.hr?`${dec(r.hr.vo2,1)} ml/kg/min`:'Sin resultado todavía'}
   if(t.type==='vt2'){const r=vt2Calc(t);return r.vt2?`${Math.round(r.vt2.w)} W${r.vt2.hr?' · '+Math.round(r.vt2.hr)+' ppm':''}${r.vt2.how==='medido'?' (medido)':''}`:'Sin resultado todavía'}
   const j=jumpCalc(t),parts=['cmj','sj','abk'].filter(k=>j[k]).map(k=>`${JUMPS[k].n} ${dec(j[k].best,1)}`);return parts.length?parts.join(' · ')+' cm':'Sin datos todavía'}
-function testValue(t){if(t.type==='vo2')return vo2Calc(t).hr?.vo2??null;if(t.type==='vt2')return vt2Calc(t).vt2?.w??null;return jumpCalc(t).cmj?.best??null}
-const TEST_UNIT={vo2:' ml/kg/min',vt2:' W',jump:' cm CMJ'};
+function testValue(t){if(t.type==='vam')return vamCalc(t).vam??null;if(t.type==='vo2')return vo2Calc(t).hr?.vo2??null;if(t.type==='vt2')return vt2Calc(t).vt2?.w??null;return jumpCalc(t).cmj?.best??null}
+const TEST_UNIT={vo2:' ml/kg/min',vt2:' W',jump:' cm CMJ',vam:' km/h'};
 
 V.tests=()=>{
   const ps=isClient()?[myProfile()].filter(Boolean):[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name));
@@ -2124,15 +2188,15 @@ V.tests=()=>{
   return h+'</section>';
 };
 V.test=()=>{
-  const t=testById(S.arg);if(!t)return'';const p=prof(t.userId),a=age(p?.birthDate),cyc=t.type!=='jump';
+  const t=testById(S.arg);if(!t)return'';const p=prof(t.userId),a=age(p?.birthDate),cyc=t.type==='vo2'||t.type==='vt2',dev=cyc||t.type==='vam';
   let h=`<div class="card"><span class="lbl">${esc(TEST_TYPES[t.type].name)} · ${esc(p?.name||'')}${a!=null?' · '+a+' años':''}</span>
     <div class="g2"><div class="field"><label for="tDate">Fecha</label><input id="tDate" type="datetime-local" data-t="date" value="${toLocalInput(t.date)}"></div>
     <div class="field"><label for="tW">Peso (kg)</label><input id="tW" type="number" inputmode="decimal" step="0.1" data-t="weight" value="${t.weight??''}" placeholder="kg"></div></div>
     ${cyc?`<div class="field"><label for="tHrMax">FC máxima para el cálculo</label><input id="tHrMax" type="number" inputmode="numeric" data-t="hrMax" value="${t.hrMax??''}"><span class="hint">${p?.hrMaxEstimated?'Tomada del perfil, donde está estimada con Tanaka. Si tienes la FCmáx medida, escríbela aquí: el resultado depende mucho de este valor.':'Tomada del perfil.'}</span></div>`:''}</div>`;
-  if(cyc)h+=`<div class="card" id="tDev"></div>`;
-  if(t.type==='vo2')h+=vo2Form(t);else if(t.type==='vt2')h+=vt2Form(t);else h+=jumpForm(t);
+  if(dev)h+=`<div class="card" id="tDev"></div>`;
+  if(t.type==='vam')h+=vamForm(t);else if(t.type==='vo2')h+=vo2Form(t);else if(t.type==='vt2')h+=vt2Form(t);else h+=jumpForm(t);
   h+=`<section class="sec"><h3>Resultados</h3><div class="card" id="tRes" aria-live="polite"></div></section>
-  <div class="card"><div class="field"><label for="tNotes">Notas</label><textarea id="tNotes" data-t="notes" placeholder="${cyc?'Ergómetro, cadencia, condiciones, sensaciones…':'Superficie, calzado, calentamiento, sensaciones…'}">${esc(t.notes||'')}</textarea></div></div>
+  <div class="card"><div class="field"><label for="tNotes">Notas</label><textarea id="tNotes" data-t="notes" placeholder="${cyc?'Ergómetro, cadencia, condiciones, sensaciones…':t.type==='vam'?'Pista o terreno, viento, calzado, sensaciones…':'Superficie, calzado, calentamiento, sensaciones…'}">${esc(t.notes||'')}</textarea></div></div>
   <div class="row"><button class="btn primary" data-act="tSave">Guardar y volver</button>${athleteBtn('test',t.id,t)}<button class="btn danger" data-act="tDel">Borrar test</button></div>`;
   return h;
 };
@@ -2166,6 +2230,7 @@ function jumpForm(t){
     <button class="btn small" data-act="tAddAtt" data-v="${k}">+ Intento</button></div>`).join('')+
   `<span class="hint">Copia de My Jump Lab la altura en cm de cada intento. Se usa el mejor intento para la potencia y los índices; la media y el CV sirven para ver la consistencia.</span>`}
 function testResultsHTML(t){
+  if(t.type==='vam')return vamResultsHTML(t);
   if(t.type==='vo2'){const r=vo2Calc(t);let h='';
     if(r.hr)h+=`<div class="stats">${stat(dec(r.hr.vo2,1),'VO2máx ml/kg/min')}${stat(dec(r.hr.abs,2),'VO2máx L/min')}${stat(Math.round(r.hr.wMax),'W a FCmáx')}</div>
       <span class="hint num">Recta FC–potencia con ${r.used} etapa${r.used>1?'s':''} (r² = ${dec(r.hr.lr.r2,3)}), extrapolada a ${t.hrMax} ppm. VO2 con la ecuación ACSM de cicloergómetro: 1,8 × (W × 6,12) / kg + 7.</span>`;
@@ -2232,7 +2297,7 @@ function updTestResults(){const t=testById(S.arg),box=$('#tRes');if(!t||!box)ret
   const n=$('#tNext');if(n&&t.type==='vo2'){const nx=t.protocol==='ymca'?ymcaNext(t.stages||[]):null;
     n.textContent=t.protocol==='ymca'?(nx==null?'Anota la FC de la etapa 1 para saber la carga de la 2.ª':`Siguiente etapa: ${nx} W`):''}}
 function updTestDevice(){const b=$('#tDev');if(!b)return;const st=BLE.status,on=st==='on'||st==='sim';
-  b.innerHTML=on?`<div class="row" style="justify-content:space-between"><span><b>${esc(BLE.name())}</b><br><span class="hint">Puedes anotar la FC actual en la etapa en curso</span></span><span class="num" style="font:700 40px var(--display)"><span id="tHr">${BLE.bpm??'—'}</span> <span class="unit">ppm</span></span></div>
+  b.innerHTML=on?`<div class="row" style="justify-content:space-between"><span><b>${esc(BLE.name())}</b><br><span class="hint">${testById(S.arg)?.type==='vam'?'La FC más alta se guarda sola mientras esta pantalla está abierta':'Puedes anotar la FC actual en la etapa en curso'}</span></span><span class="num" style="font:700 40px var(--display)"><span id="tHr">${BLE.bpm??'—'}</span> <span class="unit">ppm</span></span></div>
     <div class="row"><button class="btn small primary" data-act="tCurHr">Anotar FC actual</button><button class="btn small" data-act="disconnect">Desconectar</button></div>`
    :(st==='conn'||st==='re')?`<b>${st==='re'?'Reconectando…':'Conectando…'}</b>`
    :`<span class="hint">Conecta el pulsómetro o el reloj para anotar la FC de cada etapa con un toque, o escríbela a mano.</span><div class="row"><button class="btn small" data-act="connect" ${btOK?'':'disabled'}>Conectar pulsómetro</button><button class="btn small" data-act="sim">Usar simulador</button><button class="link" data-act="connectAll" ${btOK?'':'disabled'}>Reloj / todos</button></div>`}
@@ -2244,6 +2309,8 @@ $('#app').addEventListener('input',e=>{
   else if(el.dataset.row!=null){t.stages[+el.dataset.row][el.dataset.k]=num(el.value)}
   else if(el.dataset.jk){t.jumps[el.dataset.jk][+el.dataset.a]=num(el.value)}
   else if(el.dataset.m){t.measured=t.measured||{};t.measured[el.dataset.m]=num(el.value)}
+  else if(el.dataset.v&&t.type==='vam'&&el.closest('#app')&&!el.dataset.act){t.vam=t.vam||{proto:'vameval'};t.vam[el.dataset.v]=num(el.value);
+    if(el.dataset.v==='stage'){const P=VAM_PROTOS[t.vam.proto]||{},st=+(t.vam.start??P.start),ic2=+(t.vam.inc??P.inc),e2=$('#vStV');if(e2)e2.textContent=+t.vam.stage>0?'= '+dec(st+(+t.vam.stage-1)*ic2,1)+' km/h':''}}
   else if(el.dataset.g){t.gen=t.gen||{start:50,inc:25,n:10};t.gen[el.dataset.g]=num(el.value);saveTestSoon(t);return}
   else return;
   saveTestSoon(t);updTestResults();
@@ -2287,7 +2354,13 @@ function activeProfileId(){
   if(S.view==='strength'||S.view==='stpost'||S.view==='ssum')return stById(S.arg)?.userId;
   if(S.view==='tests')return S.arg;if(S.view==='test')return testById(S.arg)?.userId;if(S.view==='plan')return planById(S.arg)?.userId;if(S.view==='exprog')return S.arg;
   if(S.view==='live')return S.rec?.userId;return null}
+// Tema: oscuro (por defecto), claro o automático según el móvil
+const themePref=()=>{const t=lsGet('theme');return t==='light'||t==='auto'?t:'dark'};
+function applyTheme(){const pref=themePref(),t=pref==='auto'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):pref;
+  document.documentElement.dataset.theme=t;const m=document.querySelector('meta[name=theme-color]');if(m)m.content=t==='light'?'#F4F1EA':'#0E150F'}
+try{matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{if(themePref()==='auto'){applyTheme();render()}})}catch(e){}
 function renderDrawer(){
+  {const tp=themePref(),dt=$('#dTheme');if(dt)dt.innerHTML=[['dark','Oscuro'],['light','Claro'],['auto','Auto']].map(([k,l])=>`<button type="button" role="radio" aria-checked="${tp===k}" class="${tp===k?'on':''}" data-d="theme" data-v="${k}">${l}</button>`).join('')}
   const act=activeProfileId();
   const cl=isClient();
   $('#dHome').textContent=cl?'Mi perfil':'Inicio';$('#dHome').classList.toggle('on',S.view==='home'||(cl&&S.view==='profile'));
@@ -2310,6 +2383,7 @@ function navFromDrawer(fn){
 const toRoot=(v,a)=>{S.stack=v==='home'?[]:[['home',null]];go(v,a,{push:false});try{history.pushState({},'')}catch(e){}};
 drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)return;const d=b.dataset.d;
   if(d==='close')return closeDrawer();
+  if(d==='theme'){lsSet('theme',b.dataset.v);applyTheme();render();return}
   if(d==='home')return navFromDrawer(()=>toRoot('home'));
   if(d==='tests')return navFromDrawer(()=>toRoot('tests',activeProfileId()||[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))[0]?.id||null));
   if(d==='profile')return navFromDrawer(()=>toRoot('profile',b.dataset.id));
@@ -2474,8 +2548,11 @@ const A={
   async newTest(_,b){const p=prof(S.arg),type=b.dataset.v;
     const t={id:uid(),userId:p.id,type,date:Date.now(),weight:p.weight||'',hrMax:p.hrMax,protocol:'ymca',
       stages:type==='vo2'?[{w:25,hr:'',rpe:''}]:[],measured:{w:'',hr:''},gen:{start:50,inc:25,n:10},
-      jumps:{cmj:['','',''],sj:['','',''],abk:['','','']},notes:''};
+      jumps:{cmj:['','',''],sj:['','',''],abk:['','','']},vam:{proto:'vameval',start:8,inc:0.5,dur:60},notes:''};
     await saveTest(t);go('test',t.id)},
+  async vamProto(_,b){const t=testById(S.arg),P=VAM_PROTOS[b.dataset.v];t.vam=t.vam||{};t.vam.proto=b.dataset.v;if(P.start!=null){t.vam.start=P.start;t.vam.inc=P.inc;t.vam.dur=P.dur}await saveTest(t);const y=scrollY;render();scrollTo(0,y)},
+  async vamHr(){const t=testById(S.arg);if(!BLE.bpm||Date.now()-BLE.last>5000){toast('No llega FC del pulsómetro');return}t.vam=t.vam||{};t.vam.hrPeak=Math.max(+t.vam.hrPeak||0,BLE.bpm);await saveTest(t);const y=scrollY;render();scrollTo(0,y)},
+  async vamHrMax(){const t=testById(S.arg),p=prof(t.userId);if(!p)return;const old=p.hrMax;p.hrMax=+t.vam.hrPeak;p.hrMaxEstimated=false;t.hrMax=p.hrMax;await DB.put('profiles',p);await saveTest(t);render();toast(`FC máxima: ${old} → ${p.hrMax} ppm. Zonas recalculadas`)},
   async tProto(_,b){const t=testById(S.arg);t.protocol=b.dataset.v;await saveTest(t);const y=scrollY;render();scrollTo(0,y)},
   async tAddRow(){const t=testById(S.arg),v=(t.stages||[]).filter(x=>+x.w>0),last=v[v.length-1];
     let w=t.type==='vo2'&&t.protocol==='ymca'?ymcaNext(t.stages):null;
@@ -2487,7 +2564,7 @@ const A={
     if(!(st>=0&&inc>0&&n>0)){toast('Revisa inicio, incremento y número de etapas');return}
     const run=async()=>{t.stages=Array.from({length:n},(_,i)=>({w:st+i*inc,hr:'',rpe:''}));await saveTest(t);render()};
     if(t.stages.some(x=>x.hr!==''&&x.hr!=null))arm(b,'Se borrarán las FC anotadas. Pulsa otra vez',run);else run()},
-  async tCurHr(){const t=testById(S.arg);if(!BLE.bpm||Date.now()-BLE.last>5000){toast('No llega FC del pulsómetro');return}
+  async tCurHr(){const t=testById(S.arg);if(t?.type==='vam')return A.vamHr();if(!BLE.bpm||Date.now()-BLE.last>5000){toast('No llega FC del pulsómetro');return}
     let i=t.stages.findIndex(x=>x.hr===''||x.hr==null);if(i<0){toast('Todas las etapas tienen FC. Añade una etapa nueva.');return}
     t.stages[i].hr=BLE.bpm;await saveTest(t);const y=scrollY;render();scrollTo(0,y);toast(`FC ${BLE.bpm} anotada en la etapa ${i+1}`)},
   async tAddAtt(_,b){const t=testById(S.arg);(t.jumps[b.dataset.v]||(t.jumps[b.dataset.v]=[])).push('');await saveTest(t);const y=scrollY;render();scrollTo(0,y)},
