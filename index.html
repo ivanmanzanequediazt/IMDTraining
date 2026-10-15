@@ -444,6 +444,13 @@ body.has-rest .wrap{padding-bottom:90px}
 .card.share.flash{animation:flash 1.6s ease 2}
 @keyframes flash{50%{box-shadow:0 0 0 3px var(--accent)}}
 .warnTxt{color:var(--warn)}
+.hint{font-size:14px;line-height:1.45}
+.icon-btn{width:44px;height:44px}
+a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.need-box{border:1px solid var(--warn);border-radius:14px;padding:14px;background:color-mix(in srgb,var(--warn) 8%,transparent)}
+.mg-fold summary,.zcard>summary{cursor:pointer;color:var(--muted);font-size:14px;padding:4px 0}
+.zcard>summary{color:var(--ink);font-weight:600}
+.danger-zone.plain{margin-top:8px}.danger-zone.plain summary{color:var(--muted);font-size:14px;cursor:pointer;text-align:center;padding:8px}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
@@ -490,6 +497,7 @@ function fmtDur(ms){ms=Math.max(0,Math.round(ms/1000));const h=Math.floor(ms/360
 const fmtMin=ms=>Math.round(ms/60000)+' min';
 const fmtDate=t=>new Date(t).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
 const fmtDT=t=>new Date(t).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const agoShort=t=>{const d=Math.floor((new Date().setHours(0,0,0,0)-new Date(t).setHours(0,0,0,0))/864e5);return d<=0?'Hoy':d===1?'Ayer':d<7?`Hace ${d} d`:`Hace ${Math.round(d/7)} sem`};
 function ago(t){const m=Math.round((Date.now()-t)/60000);if(m<1)return'hace un momento';if(m<60)return`hace ${m} min`;const h=Math.round(m/60);return h<48?`hace ${h} h`:`hace ${Math.round(h/24)} días`}
 function age(b){if(!b)return null;const d=new Date(b),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a}
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
@@ -1034,16 +1042,18 @@ function backupNudge(){const real=[...S.sessions,...S.strength,...S.tests].filte
   const t=+lsGet('lastBackup')||0;if(Date.now()-t<7*864e5)return'';
   return `<div class="note info slim">${ic('save')}<span class="hint grow"><b>${t?`Última copia ${ago(t)}`:'Aún no has hecho ninguna copia'}.</b> Tus datos solo están en este móvil: guarda una copia en Drive.</span><button class="btn small" data-act="backup">Copia</button></div>`}
 function alertsHTML(uid,noGlobal){let h=noGlobal?'':backupNudge();const mine=x=>uid?x.userId===uid:!prof(x.userId)?.remote;
-  if(!btOK&&!noGlobal)h+=`<div class="note info slim">${ic('info')}<span class="hint">Bluetooth no disponible aquí: abre la app desde su enlace en Chrome para Android. Puedes probarlo todo con el simulador.</span></div>`;
+  if(!btOK&&!noGlobal&&!isClient())h+=`<div class="note info slim">${ic('info')}<span class="hint">Bluetooth no disponible aquí: abre la app desde su enlace en Chrome para Android. Puedes probarlo todo con el simulador.</span></div>`;
   if(S.memOnly&&!noGlobal)h+=`<div class="note"><b>Los datos no se guardarán</b><span class="hint">Este navegador no permite almacenamiento. Abre la app desde su propio enlace para que guarde perfiles y sesiones.</span></div>`;
   for(const s of S.sessions.filter(s=>mine(s)&&s.status==='recording'&&(!S.rec||S.rec.id!==s.id)))
     h+=`<div class="note"><b>Sesión sin terminar · ${esc(prof(s.userId)?.name||'')}</b><span class="hint">Empezó ${fmtDT(s.startTime)}. Se cerró la app antes de finalizarla.</span><div class="row"><button class="btn small primary" data-act="recover" data-id="${s.id}">Guardar lo grabado</button><button class="btn small danger" data-act="discard" data-id="${s.id}">Descartar</button></div></div>`;
   for(const s of S.sessions.filter(s=>mine(s)&&s.status==='done'&&s.rpePost==null&&Date.now()-s.endTime<7*864e5))
-    h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · terminó ${ago(s.endTime)}</span></span><span class="tag pend">Anotar</span></button>`;
+    h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post${isClient()?'':' · '+esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · terminó ${ago(s.endTime)}</span></span><span class="tag pend">Anotar</span></button>`;
+  for(const s of S.strength.filter(s=>mine(s)&&s.status==='done'&&s.rpePost!=null&&!(s.durationMin>0)&&Date.now()-(s.endTime||s.startTime)<21*864e5))
+    h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Falta la duración${isClient()?'':' · '+esc(prof(s.userId)?.name||'')}</span><span class="s">${esc(s.type)} (fuerza) · sin ella no se calcula la sRPE</span></span><span class="tag pend">Anotar</span></button>`;
   for(const s of S.strength.filter(s=>mine(s)&&s.status==='done'&&s.rpePost==null&&Date.now()-(s.endTime||s.startTime)<7*864e5))
-    h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} (fuerza) · ${ago(s.endTime||s.startTime)}</span></span><span class="tag pend">Anotar</span></button>`;
+    h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post${isClient()?'':' · '+esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} (fuerza) · ${ago(s.endTime||s.startTime)}</span></span><span class="tag pend">Anotar</span></button>`;
   for(const s of S.strength.filter(s=>mine(s)&&s.status==='open'&&!stEmpty(s)))
-    h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Fuerza en curso · ${esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · empezó ${ago(s.startTime)}</span></span><span class="tag str">Continuar</span></button>`;
+    h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Fuerza en curso${isClient()?'':' · '+esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · empezó ${ago(s.startTime)}</span></span><span class="tag str">Continuar</span></button>`;
   return h}
 function profileCard(p){const all=allOf(p.id),last=all[0],ser=acwrSeries(dailyLoads(loadItems(p.id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio),pend=all.some(s=>s.rpePost==null);
   return `<button class="pcard" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span>
@@ -1079,7 +1089,7 @@ V.edit=()=>{
       <div class="field"><label for="frest">FC en reposo</label><input id="frest" type="number" inputmode="numeric" value="${f.hrRest}" placeholder="ppm"><span class="hint">Mejor medida al despertar. Necesaria para Karvonen.</span></div>
     </div>
   </div>
-  <div class="card">
+  <${isClient()?'details':'div'} class="card zcard">${isClient()?'<summary>Zonas de frecuencia cardíaca <span class="hint">· opcional, se calculan solas</span></summary>':''}
     <div class="field"><span class="lbl">Método de zonas</span><div class="seg" role="radiogroup">
       <button type="button" data-act="method" data-v="karvonen" class="${f.method==='karvonen'?'on':''}">Karvonen</button>
       <button type="button" data-act="method" data-v="pct" class="${f.method==='pct'?'on':''}">% FCmáx</button>
@@ -1088,7 +1098,7 @@ V.edit=()=>{
     <div ${f.method==='manual'?'hidden':''} id="pcBox"><span class="lbl">Inicio de cada zona (%)</span><div class="g5" style="margin-top:6px">${pcRows}</div></div>
     <div ${f.method==='manual'?'':'hidden'} id="mBox"><span class="lbl">Inicio de cada zona (ppm)</span><div class="g5" style="margin-top:6px">${mRows}</div></div>
     <div id="zprev"></div>
-  </div>
+  </${isClient()?'details':'div'}>
   <p class="hint" id="ferr" style="color:var(--z5);margin:0" hidden></p>
   <button class="btn primary wide" type="submit">Guardar perfil</button>
   ${p?`<button class="btn danger wide" type="button" data-act="delProfile">Borrar perfil y sus sesiones</button>`:''}
@@ -1185,7 +1195,7 @@ function recordsHTML(p){
   for(const [label,list] of groups)h+=`<details class="rec-grp" open><summary><span>${label}</span><span class="muted num">${list.length}</span></summary><div class="list">${list.sort((a,b)=>a.name.localeCompare(b.name,'es')).map(recRow).join('')}</div></details>`;
   return h+info(`Peso: mayor carga levantada (y con cuántas repeticiones). Reps: más repeticiones en una serie (y con qué carga). 1RM estimado con ${esc(RM_FORMULAS[rmKey()].name)} a partir de series de hasta 10 repeticiones. Cada ejercicio aparece en sus grupos musculares principales; la variante y si es unilateral cuentan como ejercicios distintos. Toca un ejercicio para ver su progresión.`,'Cómo se calculan')+'</section>'}
 // Elemento de la lista de sesiones (pulsómetro o fuerza)
-function sessItem(s){const l=loadOfAny(s),right=l==null?'<span class="tag pend">RPE pendiente</span>':`<span class="tag num">${l} UA</span>`;
+function sessItem(s){const l=loadOfAny(s),right=l==null?`<span class="tag pend">${s.kind==='st'&&s.rpePost!=null?'Falta duración':'RPE pendiente'}</span>`:`<span class="tag num">${l} UA</span>`;
   if(s.kind==='st'){const k=strengthStats(s);
     return `<button class="item" data-act="openStrength" data-id="${s.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
   return `<button class="item" data-act="openSession" data-id="${s.id}"><span class="kind hr">${ic('heart')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">Aeróbico · ${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm${s.zoneMs?' · TRIMP '+trimp(s):''}</span></span>${right}</button>`}
@@ -1201,12 +1211,12 @@ V.profile=()=>{
     h+=(isClient()?plansSection(p):'')+`<div class="starts"><button class="start" data-act="newSession">${ic('heart')}<b>Aeróbico</b><span>FC en directo y zonas</span></button><button class="start" data-act="newStrength">${ic('dumbbell')}<b>Sesión de fuerza</b><span>Ejercicios, series y RPE</span></button></div>
     <div class="kpis">${isClient()?(()=>{const wk=all.filter(x=>x.startTime>=weekStart(Date.now())),mins=Math.round(wk.reduce((a2,x)=>a2+(x.kind==='hr'?x.activeMs/60000:(x.durationMin||0)),0));
       return kpi(wk.length,'sesiones esta semana','ptab','ses')+kpi(mins,'minutos esta semana','ptab','ses')}
-      )():kpi(cur?.ratio!=null?dec(cur.ratio,2):'—','ACWR','ptab','load',`<i class="dot" style="background:${zc(st.z)}"></i>`)+kpi(cur?cur.acute:0,'UA últimos 7 días','ptab','load')}${kpi(last?ago(last.startTime).replace('hace ',''):'—','Última sesión','ptab','ses')}</div>
+      )():kpi(cur?.ratio!=null?dec(cur.ratio,2):'—','ACWR','ptab','load',`<i class="dot" style="background:${zc(st.z)}"></i>`)+kpi(cur?cur.acute:0,'UA últimos 7 días','ptab','load')}${kpi(last?agoShort(last.startTime):'—','Última sesión','ptab','ses')}</div>
     ${wellCard(p)}
     ${all.length&&!isClient()?`<button class="action wide-action" data-act="report">${ic('chart')}<b>Informe del mes</b><span>Imagen para compartir</span></button>`:''}
     ${all.length&&!isClient()?`<div class="card"><div class="sec-h"><span class="lbl">Carga semanal</span><button class="link" data-act="ptab" data-v="load">Ver carga ${ic('chev','sm')}</button></div><canvas id="wkMini" style="height:120px" role="img" aria-label="Carga de las últimas 8 semanas"></canvas></div>`:''}
     ${isClient()&&!selfCoached()?shareCard(p):''}
-    ${isClient()?(selfCoached()?'':`<button class="link" data-act="openReceived">${ic('download','sm')} Abrir entrenamiento o sesión recibida</button>`):plansSection(p)}
+    ${isClient()?'':plansSection(p)}
     <section class="sec"><div class="sec-h"><h3>Últimas sesiones</h3>${all.length>3?`<button class="link" data-act="ptab" data-v="ses">Ver todas (${all.length}) ${ic('chev','sm')}</button>`:''}</div>
     ${all.length?`<div class="list">${all.slice(0,3).map(sessItem).join('')}</div>`:`<div class="empty">Todavía no hay sesiones. Empieza una con los botones de arriba.</div>`}</section>`}
   else if(tab==='ses'){
@@ -1426,7 +1436,7 @@ V.strength=()=>{
     <div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
       <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
-    ${e.plyo?'':mgChips(e,i)}
+    ${e.plyo?'':isClient()?`<details class="mg-fold"><summary>Grupos musculares</summary>${mgChips(e,i)}</details>`:mgChips(e,i)}
     ${e.plan?`<span class="hint num plan-hint">${ic('clock','sm')} Programado: ${e.plyo?plyoSetsText(e.plan,e.unilateral):planSetsText(e.plan,e.unilateral)}</span>`:''}${prevHint(prev,e)}${(()=>{const r=!e.plyo&&recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
     <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':'Kg'}</span><span>${em==='rir'?'RIR':'RPE'}</span><span></span></div>
     ${e.sets.map((s,j)=>`<div class="set${e.unilateral?' side-'+s.side:''}"><span class="set-n">${e.unilateral?`${Math.floor(j/2)+1}<small>${s.side}</small>`:j+1}</span>
@@ -1494,7 +1504,7 @@ function saveStSoon(st){clearTimeout(stSaveT);stSaveT=setTimeout(()=>DB.put('str
 async function saveSt(st){clearTimeout(stSaveT);await DB.put('strength',st);const i=S.strength.findIndex(x=>x.id===st.id);if(i<0)S.strength.push(st);else S.strength[i]=st}
 V.stpost=()=>{const st=stById(S.arg);const t=strengthStats(st);if(S.form.rpePost===undefined)S.form.rpePost=st.rpePost??null;
   return `<div class="card"><span class="lbl">Sesión de fuerza terminada</span><div class="stats">${stTotHTML(t)}</div>
-  <div class="field"><label for="stDur">Duración (minutos)</label><input id="stDur" type="number" inputmode="numeric" min="1" value="${st.durationMin||''}" placeholder="min"><span class="hint">Tiempo total de la sesión, descansos incluidos. Se usa para el sRPE.</span></div></div>
+  <div class="field"><label for="stDur">Duración (minutos)</label><input id="stDur" type="number" inputmode="numeric" min="1" value="${st.durationMin||''}" placeholder="min" required><span class="hint">Tiempo total de la sesión, descansos incluidos. Se usa para el sRPE.</span></div></div>
   <section class="sec"><h3>RPE de la sesión</h3><span class="hint">¿Cómo de dura ha sido la sesión en conjunto? Lo ideal es contestarlo unos 30 minutos después. Puedes dejarlo para luego.</span>${rpeScale('rpePost','post',S.form.rpePost)}</section>
   <div class="card"><div class="field"><label for="stNotes">Notas</label><textarea id="stNotes" placeholder="Sensaciones, molestias, técnica…">${esc(st.notes)}</textarea></div></div>
   <button class="btn primary wide" data-act="stSavePost">Guardar RPE</button>
@@ -1507,7 +1517,7 @@ V.ssum=()=>{
   ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}
   ${(()=>{const mv=muscleVolume([st]),c=MG.filter(([g])=>mv.groups[g].sets>0).map(([g,l])=>`<span class="chipset">${l} ${dec(mv.groups[g].sets,Number.isInteger(mv.groups[g].sets)?0:1)}</span>`);return c.length?`<span class="lbl">Series por grupo</span><div class="chips">${c.join('')}</div>`:''})()}</div>
   <section class="sec"><h3>Ejercicios</h3>
-  <div class="field"><label for="rmF">Fórmula del 1RM estimado</label><select id="rmF">${Object.entries(RM_FORMULAS).map(([k,v])=>`<option value="${k}"${k===fk?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>`;
+  ${isClient()?'':`<div class="field"><label for="rmF">Fórmula del 1RM estimado</label><select id="rmF">${Object.entries(RM_FORMULAS).map(([k,v])=>`<option value="${k}"${k===fk?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>`}`;
   const maxC=Math.max(1,...t.ex.map(e=>e.contacts||0));
   t.ex.forEach((e,i)=>{const src=st.exercises[i];
     if(e.plyo){h+=`<div class="card ex"><div class="sec-h"><b>${esc(e.name||'Sin nombre')}${normTxt(e.variant)?` <span class="muted" style="font-weight:400">· ${esc(e.variant)}</span>`:''}</b><span class="tag str">Pliometría</span></div>
@@ -1524,14 +1534,17 @@ V.ssum=()=>{
     <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${e.unilateral?s.side+' ':''}${s.reps}×${fmtKg(s.kg)}${effTxt(s)}</span>`).join('')}</div>
     <span class="hint num">${exSummary(e)}</span></div>`});
   if(!t.ex.length)h+=`<div class="empty">Esta sesión no tiene ejercicios.</div>`;
-  h+=`<span class="hint">1RM estimado con ${esc(RM_FORMULAS[fk].name)} a partir de la serie que da el valor más alto, usando solo series de 1 a 10 repeticiones. Las fórmulas suponen series cercanas al fallo: si la serie quedó lejos del fallo (RPE bajo), el 1RM real será mayor. Error habitual del ±10 %.</span></section>
-  ${st.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="stSavePending">Guardar RPE</button></section>`:''}
+  h+=info(`1RM estimado con ${esc(RM_FORMULAS[fk].name)} a partir de la serie que da el valor más alto, usando solo series de 1 a 10 repeticiones. Las fórmulas suponen series cercanas al fallo: si la serie quedó lejos del fallo (RPE bajo), el 1RM real será mayor. Error habitual del ±10 %.`,'Sobre el 1RM estimado')+`</section>
+  ${st.rpePost==null||!(st.durationMin>0)?`<section class="sec need-box" id="needBox"><h3>${st.rpePost==null?'Completa la sesión':'Falta la duración'}</h3><span class="hint">${st.rpePost==null?'Con la duración y el RPE se calcula la carga (sRPE).':`RPE post ${st.rpePost}: indica cuánto duró la sesión para calcular la sRPE.`}</span>
+    ${st.durationMin>0?'':`<div class="field"><label for="stDur2">Duración (minutos)</label><input id="stDur2" type="number" inputmode="numeric" min="1" max="300" placeholder="min" value="${S.form.dur??''}" style="max-width:160px"><span class="hint">Tiempo total, descansos incluidos.</span></div>`}
+    ${st.rpePost==null?rpeScale('rpePost','post',S.form.rpePost??null):''}<button class="btn primary wide" data-act="stSavePending">Guardar</button></section>`:''}
   <div class="card"><div class="field"><label for="stNotes2">Notas</label><textarea id="stNotes2">${esc(st.notes)}</textarea></div></div>
   <div class="row">${athleteBtn('st',st.id,st)}<button class="btn" data-act="stEdit">Editar sesión</button><button class="btn" data-act="stExport">Exportar CSV</button><button class="btn danger" data-act="stDel">Borrar sesión</button></div>`;
   return h;
 };
 // Edición en vivo de ejercicios y series (sin redibujar la pantalla mientras se escribe)
 $('#app').addEventListener('input',e=>{
+  if(e.target.id==='stDur2'){S.form.dur=e.target.value;return}
   if(S.view!=='strength'&&S.view!=='stpost')return;const st=stById(S.arg);if(!st)return;const el=e.target;
   if(el.dataset.sf){const f=el.dataset.sf;
     if(f==='startTime'){const t=new Date(el.value).getTime();if(!isNaN(t))st.startTime=t}else st[f]=el.value;
@@ -2126,10 +2139,11 @@ async function installDiag(){
   for(const f of ['sw.js','icon-192.png','icon-512.png']){try{const r=await fetch(f,{cache:'no-store'});if(!r.ok)throw 0}catch(e){out.push(`Falta ${f} en el repositorio de GitHub. Súbelo junto a index.html.`)}}
   if(!out.length){try{const reg=await navigator.serviceWorker?.getRegistration();if(!reg)out.push('La app todavía se está preparando: recarga la página una vez.')}catch(e){}}
   return out}
-const installCardHTML=()=>inFrame||isStandalone()?'':`<div class="card" id="installCard"><span class="lbl">Instalar la app</span><div id="installBody" class="sec"><span class="hint">Comprobando…</span></div></div>`;
+const installCardHTML=()=>inFrame||isStandalone()||lsGet('installHide')?'':`<div class="card" id="installCard"><span class="lbl">Instalar la app</span><div id="installBody" class="sec"><span class="hint">Comprobando…</span></div></div>`;
 async function refreshInstall(){const b=$('#installBody');if(!b)return;
   if(isStandalone()){$('#installCard').hidden=true;return}
-  if(installEvt){b.innerHTML=`<span class="hint">Instálala para abrirla como una app, usarla sin conexión y compartirle desde WhatsApp los archivos de tus clientes.</span><button class="btn primary" data-act="installApp">Instalar IMDTraining</button>`;return}
+  if(installEvt){b.innerHTML=`<span class="hint">Instálala para abrirla como una app y usarla sin conexión.</span><div class="row"><button class="btn primary" data-act="installApp">Instalar IMDTraining</button><button class="btn" data-act="installHide">Ahora no</button></div>`;return}
+  if(isClient()){$('#installCard').hidden=true;return}
   const d=await installDiag();const b2=$('#installBody');if(!b2||installEvt)return;
   b2.innerHTML=d.length?`<details class="info"><summary>${ic('info')}<span>Todavía no se puede instalar · ver por qué (${d.length})</span></summary><ul class="diag">${d.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`
     :`<span class="hint">Todo está listo para instalarla. Si no aparece aquí el botón, abre el menú de Chrome (⋮) y busca «Instalar aplicación», o «Añadir a pantalla de inicio» y después «Instalar». Si ya tenías un acceso directo de la web, bórralo antes y recarga la página.</span>`}
@@ -2486,6 +2500,7 @@ const A={
   wSkip(){lsSet('wellSkip_'+S.wellFor,todayStr());closeModal()},
   wClose(){if(S.modalKind==='well')lsSet('wellSkip_'+S.wellFor,todayStr());closeModal()},
   newPlan(){newPlanFor(S.arg)},
+  installHide(){lsSet('installHide','1');const c=$('#installCard');if(c)c.hidden=true},
   async effMode(_,b){const uid=S.view==='plan'?planById(S.arg)?.userId:stById(S.arg)?.userId,p=prof(uid);if(!p)return;p.effort=b.dataset.v;await DB.put('profiles',p);
     if(S.view==='plan'){const pl=planById(S.arg);for(const e of pl.exercises||[])for(const x of e.sets){if(p.effort==='rir'&&x.rpe!=null&&x.rpe!==''&&(x.rir==null||x.rir==='')){x.rir=Math.max(0,Math.min(5,10-x.rpe));x.rpe=null}else if(p.effort==='rpe'&&x.rir!=null&&x.rir!==''&&(x.rpe==null||x.rpe==='')){x.rpe=Math.max(5,10-x.rir);x.rir=null}}await savePlan(pl)}const y=scrollY;render();scrollTo(0,y);
     toast(p.effort==='rir'?'Anotarás el esfuerzo en RIR (repeticiones en reserva)':'Anotarás el esfuerzo en RPE (CR-10)')},
@@ -2656,10 +2671,11 @@ const A={
     if(!(d>0)){toast('Escribe la duración en minutos');$('#stDur').focus();return}
     if(S.form.rpePost==null){toast('Elige un valor o pulsa «Anotar más tarde»');return}
     st.durationMin=d;st.notes=$('#stNotes').value;st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);go('ssum',st.id,{push:false});toast('RPE guardado')},
-  async stLater(){const st=stById(S.arg),d=parseInt($('#stDur')?.value);if(d>0)st.durationMin=d;st.notes=$('#stNotes')?.value??st.notes;await saveSt(st);go('ssum',st.id,{push:false})},
-  async stSavePending(){const st=stById(S.arg);if(S.form.rpePost==null){toast('Elige un valor de la escala');return}
-    if(!(st.durationMin>0)){toast('Falta la duración: pulsa «Editar sesión» y añádela al terminar');}
-    st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);render();toast('RPE guardado')},
+  async stLater(){const st=stById(S.arg),d=parseInt($('#stDur')?.value);if(!(d>0)&&!(st.durationMin>0)){toast('Anota al menos la duración: el RPE puede esperar');$('#stDur')?.focus();return}if(d>0)st.durationMin=d;st.notes=$('#stNotes')?.value??st.notes;await saveSt(st);go('ssum',st.id,{push:false})},
+  async stSavePending(){const st=stById(S.arg),di=$('#stDur2');
+    if(di){const d=parseInt(di.value);if(!(d>0&&d<=300)){toast('Escribe la duración en minutos');di.focus();return}st.durationMin=d}
+    if(st.rpePost==null){if(S.form.rpePost==null){toast('Elige el RPE de la sesión');return}st.rpePost=S.form.rpePost;st.rpePostTime=Date.now()}
+    await saveSt(st);S.form={};const y=scrollY;render();scrollTo(0,y);toast(`Guardado · carga ${stLoad(st)} UA`)},
   stEdit(){go('strength',S.arg)},
   async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;const pid=stById(id)?.planId;if(pid)await unmarkPlan(pid,id);await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
   stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;variante;unilateral;lado;serie;reps_o_contactos;kg;rpe;volumen_kg;tipo;intensidad;rir'];
@@ -2757,7 +2773,7 @@ async function importFiles(files){
       await DB.put('profiles',q);res.profiles.push({name:q.name,id:q.id,isNew:!hadP.has(q.id)})}
     const rm=x=>idMap[x.userId]?{...x,userId:idMap[x.userId]}:x;
     for(const x of sessions)await DB.put('sessions',rm(x));for(const x of tracks)await DB.put('tracks',x);
-    for(const x of strength)await DB.put('strength',rm(x));for(const x of tests)await DB.put('tests',rm(x));
+    for(const x0 of strength){const x=rm(x0),old=stById(x.id);if(old){if(!(x.durationMin>0)&&old.durationMin>0)x.durationMin=old.durationMin;if(x.rpePost==null&&old.rpePost!=null){x.rpePost=old.rpePost;x.rpePostTime=old.rpePostTime}}await DB.put('strength',x)}for(const x of tests)await DB.put('tests',rm(x));
     for(const x of d.plans||[])if(!planById(x.id))await DB.put('plans',rm(x));
     for(const x of d.wellness||[])await DB.put('wellness',rm(x));
     // Entrenamientos programados que el deportista ya ha hecho
