@@ -1615,6 +1615,7 @@ function shareCard(p){
   if(isClient()||p.example)return'';
   const me=p.id===meId(),coach=!!lsGet('coachToken');
   if(Sync.linked(p))return `<div class="note info"><b>${me?'Tu perfil se sincroniza':'Se sincroniza solo'}</b><span class="hint">Hoja de Google: ${Sync.status()}.${me?'':' Lo que registre en su móvil te llega solo, y lo que le añadas aquí le llega a él.'}</span>
+    ${coach?`<span class="hint">Código en la hoja: <b class="num">${esc(p.cloudId)}</b> <button class="link" data-act="copyCloudId" data-id="${p.id}">Copiar</button> · ponle un apodo en la pestaña «deportistas» para programarle desde la hoja.</span>`:''}
     <div class="row">${me?'':`<button class="btn small" data-act="syncResend" data-id="${p.id}">${ic('send','sm')}Reenviar invitación</button>`}<button class="btn small" data-act="syncRevoke" data-id="${p.id}">Desvincular</button></div></div>`;
   if(!p.remote&&!coach)return'';
   const d=p.lastImport?Math.floor((Date.now()-p.lastImport)/864e5):null;
@@ -2009,6 +2010,7 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
       h+=`<div class="card"><span class="lbl">Objetivo</span><div class="stats">${stat((h2.minutes||'—')+' min','Duración')}${stat(z?'Z'+z:'—','Zona')}${stat(z&&lim?`${lim[z-1]}–${z<5?lim[z]-1:p.hrMax}`:'—','ppm')}</div>${h2.type?`<span class="hint">Tipo: ${esc(h2.type)}</span>`:''}</div>`}
     else h+=`<section class="sec"><h3>Ejercicios</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}${e.plyo?' <span class="tag str">Pliometría</span>':''}</div><div class="chips">${e.plyo?e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'} cont.${x.int?' '+INT[x.int].toLowerCase():''}${effTxt(x)}</span>`).join(''):e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${effTxt(x)}</span>`).join('')}</div></div>`).join('')}</div></section>`}
   else{
+    if(pl.src==='hoja')h+=`<div class="note info slim">${ic('info')}<span class="hint"><b>Programado desde la hoja de Google.</b> Si lo cambias aquí, la próxima vez que pulses «Publicar» en la hoja se sustituirá por lo que haya en la hoja.</span></div>`;
     h+=`<div class="field"><label for="plTitle">Título</label><input id="plTitle" data-pf="title" value="${esc(pl.title||'')}"></div>
       <div class="g2"><div class="field"><label for="plDate">Día</label><input id="plDate" type="date" data-pf="date" value="${esc(pl.date||'')}"></div>
       <div class="field"><span class="lbl" style="margin-bottom:2px">Tipo</span><div class="seg two" role="radiogroup"><button type="button" role="radio" aria-checked="${pl.kind!=='hr'}" class="${pl.kind!=='hr'?'on':''}" data-act="plKind" data-v="strength">Fuerza</button><button type="button" role="radio" aria-checked="${pl.kind==='hr'}" class="${pl.kind==='hr'?'on':''}" data-act="plKind" data-v="hr">Aeróbico</button></div></div></div>
@@ -2584,6 +2586,7 @@ const A={
   rpe(b){const n=b.dataset.name,v=+b.dataset.v;S.form[n]=v;b.parentElement.querySelectorAll('.rpe-row').forEach(x=>{const on=+x.dataset.v===v;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});
     if(n==='stRpePre'){const st=stById(S.arg);st.rpePre=v;saveSt(st);const sm=b.closest('details')?.querySelector('summary');if(sm)sm.innerHTML=`RPE pre · ¿cómo llegas? <span class="tag">${v}</span>`}},
   clearPre(){S.form.rpePre=null;document.querySelectorAll('.rpe-row.on').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-checked','false')})},
+  async copyCloudId(_,b){const p=prof(b.dataset.id);if(!p?.cloudId)return;try{await navigator.clipboard.writeText(p.cloudId);toast('Código copiado: '+p.cloudId)}catch(e){toast('Código: '+p.cloudId)}},
   async copyBleLog(){const t=`IMDTraining · ${navigator.userAgent}\n`+BLOG.join('\n');try{await navigator.clipboard.writeText(t);toast('Diagnóstico copiado: pégamelo en el chat')}catch(e){toast('No se pudo copiar')}},
   async connectAll(){try{await BLE.pick(true)}catch(e){blog(`${e.name}: ${e.message}`);if(e.name==='NotFoundError')return;BLE.set('off');toast(e.name==='NoHR'?e.message:e.name==='SecurityError'?'Bluetooth bloqueado aquí. Abre la app desde su enlace en Chrome.':e.message||'No se pudo conectar')}},
   async connect(){try{await BLE.pick()}catch(e){blog(`${e.name}: ${e.message}`);
