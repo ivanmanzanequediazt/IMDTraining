@@ -212,7 +212,7 @@ test('Errores (H8) y validaciones', () => {
   api.publicarProgramacion();
   const st = col(ss, 'estado');
   ok(/deportista desconocido/.test(st[0]), 'apodo desconocido: ' + st[0]);
-  ok(/falta la fecha/.test(st[1]), 'sin fecha: ' + st[1]);
+  eq(st[1], '✓ Publicado · Pendiente', 'sin fecha: usa la de la fila de arriba');
   ok(/intervalos no válidos/.test(st[2]), 'intervalos: ' + st[2]);
   ok(/kg o %1RM/.test(st[3]) && st[3] === st[4], 'mezcla kg y %: ' + st[3]);
   ok(/fuerza o aeróbica/.test(st[5]) && st[5] === st[6], 'mezcla de tipos: ' + st[5]);
@@ -220,8 +220,11 @@ test('Errores (H8) y validaciones', () => {
   ok(/fecha no válida/.test(st[8]), 'fecha imposible: ' + st[8]);
   ok(/RPE no válido/.test(st[9]), 'RPE fuera de rango: ' + st[9]);
   eq(st[10], '✓ Publicado · Pendiente', 'lo correcto se publica igualmente');
-  eq(live(api).length, 1, 'solo un plan publicado');
-  ok(ss.toasts.some(t => /8 con error/.test(t)), 'aviso final: ' + ss.toasts.slice(-1));
+  eq(live(api).length, 2, 'solo se publican las correctas');
+  const s2 = load(); s2.ss.sheets.deportistas.data.push(['d1', 'DG']);
+  setProg(s2.ss, [{ apodo: 'DG', sesion: 'A', ejercicio: 'Press', series: 3, reps: 5 }]); s2.api.publicarProgramacion();
+  ok(/falta la fecha/.test(col(s2.ss, 'estado')[0]), 'primera fila sin fecha: ' + col(s2.ss, 'estado')[0]);
+  ok(ss.toasts.some(t => /7 con error/.test(t)), 'aviso final: ' + ss.toasts.slice(-1));
 });
 
 test('Copiar filas con su id oculto; juntar sesiones; deportista desvinculado; hoja ocupada', () => {
@@ -254,6 +257,24 @@ test('Copiar filas con su id oculto; juntar sesiones; deportista desvinculado; h
   ctx.__busy = true;
   api.publicarProgramacion();
   ok(/ALERT La hoja está ocupada/.test(ss.toasts.slice(-1)[0]), 'aviso de hoja ocupada');
+});
+
+test('Celdas vacías = fila de arriba', () => {
+  const { ss, api } = load();
+  ss.sheets.deportistas.data.push(['d1', 'DG'], ['d2', 'Ana']);
+  setProg(ss, [
+    { apodo: 'DG', fecha: D('2026-10-19'), sesion: 'Pierna', ejercicio: 'Sentadilla', series: 3, reps: 5 },
+    { ejercicio: 'Zancada', series: 3, reps: 8 },
+    { fecha: D('2026-10-21'), sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
+    { ejercicio: 'Remo', series: 3, reps: 8 },
+    {},
+    { apodo: 'Ana', sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
+    { sesion: 'Rodaje', tipo: 'Aeróbico', minutos: 30, zona: 'Z2' },
+  ]);
+  api.publicarProgramacion();
+  eq(col(ss, 'estado').filter(x => x).every(x => x === '✓ Publicado · Pendiente'), true, 'todo publicado: ' + col(ss, 'estado'));
+  const L = live(api).map(p => [p.userId, p.data.date, p.data.title, (p.data.exercises || []).map(e => e.name).join('+')].join(' ')).sort();
+  eq(L, ['d1 2026-10-19 Pierna Sentadilla+Zancada', 'd1 2026-10-21 Torso Press+Remo', 'd2 2026-10-21 Rodaje ', 'd2 2026-10-21 Torso Press'], 'sesiones heredadas');
 });
 
 console.log(`\n${passes} comprobaciones correctas, ${fails} fallos`);

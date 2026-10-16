@@ -114,6 +114,7 @@ function prepararProgramacion() {
     'CÓMO SE PROGRAMA\n' +
     '• Una fila por ejercicio. Una sesión = filas con el mismo Deportista + Fecha + Sesión. ' +
     'El orden de las filas es el orden de los ejercicios.\n' +
+    '• Deportista, Fecha y Sesión vacíos = los de la fila de arriba: escríbelos solo cuando cambien.\n' +
     '• Series distintas (pirámides): varias filas seguidas del mismo ejercicio.\n' +
     '• Kg o %1RM (si pones %1RM, la app calcula los kilos).\n' +
     '• Pliometría: marca la casilla; Reps = contactos; elige Intensidad.\n' +
@@ -131,9 +132,9 @@ function prepararProgramacion() {
       Object.keys(o).forEach(function (k) { r[PC[k]] = o[k]; }); r[PC.unilateral] = !!o.unilateral; r[PC.plyo] = !!o.plyo; return r; };
     const rows = [
       e({ apodo: 'Ejemplo', fecha: d(3), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 4, reps: 6, pct: 80, rir: 2, notas: 'Calienta 10 min' }),
-      e({ apodo: 'Ejemplo', fecha: d(3), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Zancada', unilateral: true, series: 3, reps: 8, kg: 12, rpe: 7 }),
-      e({ apodo: 'Ejemplo', fecha: d(3), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Drop jump', plyo: true, series: 3, reps: 6, int: 'Alta' }),
-      e({ apodo: 'Ejemplo', fecha: d(5), sesion: 'Series', tipo: 'Aeróbico', ejercicio: 'Carrera', intervalos: '10 Z2, 3 Z4, 2 Z1, 3 Z4, 10 Z2' }),
+      e({ ejercicio: 'Zancada', unilateral: true, series: 3, reps: 8, kg: 12, rpe: 7 }),
+      e({ ejercicio: 'Drop jump', plyo: true, series: 3, reps: 6, int: 'Alta' }),
+      e({ fecha: d(5), sesion: 'Series', tipo: 'Aeróbico', ejercicio: 'Carrera', intervalos: '10 Z2, 3 Z4, 2 Z1, 3 Z4, 10 Z2' }),
     ];
     prog.getRange(2, 1, rows.length, PROG_COLS).setValues(rows);
   }
@@ -390,19 +391,25 @@ function ymd_(y, mo, d) {
   return y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
 }
 
+// Deportista, Fecha y Sesión vacíos = los de la fila de arriba (así solo se escriben cuando cambian)
 function parseRows_(values, fmt) {
   const out = [];
+  const prev = { apodo: '', fecha: '', sesion: '' };
   for (let i = 1; i < values.length; i++) {
     const v = values[i];
     const has = v.slice(0, PC.accion + 1).some(function (x) { return x !== '' && x !== false && x !== null; });
     if (!has) continue;
     const tipo = norm_(v[PC.tipo]);
     const intTxt = norm_(v[PC.int]);
+    const apodo = str_(v[PC.apodo]) || prev.apodo;
+    const fecha = v[PC.fecha] === '' || v[PC.fecha] === null ? prev.fecha : date_(v[PC.fecha], fmt);
+    const sesion = str_(v[PC.sesion]) || prev.sesion;
+    prev.apodo = apodo; prev.fecha = fecha; prev.sesion = sesion;
     out.push({
       row: i + 1,
-      apodo: str_(v[PC.apodo]),
-      fecha: date_(v[PC.fecha], fmt),
-      sesion: str_(v[PC.sesion]),
+      apodo: apodo,
+      fecha: fecha,
+      sesion: sesion,
       kind: tipo === '' || tipo.indexOf('fue') === 0 ? 'strength'
         : tipo.indexOf('aer') === 0 || tipo.indexOf('aeró') === 0 ? 'hr' : 'bad',
       ejercicio: str_(v[PC.ejercicio]),
