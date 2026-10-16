@@ -464,7 +464,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
   <button class="d-item d-plain" data-d="invite" id="dInvite">Invitar a un cliente</button>
   <button class="d-item d-plain" data-d="import" id="dImport">Importar datos de un cliente</button>
   <button class="d-item d-plain" data-d="hr" id="dHr">Pulsómetro</button>
-  <div class="d-foot"><div class="d-theme" role="radiogroup" aria-label="Tema de la app"><span class="lbl">Tema</span><div class="seg" id="dTheme"></div></div><button class="d-item d-plain" data-d="backup">Copia de seguridad</button><button class="d-item d-plain" data-d="mode" id="dMode">Cambiar modo</button></div>
+  <div class="d-foot"><div class="d-theme" role="radiogroup" aria-label="Tema de la app"><span class="lbl">Tema</span><div class="seg" id="dTheme"></div></div><button class="d-item d-plain" data-d="sync" id="dSync">Sincronización</button><button class="d-item d-plain" data-d="backup">Copia de seguridad</button><button class="d-item d-plain" data-d="mode" id="dMode">Cambiar modo</button></div>
 </nav>
 <div id="scrim" hidden></div>
 
@@ -546,7 +546,7 @@ const srpe=s=>s.rpePost==null?null:Math.round(s.rpePost*s.activeMs/60000);
 const trimp=s=>s.zoneMs?Math.round(s.zoneMs.reduce((a,ms,z)=>a+ms/60000*z,0)):null;
 // Pico de FC sostenido (3 muestras seguidas) para no tomar como FC máxima un pico aislado del sensor
 // Deportista: invitar a enviar justo después de registrar
-function sendNudge(uid){const p=prof(uid);if(!isClient()||selfCoached()||!p||p.remote||!newSinceSent(p))return'';
+function sendNudge(uid){const p=prof(uid);if(!isClient()||selfCoached()||!p||p.remote||p.cloudToken||!newSinceSent(p))return'';
   return `<div class="note info slim send-nudge">${ic('send')}<span class="hint grow"><b>¿Se lo mandas a tu entrenador?</b> ${newSinceSent(p)} registro${newSinceSent(p)===1?'':'s'} sin enviar.</span><button class="btn small primary" data-act="send">Enviar</button></div>`}
 function hrMaxCard(s){const p=prof(s?.userId);if(!p||!s.peakHr||s.peakHr<=p.hrMax||s.hrMaxSeen)return'';
   return `<div class="note"><b>Has superado tu FC máxima</b><span class="hint num">Pico sostenido en esta sesión: <b>${s.peakHr} ppm</b>. FC máxima del perfil: ${p.hrMax} ppm${p.hrMaxEstimated?' (estimada)':''}. Si fue un esfuerzo real y no un error del sensor, actualízala para que las zonas sean correctas.${p.method==='manual'?' Ojo: las zonas de este perfil son manuales; revísalas después en Editar.':''}</span>
@@ -745,11 +745,23 @@ const DB={db:null,mem:null,
     }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map(),strength:new Map(),tests:new Map(),plans:new Map(),wellness:new Map()};S.memOnly=true}
   },
   tx(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);let out;const r=fn(t.objectStore(store));if(r)r.onsuccess=()=>{out=r.result};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error)})},
-  all(s){return this.mem?Promise.resolve([...this.mem[s].values()]):this.tx(s,'readonly',o=>o.getAll())},
-  get(s,id){return this.mem?Promise.resolve(this.mem[s].get(id)):this.tx(s,'readonly',o=>o.get(id))},
-  put(s,v){if(this.mem){this.mem[s].set(v.id,structuredClone(v));return Promise.resolve()}return this.tx(s,'readwrite',o=>o.put(v))},
-  del(s,id){if(this.mem){this.mem[s].delete(id);return Promise.resolve()}return this.tx(s,'readwrite',o=>o.delete(id))}
+  // *Raw: sin filtrar los borrados (tombstones) ni marcar cambios. Los usa la sincronización
+  allRaw(s){return this.mem?Promise.resolve([...this.mem[s].values()]):this.tx(s,'readonly',o=>o.getAll())},
+  getRaw(s,id){return this.mem?Promise.resolve(this.mem[s].get(id)):this.tx(s,'readonly',o=>o.get(id))},
+  putRaw(s,v){if(this.mem){this.mem[s].set(v.id,structuredClone(v));return Promise.resolve()}return this.tx(s,'readwrite',o=>o.put(v))},
+  purge(s,id){if(this.mem){this.mem[s].delete(id);return Promise.resolve()}return this.tx(s,'readwrite',o=>o.delete(id))}, // borrado físico, solo en este móvil
+  async all(s){return (await this.allRaw(s)).filter(x=>!x.deleted)},
+  async get(s,id){const v=await this.getRaw(s,id);return v&&!v.deleted?v:undefined},
+  // Guardar marca el registro como pendiente de subir. imported: conserva el updatedAt que traiga (archivos y enlaces)
+  async put(s,v,o){if(!SYNC_STORES.includes(s))return this.putRaw(s,v);
+    if(!(o?.imported&&v.updatedAt))v.updatedAt=Date.now();if(o?.imported)delete v.synced;v.dirty=1;if(!v.deleted)delete v.deleted;
+    await this.putRaw(s,v);Sync.schedule()},
+  // Borrar deja un tombstone para que el borrado llegue a los demás móviles; si nunca se subió, se borra sin más
+  async del(s,id){if(!SYNC_STORES.includes(s))return this.purge(s,id);const v=await this.getRaw(s,id);if(!v)return;
+    if(!v.synced)return this.purge(s,id);
+    await this.putRaw(s,s==='tracks'?{id,deleted:true,dirty:1,synced:1,updatedAt:Date.now()}:{...v,deleted:true,dirty:1,updatedAt:Date.now()});Sync.schedule()}
 };
+const SYNC_STORES=['profiles','sessions','tracks','strength','tests','plans','wellness'];
 
 /* ================= Estado ================= */
 const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],wellness:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
@@ -873,7 +885,8 @@ async function finishRec(){
 }
 setInterval(()=>{if(BLE.status==='on'&&BLE.last&&Date.now()-BLE.last>8000&&!BLE.gapLogged){BLE.gapLogged=true;blog(`Sin datos desde hace ${Math.round((Date.now()-BLE.last)/1000)} s (sigue conectado)${document.hidden?' · app en segundo plano':''}`)}if(Date.now()-BLE.last<5000)BLE.gapLogged=false},2000);
 function askSendFocus(){if(!(isClient()&&myProfile()))return;S.ptab='res';toRoot('profile',myProfile().id);setTimeout(()=>{const c=$('.card.share');c?.scrollIntoView({block:'center',behavior:'smooth'});c?.classList.add('flash')},300);toast('Pulsa «Enviar a mi entrenador»')}
-window.addEventListener('hashchange',()=>{const h=location.hash;if(!h.startsWith('#d=')&&h!=='#enviar')return;try{history.replaceState({},'',location.pathname+location.search)}catch(e){}if(h==='#enviar')askSendFocus();else importLink(h.slice(3))});
+window.addEventListener('hashchange',()=>{const h=location.hash;if(!/^#(d=|join=|coach=)/.test(h)&&h!=='#enviar')return;try{history.replaceState({},'',location.pathname+location.search)}catch(e){}
+  if(h==='#enviar')askSendFocus();else if(h.startsWith('#join='))joinWith(h.slice(6));else if(h.startsWith('#coach='))coachConnect(h.slice(7));else importLink(h.slice(3))});
 function onHR(p){
   const t=Date.now();updChip();
   if(S.rec)recAdd(p,t);
@@ -1040,8 +1053,8 @@ const V={};
 // Recordatorio de copia de seguridad: si hay datos propios y la última copia tiene más de 7 días
 function backupNudge(){const real=[...S.sessions,...S.strength,...S.tests].filter(x=>!x.example).length;if(real<3)return'';
   const t=+lsGet('lastBackup')||0;if(Date.now()-t<7*864e5)return'';
-  return `<div class="note info slim">${ic('save')}<span class="hint grow"><b>${t?`Última copia ${ago(t)}`:'Aún no has hecho ninguna copia'}.</b> Tus datos solo están en este móvil: guarda una copia en Drive.</span><button class="btn small" data-act="backup">Copia</button></div>`}
-function alertsHTML(uid,noGlobal){let h=noGlobal?'':backupNudge();const mine=x=>uid?x.userId===uid:!prof(x.userId)?.remote;
+  return `<div class="note info slim">${ic('save')}<span class="hint grow"><b>${t?`Última copia ${ago(t)}`:'Aún no has hecho ninguna copia'}.</b> ${S.profiles.some(p=>Sync.linked(p))?'Los nombres y lo que no se sincroniza solo están en este móvil':'Tus datos solo están en este móvil'}: guarda una copia en Drive.</span><button class="btn small" data-act="backup">Copia</button></div>`}
+function alertsHTML(uid,noGlobal){let h=noGlobal?'':syncAlert()+backupNudge();const mine=x=>uid?x.userId===uid:!prof(x.userId)?.remote;
   if(!btOK&&!noGlobal&&!isClient())h+=`<div class="note info slim">${ic('info')}<span class="hint">Bluetooth no disponible aquí: abre la app desde su enlace en Chrome para Android. Puedes probarlo todo con el simulador.</span></div>`;
   if(S.memOnly&&!noGlobal)h+=`<div class="note"><b>Los datos no se guardarán</b><span class="hint">Este navegador no permite almacenamiento. Abre la app desde su propio enlace para que guarde perfiles y sesiones.</span></div>`;
   for(const s of S.sessions.filter(s=>mine(s)&&s.status==='recording'&&(!S.rec||S.rec.id!==s.id)))
@@ -1066,11 +1079,11 @@ V.home=()=>{
   h+=`<section class="sec"><div class="sec-h"><h2>Perfiles <span class="muted num">${ps.length||''}</span></h2><button class="btn small" data-act="newProfile">${ic('plus')}Nuevo</button></div>`;
   if(ps.length>1)h+=`<div class="chips-f" role="radiogroup" aria-label="Ordenar perfiles"><span class="lbl" style="align-self:center;margin-right:2px">Ordenar</span>${[['az','A–Z'],['recent','Actividad reciente']].map(([k,l])=>`<button type="button" role="radio" aria-checked="${srt===k}" class="fchip ${srt===k?'on':''}" data-act="pSort" data-v="${k}">${l}</button>`).join('')}</div>`;
   h+=ps.length?`<div class="pgrid">${ps.map(profileCard).join('')}</div>`:`<div class="empty">Crea un perfil por cada persona que entrenes. Cada uno guarda sus zonas, sesiones y test.</div>`;
-  h+=`</section><section class="sec"><h3>Clientes</h3><div class="actions">
+  h+=`</section><section class="sec"><h3>Clientes</h3>${lsGet('coachToken')?`<div class="row" style="align-items:center;margin-bottom:8px"><span class="hint grow">Hoja de Google: ${lsGet('syncError')==='token'?'<b class="warnTxt">sincronización parada</b>':Sync.status()}</span><button class="btn small" data-act="syncNow">Actualizar</button></div>`:''}<div class="actions">
     <button class="action" data-act="invite">${ic('userPlus')}<b>Invitar</b><span>Envía el enlace</span></button>
     <button class="action" data-act="import">${ic('download')}<b>Importar</b><span>Datos recibidos</span></button></div>
-    ${info('Pásale a cada cliente el enlace de invitación: crea su perfil en su móvil y, al pulsar «Enviar a mi entrenador», te llega por WhatsApp un enlace con sus datos. Solo tienes que tocarlo y se importa. Los planes y sesiones que tú le mandes le llegan igual. Si un envío es muy grande (por ejemplo, todo el historial), va como archivo: compártelo desde WhatsApp a IMDTraining o usa «Importar». Si el perfil ya existía, se actualiza y solo se suman las sesiones nuevas.','Cómo funciona')}</section>
-  <details class="card more"><summary>${ic('save')}<span>Copia de seguridad</span></summary><span class="hint">Los datos se guardan solo en este móvil y en este navegador. Exporta una copia de vez en cuando.</span>
+    ${info('Pásale a cada cliente el enlace de invitación: crea su perfil en su móvil y, al pulsar «Enviar a mi entrenador», te llega por WhatsApp un enlace con sus datos. Solo tienes que tocarlo y se importa. Los planes y sesiones que tú le mandes le llegan igual. Si un envío es muy grande (por ejemplo, todo el historial), va como archivo: compártelo desde WhatsApp a IMDTraining o usa «Importar». Si el perfil ya existía, se actualiza y solo se suman las sesiones nuevas. Si conectas la app con tu hoja de Google (menú → Sincronización) e invitas a cada cliente desde su perfil, sus entrenos te llegan solos, sin que tenga que enviarlos.','Cómo funciona')}</section>
+  <details class="card more"><summary>${ic('save')}<span>Copia de seguridad</span></summary><span class="hint">${S.profiles.some(p=>Sync.linked(p))?'Los entrenos de los perfiles vinculados también están en tu hoja de Google, sin nombres. Los nombres y el resto solo están en este móvil y en este navegador.':'Los datos se guardan solo en este móvil y en este navegador.'} Exporta una copia de vez en cuando.</span>
     <div class="row"><button class="btn small" data-act="backup">Exportar copia</button><button class="btn small" data-act="importBackup">Importar copia</button></div></details>`;
   return h;
 };
@@ -1195,10 +1208,10 @@ function recordsHTML(p){
   for(const [label,list] of groups)h+=`<details class="rec-grp" open><summary><span>${label}</span><span class="muted num">${list.length}</span></summary><div class="list">${list.sort((a,b)=>a.name.localeCompare(b.name,'es')).map(recRow).join('')}</div></details>`;
   return h+info(`Peso: mayor carga levantada (y con cuántas repeticiones). Reps: más repeticiones en una serie (y con qué carga). 1RM estimado con ${esc(RM_FORMULAS[rmKey()].name)} a partir de series de hasta 10 repeticiones. Cada ejercicio aparece en sus grupos musculares principales; la variante y si es unilateral cuentan como ejercicios distintos. Toca un ejercicio para ver su progresión.`,'Cómo se calculan')+'</section>'}
 // Elemento de la lista de sesiones (pulsómetro o fuerza)
-function sessItem(s){const l=loadOfAny(s),right=l==null?`<span class="tag pend">${s.kind==='st'&&s.rpePost!=null?'Falta duración':'RPE pendiente'}</span>`:`<span class="tag num">${l} UA</span>`;
+function sessItem(s){const l=loadOfAny(s),byCoach=isClient()&&s.author==='coach'?' <span class="tag str">Añadido por tu entrenador</span>':'',right=l==null?`<span class="tag pend">${s.kind==='st'&&s.rpePost!=null?'Falta duración':'RPE pendiente'}</span>`:`<span class="tag num">${l} UA</span>`;
   if(s.kind==='st'){const k=strengthStats(s);
-    return `<button class="item" data-act="openStrength" data-id="${s.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
-  return `<button class="item" data-act="openSession" data-id="${s.id}"><span class="kind hr">${ic('heart')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}</span><span class="s num">Aeróbico · ${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm${s.zoneMs?' · TRIMP '+trimp(s):''}</span></span>${right}</button>`}
+    return `<button class="item" data-act="openStrength" data-id="${s.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}${byCoach}</span><span class="s num">${fmtDate(s.startTime)} · ${s.durationMin||'—'} min · ${k.sets} series · ${fmtKg(k.vol)} kg</span></span>${right}</button>`}
+  return `<button class="item" data-act="openSession" data-id="${s.id}"><span class="kind hr">${ic('heart')}</span><span class="grow"><span class="t">${esc(s.type)}${s.planId?' <span class="tag str">Programado</span>':''}${byCoach}</span><span class="s num">Aeróbico · ${fmtDate(s.startTime)} · ${fmtMin(s.activeMs)} · media ${s.avgHr??'—'} ppm${s.zoneMs?' · TRIMP '+trimp(s):''}</span></span>${right}</button>`}
 const kpi=(val,label,act,tab,extra='')=>`<button class="kpi" data-act="${act}" data-v="${tab}">${extra}<b class="num">${val}</b><span>${label}</span></button>`;
 V.profile=()=>{
   const p=prof(S.arg);if(!p)return'';const tab=tabsFor().some(t=>t[0]===S.ptab)&&S.ptab!=='test'?S.ptab:'res';
@@ -1280,7 +1293,7 @@ V.profile=()=>{
     ${isClient()?'':shareCard(p)}
     ${isClient()||p.example?'':p.id===meId()?`<div class="card"><span class="lbl">Tu perfil</span><span class="hint">Es el perfil que usas como deportista. Cambia entre entrenador y tu perfil con el botón «Yo» de arriba.</span><div class="row"><button class="btn small primary" data-act="goMe">${ic('user','sm')}Abrir como deportista</button><button class="btn small" data-act="meUnset">Dejar de usarlo como mío</button></div></div>`
       :`<div class="card"><span class="lbl">¿Eres tú?</span><span class="hint">Márcalo como tu perfil para entrenar tú también con la app y pasar de entrenador a deportista con un toque.</span><button class="btn small" data-act="meSet" data-id="${p.id}">${ic('user','sm')}Es mi perfil</button></div>`}
-    ${isClient()?'':`<details class="card danger-zone"><summary>Borrar perfil</summary><span class="hint">Se eliminan de este móvil ${esc(p.name)} y todos sus datos: ${all.length} sesi${all.length===1?'ón':'ones'} y ${S.tests.filter(t=>t.userId===p.id).length} test. No se puede deshacer.${p.remote?' Si vuelve a enviarte sus datos y los importas, el perfil se volverá a crear.':''}</span>
+    ${isClient()?'':`<details class="card danger-zone"><summary>Borrar perfil</summary><span class="hint">Se eliminan de este móvil ${esc(p.name)} y todos sus datos: ${all.length} sesi${all.length===1?'ón':'ones'} y ${S.tests.filter(t=>t.userId===p.id).length} test. No se puede deshacer.${Sync.linked(p)?' Se borra solo de este móvil: en la hoja de Google sus datos se conservan. Para que deje de sincronizar, usa «Desvincular».':p.remote?' Si vuelve a enviarte sus datos y los importas, el perfil se volverá a crear.':''}</span>
       <button class="btn danger wide" data-act="delProfileHere">Borrar el perfil de ${esc(p.name)}</button></details>`}`}
   return h;
 };
@@ -1591,31 +1604,41 @@ V.welcome=()=>`<div class="welcome">
 function newSinceSent(p){const t=+lsGet('lastSent_'+p.id)||0;
   return [...allOf(p.id),...S.tests.filter(x=>x.userId===p.id)].filter(x=>(x.startTime??x.date)>t).length+S.wellness.filter(w=>w.userId===p.id&&(w.at||0)>t).length}
 function shareCard(p){
+  if(isClient()&&!p.remote&&p.cloudToken){const err=lsGet('syncError')==='token';
+    return `<div class="card share"><div class="sec-h"><span class="lbl">Tu entrenador</span></div>
+      <span class="hint">${err?'<b class="warnTxt">La sincronización está parada: tu invitación ya no vale.</b> Pide a tu entrenador una invitación nueva.':`Tus entrenos se envían solos a tu entrenador · ${Sync.status()}.`}</span>
+      <button class="btn primary" data-act="syncNow">${ic('send')}Sincronizar ahora</button><button class="link" data-act="sendFull">Enviar copia completa (archivo)</button><button class="link" data-act="syncLeave">Dejar de sincronizar</button></div>`}
   if(isClient()&&!p.remote){const t=+lsGet('lastSent_'+p.id)||0,n=newSinceSent(p);
     return `<div class="card share"><div class="sec-h"><span class="lbl">Tu entrenador</span>${n?`<span class="tag pend">${n} sin enviar</span>`:''}</div>
       <span class="hint">${t?`Último envío ${ago(t)}.`:'Todavía no has enviado tus datos.'} Se envía un enlace por WhatsApp con lo nuevo; tu entrenador solo tiene que tocarlo.</span>
       <button class="btn primary" data-act="send">${ic('send')}Enviar a mi entrenador</button><button class="link" data-act="sendFull">Enviar copia completa (archivo)</button></div>`}
-  if(!isClient()&&p.remote){const d=p.lastImport?Math.floor((Date.now()-p.lastImport)/864e5):null;
-    return `<div class="note info"><b>Perfil de cliente</b><span class="hint">Datos recibidos ${p.lastImport?ago(p.lastImport):'—'}${d>=7?` · <b class="warnTxt">hace ${d} días</b>`:''}. Cuando te envíe un enlace, solo tienes que tocarlo. Los cambios que hagas aquí en el perfil se sustituyen con su próximo envío; las sesiones y test se suman.</span>
-      <button class="btn small" data-act="askData" data-id="${p.id}">${ic('send','sm')}Pedirle sus datos</button></div>`}
-  return ''}
+  if(isClient()||p.example)return'';
+  const me=p.id===meId(),coach=!!lsGet('coachToken');
+  if(Sync.linked(p))return `<div class="note info"><b>${me?'Tu perfil se sincroniza':'Se sincroniza solo'}</b><span class="hint">Hoja de Google: ${Sync.status()}.${me?'':' Lo que registre en su móvil te llega solo, y lo que le añadas aquí le llega a él.'}</span>
+    <div class="row">${me?'':`<button class="btn small" data-act="syncResend" data-id="${p.id}">${ic('send','sm')}Reenviar invitación</button>`}<button class="btn small" data-act="syncRevoke" data-id="${p.id}">Desvincular</button></div></div>`;
+  if(!p.remote&&!coach)return'';
+  const d=p.lastImport?Math.floor((Date.now()-p.lastImport)/864e5):null;
+  return `<div class="note info"><b>${p.remote?'Perfil de cliente':'Sincronización'}</b>${p.remote?`<span class="hint">Datos recibidos ${p.lastImport?ago(p.lastImport):'—'}${d>=7?` · <b class="warnTxt">hace ${d} días</b>`:''}. Cuando te envíe un enlace, solo tienes que tocarlo. Los cambios que hagas aquí en el perfil se sustituyen con su próximo envío; las sesiones y test se suman.</span>`:''}
+    ${coach?`<span class="hint">${me?'Sincroniza tu perfil para tenerlo también en la hoja de Google.':'Invítale a la sincronización y sus entrenos te llegarán solos, sin pedírselos.'}</span>`:''}
+    <div class="row">${coach?`<button class="btn small primary" data-act="syncInvite" data-id="${p.id}">${ic('userPlus','sm')}${me?'Sincronizar mi perfil':'Invitar a la sincronización'}</button>`:''}${p.remote?`<button class="btn small" data-act="askData" data-id="${p.id}">${ic('send','sm')}Pedirle sus datos</button>`:''}</div></div>`}
 // Envío rápido: lo nuevo desde el último envío (con 14 días de margen para incluir RPE anotados después), por enlace
 async function sendToCoach(full){
   const p=myProfile();if(!p){toast('Crea primero tu perfil');return}
   if(!full){const last=+lsGet('lastSent_'+p.id)||0,since=last?last-14*864e5:0,inT=x=>(x.startTime??x.date??x.at??0)>=since;
     const sess=S.sessions.filter(s=>s.userId===p.id&&s.status==='done'&&inT(s)),tracks=[];for(const s of sess){const t=await DB.get('tracks',s.id);if(t)tracks.push(t)}
-    const data={app:'imdtraining',kind:'client',version:4,partial:!!last,exported:new Date().toISOString(),profiles:[p],sessions:sess,tracks,
+    const data={app:'imdtraining',kind:'client',version:4,partial:!!last,exported:new Date().toISOString(),profiles:[stripSecrets(p)],sessions:sess,tracks,
       strength:S.strength.filter(s=>s.userId===p.id&&s.status==='done'&&inT(s)),tests:S.tests.filter(t=>t.userId===p.id&&inT(t)),wellness:S.wellness.filter(w=>w.userId===p.id&&(w.at||0)>=since)};
     const n=data.sessions.length+data.strength.length+data.tests.length;
     const r=await shareSmart(data,`imdtraining_${slug(p.name)}_${fileDate(Date.now())}`,'Datos para mi entrenador',`📊 Entrenamientos de ${p.name} (${n} registro${n===1?'':'s'}). Toca el enlace para importarlos en IMDTraining:`,`Datos de entrenamiento de ${p.name} (IMDTraining)`);
     if(r==='cancel')return;lsSet('lastSent_'+p.id,Date.now());render();toast(r==='shared'?'Datos enviados a tu entrenador':sentMsg(r));return}
   const sess=S.sessions.filter(s=>s.userId===p.id&&s.status==='done'),tracks=[];
   for(const s of sess){const t=await DB.get('tracks',s.id);if(t)tracks.push(t)}
-  const data={app:'imdtraining',kind:'client',version:3,exported:new Date().toISOString(),profiles:[p],sessions:sess,tracks,
+  const data={app:'imdtraining',kind:'client',version:3,exported:new Date().toISOString(),profiles:[stripSecrets(p)],sessions:sess,tracks,
     strength:S.strength.filter(s=>s.userId===p.id&&s.status==='done'),tests:S.tests.filter(t=>t.userId===p.id),wellness:S.wellness.filter(w=>w.userId===p.id)};
   const base=`imdtraining_${slug(p.name)}_${fileDate(Date.now())}`,txt=JSON.stringify(data);
   // Android solo comparte ciertos tipos de archivo: se prueba .json y, si no, .txt (la app importa los dos)
-  try{if(navigator.canShare){for(const [ext,type] of [['json','application/json'],['txt','text/plain']]){const f=new File([txt],`${base}.${ext}`,{type});
+  // En el móvil se comparte (WhatsApp); en el ordenador se descarga, como en download()
+  try{if(navigator.canShare&&/Android|iPhone|iPad/i.test(navigator.userAgent)){for(const [ext,type] of [['json','application/json'],['txt','text/plain']]){const f=new File([txt],`${base}.${ext}`,{type});
       if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'Datos para mi entrenador',text:`Datos de entrenamiento de ${p.name} (IMDTraining)`});lsSet('lastSent_'+p.id,Date.now());render();toast('Datos enviados');return}}}}
   catch(e){if(e.name==='AbortError')return}
   await download(`${base}.json`,txt,'application/json',false);lsSet('lastSent_'+p.id,Date.now());render();
@@ -1646,12 +1669,12 @@ function sortProfiles(ps,how=lsGet('pSort')||'az'){const me=meId();
 // Borra un perfil con todas sus sesiones (y registros de FC), sesiones de fuerza y test
 async function deleteProfile(id){const p=prof(id);if(!p)return;
   if(S.rec&&S.rec.userId===id){toast('Termina antes la sesión que está grabando');return}
-  for(const s of S.sessions.filter(s=>s.userId===id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
-  for(const s of S.strength.filter(s=>s.userId===id))await DB.del('strength',s.id);
-  for(const t of S.tests.filter(t=>t.userId===id))await DB.del('tests',t.id);
-  for(const x of S.plans.filter(x=>x.userId===id))await DB.del('plans',x.id);S.plans=S.plans.filter(x=>x.userId!==id);
-  for(const x of S.wellness.filter(x=>x.userId===id))await DB.del('wellness',x.id);S.wellness=S.wellness.filter(x=>x.userId!==id);
-  await DB.del('profiles',id);
+  // Borrado solo en este móvil (purge, sin tombstones): en la hoja de Google sus datos se conservan
+  if(p.cloudId&&lsGet('coachToken'))Sync.ignore(p.cloudId,true);
+  for(const s of (await DB.allRaw('sessions')).filter(s=>s.userId===id)){await DB.purge('sessions',s.id);await DB.purge('tracks',s.id)}
+  for(const st of ['strength','tests','plans','wellness'])for(const x of (await DB.allRaw(st)).filter(x=>x.userId===id))await DB.purge(st,x.id);
+  S.plans=S.plans.filter(x=>x.userId!==id);S.wellness=S.wellness.filter(x=>x.userId!==id);
+  await DB.purge('profiles',id);
   S.sessions=S.sessions.filter(s=>s.userId!==id);S.strength=S.strength.filter(s=>s.userId!==id);S.tests=S.tests.filter(t=>t.userId!==id);S.profiles=S.profiles.filter(x=>x.id!==id);
   for(const k of ['lastSent_','lastType_','lastStType_'])lsSet(k+id,'');
   S.stack=[];go('home',null,{push:false});toast(`Perfil de ${p.name} borrado`)}
@@ -1681,7 +1704,7 @@ function wellStatus(uid,w){if(!w)return null;const sc=wellScore(w),prev=wellOf(u
   return {sc,...st}}
 // Ventana emergente
 function openWell(uid){const w=wellDay(uid,todayStr());S.wellFor=uid;S.wDraft=w?{...w}:{};renderWell();$('#modal').hidden=false;document.body.classList.add('modal-open')}
-function closeModal(){$('#modal').hidden=true;$('#modal').innerHTML='';document.body.classList.remove('modal-open');S.wellFor=null;S.modalKind=null}
+function closeModal(){$('#modal').hidden=true;$('#modal').innerHTML='';document.body.classList.remove('modal-open');S.wellFor=null;S.modalKind=null;S.syncEdit=false}
 function renderWell(){const d=S.wDraft,p=prof(S.wellFor),done=WELL_Q.every(([k])=>d[k]),cl=isClient();S.modalKind='well';
   const live=BLE.bpm&&Date.now()-BLE.last<5000&&hasSource();
   $('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="wTitle">
@@ -2116,11 +2139,11 @@ async function importForAthlete(d){
   else{target=prof(d.forProfileId);if(!target)return {error:`Este archivo es para ${d.forName||'un deportista'}: ábrelo en su móvil, con la app en modo deportista`}}
   const items=[],u=x=>({...x,userId:target.id});
   for(const pl of d.plans||[]){const old=await DB.get('plans',pl.id);const q=u(pl);if(old&&old.status!=='pending'){q.status=old.status;q.doneId=old.doneId;q.doneAt=old.doneAt}
-    q.receivedAt=Date.now();await DB.put('plans',q);items.push({type:'plan',id:q.id,name:q.title,uid:target.id})}
-  for(const x of d.sessions||[]){await DB.put('sessions',u(x));items.push({type:'hr',id:x.id,name:x.type,uid:target.id})}
-  for(const t of d.tracks||[])await DB.put('tracks',t);
-  for(const x of d.strength||[]){await DB.put('strength',u(x));items.push({type:'st',id:x.id,name:x.type,uid:target.id})}
-  for(const x of d.tests||[]){await DB.put('tests',u(x));items.push({type:'test',id:x.id,name:TEST_TYPES[x.type]?.short||'Test',uid:target.id})}
+    q.receivedAt=Date.now();await DB.put('plans',q,{imported:true});items.push({type:'plan',id:q.id,name:q.title,uid:target.id})}
+  for(const x of d.sessions||[]){await DB.put('sessions',u(x),{imported:true});items.push({type:'hr',id:x.id,name:x.type,uid:target.id})}
+  for(const t of d.tracks||[])await DB.put('tracks',t,{imported:true});
+  for(const x of d.strength||[]){await DB.put('strength',u(x),{imported:true});items.push({type:'st',id:x.id,name:x.type,uid:target.id})}
+  for(const x of d.tests||[]){await DB.put('tests',u(x),{imported:true});items.push({type:'test',id:x.id,name:TEST_TYPES[x.type]?.short||'Test',uid:target.id})}
   return {items}}
 /* ================= Instalación como app ================= */
 let installEvt=null;
@@ -2237,7 +2260,7 @@ V.tests=()=>{
   else for(const [k,v] of Object.entries(TEST_TYPES)){const list=ts.filter(t=>t.type===k);if(!list.length)continue;
     h+=`<span class="lbl" style="margin-top:4px">${v.name}</span><div class="list">`;
     list.forEach((t,i)=>{const val=testValue(t),pv=list.slice(i+1).map(testValue).find(x=>x!=null),dl=val!=null&&pv!=null?val-pv:null;
-      h+=`<button class="item" data-act="openTest" data-id="${t.id}"><span class="grow"><span class="t num">${testHeadline(t)}</span><br><span class="s">${fmtDT(t.date)}${t.example?' · ejemplo':''}</span></span>${dl!=null?`<span class="tag num ${dl>=0?'up':'down'}">${dl>=0?'+':''}${dec(dl,1)}${TEST_UNIT[k]}</span>`:''}</button>`});
+      h+=`<button class="item" data-act="openTest" data-id="${t.id}"><span class="grow"><span class="t num">${testHeadline(t)}</span><br><span class="s">${fmtDT(t.date)}${t.example?' · ejemplo':''}</span>${isClient()&&t.author==='coach'?' <span class="tag str">Añadido por tu entrenador</span>':''}</span>${dl!=null?`<span class="tag num ${dl>=0?'up':'down'}">${dl>=0?'+':''}${dec(dl,1)}${TEST_UNIT[k]}</span>`:''}</button>`});
     h+='</div>'}
   return h+'</section>';
 };
@@ -2420,6 +2443,7 @@ function renderDrawer(){
   $('#dHome').textContent=cl?'Mi perfil':'Inicio';$('#dHome').classList.toggle('on',S.view==='home'||(cl&&S.view==='profile'));
   $('#dSecProfiles').hidden=cl;$('#dNew').hidden=cl;$('#dSend').hidden=!cl||!myProfile()||selfCoached();$('#dInvite').hidden=cl;$('#dImport').hidden=cl&&(!myProfile()||selfCoached());$('#dImport').textContent=cl?'Abrir entrenamiento recibido':'Importar datos de un cliente';
   $('#dMode').textContent=cl?'Cambiar a modo entrenador':'Cambiar a modo deportista';$('#dMode').hidden=coachDev();
+  $('#dSync').hidden=cl&&!S.profiles.some(p=>p.cloudToken);
   const dual=coachDev();$('#dSwitch').hidden=!dual;if(dual)$('#dSwitch').innerHTML=`<button class="${cl?'':'on'}" data-d="toCoach">${ic('list','sm')}Entrenador</button><button class="${cl?'on':''}" data-d="toMe">${ic('user','sm')}Mi perfil</button>`;
   const mb=$('#meBtn'),me=prof(meId());mb.hidden=!dual||S.view==='live'||S.view==='recov'||S.view==='welcome';
   if(!mb.hidden){mb.innerHTML=cl?`${ic('list','sm')}<span>Entrenador</span>`:me?`<span class="avatar">${esc(me.name.trim()[0]?.toUpperCase()||'?')}</span><span>Yo</span>`:`${ic('user','sm')}<span>Yo</span>`;mb.setAttribute('aria-label',cl?'Cambiar a modo entrenador':'Ir a mi perfil')}
@@ -2449,6 +2473,7 @@ drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)r
   if(d==='mode')return navFromDrawer(()=>switchMode());
   if(d==='toCoach')return navFromDrawer(()=>{if(isClient())switchMode()});
   if(d==='toMe')return navFromDrawer(()=>{if(!isClient())switchMode()});
+  if(d==='sync')return navFromDrawer(()=>A.syncOpen());
   if(d==='backup')return navFromDrawer(()=>{toRoot('home');setTimeout(()=>{const d=$('details.more');if(d){d.open=true;d.scrollIntoView({behavior:'smooth',block:'center'})}},50)});
 });
 menuBtn.onclick=openDrawer;scrim.onclick=closeDrawer;
@@ -2703,7 +2728,26 @@ const A={
   async hrMaxUpd(id){const s=S.sessions.find(x=>x.id===id),p=prof(s?.userId);if(!p)return;const old=p.hrMax;p.hrMax=s.peakHr;p.hrMaxEstimated=false;await DB.put('profiles',p);
     s.hrMaxSeen=true;await DB.put('sessions',s);render();toast(`FC máxima: ${old} → ${p.hrMax} ppm. Zonas recalculadas para las próximas sesiones${p.remote&&!isClient()?`. Díselo a ${p.name} para que lo cambie también en su app`:''}`)},
   async hrMaxSkip(id){const s=S.sessions.find(x=>x.id===id);if(!s)return;s.hrMaxSeen=true;await DB.put('sessions',s);render()},
-  async discard(id){if(S.rec?.id===id)return;await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);render()}
+  async discard(id){if(S.rec?.id===id)return;await DB.del('sessions',id);await DB.del('tracks',id);S.sessions=S.sessions.filter(s=>s.id!==id);render()},
+  /* --- Sincronización --- */
+  syncOpen(){S.syncEdit=!!lsGet('coachToken')&&lsGet('syncError')==='token';openSyncModal()},
+  syncConnect(){coachConnect($('#syncCode')?.value)},
+  syncChange(){S.syncEdit=true;openSyncModal();$('#syncCode')?.focus()},
+  syncBack(){S.syncEdit=false;openSyncModal()},
+  async syncNow(){toast('Sincronizando…');const t=Date.now();await Sync.now();
+    toast(+lsGet('lastSyncAt')>=t?'Sincronizado':lsGet('syncError')==='token'?'La sincronización está parada: el código ya no vale':'No se puede conectar con la hoja. Se reintentará solo');
+    if(S.modalKind==='sync')openSyncModal();else Sync.refresh()},
+  syncRotate(_,b){arm(b,'Pulsa otra vez: el código actual dejará de valer',async()=>{let r;try{r=await Sync.call({action:'rotateCoachToken'})}catch(e){syncFail(e);return}
+    lsSet('coachToken',r.coachToken);lsSet('syncError','');openSyncModal();toast('Código nuevo creado. Para tus otros móviles, cópialo de la hoja: pestaña config, celda B2')})},
+  syncOff(_,b){arm(b,'Pulsa otra vez para desconectar',()=>{for(const k of ['coachToken','syncCursor','lastSyncAt','syncError'])lsSet(k,'');closeModal();render();toast('Desconectado. Los datos siguen en este móvil y en la hoja')})},
+  syncLeave(_,b){arm(b,'Pulsa otra vez para dejar de sincronizar',async()=>{const p=S.profiles.find(x=>x.cloudToken);if(!p)return;
+    delete p.cloudToken;delete p.cloudId;await DB.put('profiles',p);for(const k of ['syncCursor','lastSyncAt','syncError'])lsSet(k,'');closeModal();render();toast('Ya no se sincroniza. Tus datos siguen en el móvil')})},
+  joinYes(){const v=S.joinV;closeModal();joinWith(v,true)},
+  syncInvite:id=>syncInvite(id),
+  syncResend:id=>syncResend(id),
+  syncRevoke(id,b){const p=prof(id);if(!p)return;arm(b,`Pulsa otra vez: ${p.name} dejará de sincronizar`,async()=>{
+    try{await Sync.call({action:'revoke',id_unico:p.cloudId})}catch(e){syncFail(e);return}
+    delete p.cloudInviteToken;await DB.put('profiles',p);Sync.ignore(p.cloudId,true);render();toast('Desvinculado. Lo que ya está en la hoja se queda')})}
 };
 async function saveProfile(){
   const f=readForm(),e=validate(f),er=$('#ferr');
@@ -2712,7 +2756,8 @@ async function saveProfile(){
   delete f.example;await DB.put('profiles',f);
   const i=S.profiles.findIndex(p=>p.id===f.id);if(i<0)S.profiles.push(f);else S.profiles[i]=f;
   if(!old&&isClient()){f.owner='client';await DB.put('profiles',f);lsSet('meId',f.id);S.stack=[];go('profile',f.id,{push:false});toast('Perfil creado');
-    if(S.pendingFiles){const fl=S.pendingFiles;S.pendingFiles=null;await importFiles(fl)}return}
+    if(S.pendingFiles){const fl=S.pendingFiles;S.pendingFiles=null;await importFiles(fl)}
+    if(lsGet('pendingJoin'))await joinWith(lsGet('pendingJoin'));return}
   if(old)back();else go('profile',f.id);toast('Perfil guardado');
 }
 function actClick(e){const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)}
@@ -2767,15 +2812,23 @@ async function importFiles(files){
     const fromOther=d.kind==='client'||profiles.some(p=>p.owner==='client');
     // Si el deportista abrió algo que le enviaste desde un perfil creado por ti, sus datos se guardan en ese mismo perfil
     const idMap={};
-    for(const p of profiles){let q={...p};
-      if(fromOther){q.remote=true;q.lastImport=Date.now();delete q.owner;
-        if(p.linkId&&p.linkId!==p.id&&prof(p.linkId)){idMap[p.id]=p.linkId;q={...q,id:p.linkId,name:prof(p.linkId).name}}}
+    for(const p of profiles){let q={...p};delete q.cloudToken;delete q.synced; // el código de deportista nunca se importa
+      if(fromOther){q.remote=true;q.lastImport=Date.now();delete q.owner;delete q.cloudInviteToken;delete q.cloudId;
+        // Mismo deportista ya vinculado en este móvil con otro id (por ejemplo, «Deportista 2» llegado por la sincronización)
+        const byCloud=p.cloudId&&S.profiles.find(x=>x.cloudId===p.cloudId&&x.id!==p.id);
+        if(byCloud){idMap[p.id]=byCloud.id;q={...q,id:byCloud.id}}
+        else if(p.linkId&&p.linkId!==p.id&&prof(p.linkId)){idMap[p.id]=p.linkId;q={...q,id:p.linkId,name:prof(p.linkId).name}}}
+      // Lo que vincula el perfil en este móvil se conserva, y también su nombre salvo que sea el provisional «Deportista N»
+      const loc=prof(q.id);
+      if(loc?.cloudId){q.cloudId=loc.cloudId;q.cloudInviteToken=loc.cloudInviteToken||q.cloudInviteToken;if(!/^Deportista \d+$/.test(loc.name))q.name=loc.name}
+      if(loc?.cloudToken)q.cloudToken=loc.cloudToken;
       await DB.put('profiles',q);res.profiles.push({name:q.name,id:q.id,isNew:!hadP.has(q.id)})}
-    const rm=x=>idMap[x.userId]?{...x,userId:idMap[x.userId]}:x;
-    for(const x of sessions)await DB.put('sessions',rm(x));for(const x of tracks)await DB.put('tracks',x);
-    for(const x0 of strength){const x=rm(x0),old=stById(x.id);if(old){if(!(x.durationMin>0)&&old.durationMin>0)x.durationMin=old.durationMin;if(x.rpePost==null&&old.rpePost!=null){x.rpePost=old.rpePost;x.rpePostTime=old.rpePostTime}}await DB.put('strength',x)}for(const x of tests)await DB.put('tests',rm(x));
-    for(const x of d.plans||[])if(!planById(x.id))await DB.put('plans',rm(x));
-    for(const x of d.wellness||[])await DB.put('wellness',rm(x));
+    // Cada registro conserva el updatedAt con el que llega: un envío antiguo no pisa una edición más reciente de la hoja
+    const rm=x=>idMap[x.userId]?{...x,userId:idMap[x.userId]}:x,imp={imported:true};
+    for(const x of sessions)await DB.put('sessions',rm(x),imp);for(const x of tracks)await DB.put('tracks',x,imp);
+    for(const x0 of strength){const x=rm(x0),old=stById(x.id);if(old){if(!(x.durationMin>0)&&old.durationMin>0)x.durationMin=old.durationMin;if(x.rpePost==null&&old.rpePost!=null){x.rpePost=old.rpePost;x.rpePostTime=old.rpePostTime}}await DB.put('strength',x,imp)}for(const x of tests)await DB.put('tests',rm(x),imp);
+    for(const x of d.plans||[])if(!planById(x.id))await DB.put('plans',rm(x),imp);
+    for(const x of d.wellness||[]){const w=rm(x);if(idMap[x.userId]&&w.date)w.id=w.userId+'_'+w.date;await DB.put('wellness',w,imp)}
     // Entrenamientos programados que el deportista ya ha hecho
     for(const x of [...sessions,...strength])if(x.planId&&x.status==='done'){const pl=planById(x.planId)||await DB.get('plans',x.planId);if(pl&&pl.status!=='done'){await markPlanDone(x.planId,x.id,x.endTime||x.startTime);res.plansDone++}}
     res.nNew+=[...sessions,...strength,...tests].filter(x=>!had.has(x.id)).length}
@@ -2861,6 +2914,210 @@ async function seedExample(){
   lsSet('seeded','1');
 }
 
+/* ================= Sincronización (Google Sheets) ================= */
+// La app sigue guardando en el móvil y, cuando hay conexión, sube lo pendiente a la hoja de Google del entrenador y baja lo
+// que han añadido otros. Gana la edición más reciente (updatedAt). En la hoja no van nombres: cada perfil es su cloudId.
+// Especificación: PLAN_SINCRONIZACION_GOOGLE_SHEETS.md (secciones 4 y 5) y apps-script/Code.gs
+const SHEET_API='https://script.google.com/macros/s/AKfycbxy4mMRa0K59b-3UHNzsiN0funLIPYL8WCfgPszntlwHfKCZ86p31DR44diLnPTUst_/exec';
+const PROFILE_FIELDS=['hrMax','hrMaxEstimated','hrRest','weight','method','percents','manual']; // lo único del perfil que sube
+const LOCAL_ONLY=['dirty','updatedAt','deleted','author','serverAt','synced'];
+class SyncNetworkError extends Error{}
+class SyncTokenError extends Error{}
+// Google a veces responde a una petición con un 404 o con una respuesta que no es la suya ({"ok":true} a secas):
+// se comprueba la forma de cada respuesta y, si no cuadra, se repite la petición (repetirla no duplica nada)
+const SHEET_SHAPE={ping:r=>!!r.role,push:r=>Array.isArray(r.accepted)&&Array.isArray(r.rejected),pull:r=>Array.isArray(r.records)&&typeof r.cursor==='number',
+  invite:r=>!!r.token&&!!r.id_unico,rotateCoachToken:r=>!!r.coachToken};
+async function sheetCall(payload){let last;
+  for(let i=0;i<3;i++){if(i)await new Promise(r=>setTimeout(r,1500*i));
+    try{const response=await fetch(SHEET_API,{method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'}, // petición simple: sin preflight CORS
+        body:JSON.stringify(payload)});
+      if(!response.ok)throw new SyncNetworkError(`HTTP ${response.status}`);
+      const res=await response.json(); // {ok:true,…} | {ok:false,error}
+      if(res.ok===false||(SHEET_SHAPE[payload.action]||(()=>res.ok===true))(res))return res;
+      last=new SyncNetworkError('respuesta incompleta de Google')}
+    catch(e){last=e;if(!navigator.onLine)break}}
+  throw last}
+const pick=(o,ks)=>{const r={};if(o)for(const k of ks)if(k in o)r[k]=o[k];return r};
+const omit=(o,ks)=>{const r={...o};for(const k of ks)delete r[k];return r};
+const stripSecrets=p=>omit(p,['cloudToken','cloudInviteToken']);
+const Sync={running:null,again:false,againFull:false,timer:null,retryMs:0,
+  // Rol de este móvil: con código de entrenador sincroniza todos los perfiles vinculados; si no, el perfil con cloudToken
+  role(){return lsGet('coachToken')?'coach':S.profiles.some(p=>p.cloudToken)?'athlete':null},
+  token(){return this.role()==='coach'?lsGet('coachToken'):S.profiles.find(p=>p.cloudToken)?.cloudToken},
+  ignored(){try{return JSON.parse(lsGet('syncIgnore')||'[]')}catch(e){return []}},
+  ignore(cid,on){const l=this.ignored().filter(x=>x!==cid);if(on)l.push(cid);lsSet('syncIgnore',JSON.stringify(l))},
+  linked(p){if(!p||p.example||!p.cloudId)return false;const r=this.role();return r==='coach'?!this.ignored().includes(p.cloudId):r==='athlete'&&!!p.cloudToken},
+  status(){const t=+lsGet('lastSyncAt')||0;return t?'sincronizado '+ago(t):'todavía sin sincronizar'},
+  schedule(ms=5000){if(!this.role()||lsGet('syncError')==='token')return;if(S.rec)ms=Math.max(ms,60000); // grabando: después
+    clearTimeout(this.timer);this.timer=setTimeout(()=>this.now(),ms)},
+  // Un solo sync a la vez; si piden otro mientras tanto, se hace al acabar (y la promesa espera a ese)
+  now({full=false}={}){
+    if(this.running){this.again=true;if(full)this.againFull=true;return this.running.then(()=>this.running)}
+    clearTimeout(this.timer);
+    this.running=(async()=>{
+      try{if(!this.role())return;
+        if(full)lsSet('syncCursor','0');
+        await this.pushAll();const changed=await this.pullAll();
+        lsSet('lastSyncAt',String(Date.now()));lsSet('syncError','');this.retryMs=0;
+        if(changed||S.modalKind==='sync')this.refresh()}
+      catch(err){
+        if(err instanceof SyncTokenError){lsSet('syncError','token');this.refresh();return}
+        console.warn('sync',err); // sin conexión o la hoja ocupada: reintento silencioso, cada vez más espaciado
+        this.retryMs=Math.min(this.retryMs?this.retryMs*2:30000,600000);this.schedule(this.retryMs)}
+      finally{this.running=null;if(this.again){const f=this.againFull;this.again=this.againFull=false;this.now({full:f})}}})();
+    return this.running},
+  async call(payload){const res=await sheetCall({...payload,token:this.token()});
+    if(!res.ok&&res.error==='token')throw new SyncTokenError('token');
+    if(!res.ok)throw new Error(res.error+(res.detail?': '+res.detail:''));
+    return res},
+  // Mapas perfil local <-> cloudId y sesión -> perfil. localIdOf crea en el entrenador el perfil de un deportista que no tiene
+  async ctx(){const raw={};for(const s of SYNC_STORES)raw[s]=await DB.allRaw(s);
+    const role=this.role(),ign=this.ignored(),byId=new Map(raw.profiles.filter(p=>!p.deleted).map(p=>[p.id,p])),sess=new Map(raw.sessions.map(s=>[s.id,s]));
+    const ctx={raw,role,byId,sess,
+      linked:p=>!!p&&!p.example&&!!p.cloudId&&(role==='coach'?!ign.includes(p.cloudId):!!p.cloudToken),
+      cloudIdOf:id=>byId.get(id)?.cloudId,
+      async localIdOf(cid){const all=[...byId.values()].filter(p=>!p.example);
+        if(role==='athlete')return all.find(p=>p.cloudToken&&p.cloudId===cid)?.id||null;
+        const p=all.find(p=>p.cloudId===cid);if(p)return p.id;if(ign.includes(cid))return null;
+        const n=1+Math.max(0,...all.map(p=>+(/^Deportista (\d+)$/.exec(p.name)||[])[1]||0));
+        const q={id:uid(),name:'Deportista '+n,birthDate:'',hrMax:190,hrMaxEstimated:true,hrRest:'',method:'karvonen',percents:[...DEF_PC],manual:[],createdAt:Date.now(),cloudId:cid,remote:true,synced:1};
+        await DB.putRaw('profiles',q);byId.set(q.id,q);S.profiles.push(q);return q.id}};
+    return ctx},
+  // Qué no se sube: datos de ejemplo, perfiles sin vincular, sesiones grabándose y borradores de fuerza vacíos
+  shouldPush(s,rec,ctx){if(rec.example)return false;
+    const sess=s==='tracks'?ctx.sess.get(rec.id):null,uid=s==='profiles'?rec.id:s==='tracks'?sess?.userId:rec.userId;
+    if(!ctx.linked(ctx.byId.get(uid)))return false;
+    if(!rec.deleted){
+      if(s==='sessions'&&rec.status==='recording')return false;
+      if(s==='tracks'&&(!sess||sess.deleted||sess.status==='recording'))return false;
+      if(s==='strength'&&rec.status==='open'&&stEmpty(rec))return false}
+    return true},
+  async toCloud(s,rec,ctx){const deleted=!!rec.deleted;
+    if(s==='profiles'){const cid=rec.cloudId;return {store:s,id:cid,userId:cid,updatedAt:rec.updatedAt,deleted,data:deleted?null:pick(rec,PROFILE_FIELDS)}}
+    if(s==='tracks'){const cid=ctx.cloudIdOf(ctx.sess.get(rec.id).userId); // el track no tiene userId: es el de su sesión
+      return {store:s,id:rec.id,userId:cid,updatedAt:rec.updatedAt,deleted,data:deleted?null:await packData({id:rec.id,samples:rec.samples,rr:rec.rr,pauses:rec.pauses})}}
+    const cid=ctx.cloudIdOf(rec.userId),id=s==='wellness'?cid+'_'+rec.date:rec.id; // el id de bienestar lleva el id del perfil
+    return {store:s,id,userId:cid,updatedAt:rec.updatedAt,deleted,data:deleted?null:{...omit(rec,LOCAL_ONLY),id,userId:cid}}},
+  async pushAll(){const ctx=await this.ctx(),batch=[];
+    for(const s of SYNC_STORES)for(const rec of ctx.raw[s])if(rec.dirty&&this.shouldPush(s,rec,ctx))
+      batch.push({store:s,local:rec.id,updatedAt:rec.updatedAt,deleted:!!rec.deleted,cloud:await this.toCloud(s,rec,ctx)});
+    for(let i=0;i<batch.length;){const chunk=[];let size=0; // lotes de 100 registros o ~2 MB
+      while(i<batch.length&&chunk.length<100){const n=JSON.stringify(batch[i].cloud).length;if(chunk.length&&size+n>2e6)break;chunk.push(batch[i]);size+=n;i++}
+      const res=await this.call({action:'push',records:chunk.map(x=>x.cloud)}),byKey=new Map(chunk.map(x=>[x.store+'|'+x.cloud.id,x]));
+      for(const a of res.accepted||[]){const x=byKey.get(a.store+'|'+a.id);if(x)await this.sent(x,true)}
+      for(const r of res.rejected||[]){const x=byKey.get(r.store+'|'+r.id);
+        if(r.reason==='older'&&r.current)await this.merge(r.current,ctx); // la hoja tiene una versión igual o más reciente: se adopta
+        else{console.warn('sync: rechazado',r);if(x)await this.sent(x,false)}}}}, // forbidden/invalid/too_big: no reintentar en bucle
+  // Tras subirlo: deja de estar pendiente si no se ha vuelto a editar durante la petición. Un tombstone ya subido se borra del móvil
+  async sent(x,ok){const r=await DB.getRaw(x.store,x.local);if(!r||r.updatedAt!==x.updatedAt)return;
+    if(ok&&r.deleted){await DB.purge(x.store,x.local);return}
+    r.dirty=0;if(ok)r.synced=1;await DB.putRaw(x.store,r)},
+  async pullAll(){let changed=0,since=+lsGet('syncCursor')||0,res;
+    do{res=await this.call({action:'pull',since});const ctx=await this.ctx();
+      for(const c of [...res.records].sort((a,b)=>(a.store!=='profiles')-(b.store!=='profiles')))changed+=await this.merge(c,ctx);
+      since=res.cursor;lsSet('syncCursor',String(since))}while(res.more);
+    return changed},
+  // Fusión: gana el updatedAt mayor; en empate, la hoja. Devuelve 1 si ha cambiado algo en el móvil
+  async merge(c,ctx){
+    if(c.store==='profiles'){if(c.deleted)return 0;const lu=await ctx.localIdOf(c.id),l=lu&&await DB.getRaw('profiles',lu);if(!l)return 0;
+      if(l.dirty&&l.updatedAt>c.updatedAt)return 0;if(!l.dirty&&l.updatedAt===c.updatedAt)return 0;
+      const m={...l,...pick(c.data||{},PROFILE_FIELDS),updatedAt:c.updatedAt,dirty:0,synced:1}; // nombre, fecha y vínculos: los del móvil
+      await DB.putRaw('profiles',m);this.applyLocal('profiles',m);return 1}
+    const lu=await ctx.localIdOf(c.userId);if(!lu)return 0;
+    const id=c.store==='wellness'?lu+'_'+c.id.slice(c.userId.length+1):c.id,l=await DB.getRaw(c.store,id);
+    if(!l&&c.deleted)return 0;
+    if(l&&l.dirty&&l.updatedAt>c.updatedAt)return 0; // gana lo del móvil: se subirá
+    if(l&&!l.dirty&&l.updatedAt===c.updatedAt){if(!l.synced){l.synced=1;await DB.putRaw(c.store,l)}return 0} // eco de lo que ya tenemos
+    const meta={updatedAt:c.updatedAt,author:c.author,dirty:0,synced:1};let r;
+    if(c.deleted)r={id,...(c.store==='tracks'?{}:{userId:lu}),deleted:true,...meta};
+    else if(c.store==='tracks')r={...await unpackData(c.data),id,...meta};
+    else{r={...c.data,id,userId:lu,...meta};delete r.deleted}
+    await DB.putRaw(c.store,r);this.applyLocal(c.store,r);return 1},
+  // Lleva el cambio a la memoria de la app sin recargarlo todo. Lo que se está editando en pantalla no se toca:
+  // al guardar, la edición local es más reciente y gana
+  applyLocal(s,r){const arr=S[s];if(!Array.isArray(arr))return;
+    if(S.arg===r.id&&((S.view==='strength'&&s==='strength')||(S.view==='plan'&&s==='plans')||(S.view==='test'&&s==='tests')))return;
+    const i=arr.findIndex(x=>x.id===r.id);if(r.deleted){if(i>=0)arr.splice(i,1)}else if(i>=0)arr[i]=r;else arr.push(r)},
+  refresh(){if(S.modalKind==='sync'){openSyncModal();return}
+    if(S.rec||!$('#modal').hidden||['live','recov','edit','pre','post','stpost','strength','plan','test'].includes(S.view))return; // no redibujar mientras se escribe
+    rerenderKeepFocus()},
+  // Al vincular un perfil: todo lo suyo pasa a pendiente de subir. Los datos antiguos sin updatedAt usan su propia fecha
+  // (no la de ahora) para no ganar a una edición real del otro lado. Normaliza el id de bienestar a perfil_fecha
+  async markAllDirty(pid){
+    const t0=x=>x.updatedAt||[x.rpePostTime,x.endTime,x.startTime,typeof x.date==='number'?x.date:null,x.at,x.createdAt].find(v=>typeof v==='number'&&v>0)||0;
+    const mark=async(s,x,t)=>{x.dirty=1;x.updatedAt=t??t0(x);await DB.putRaw(s,x)};
+    const p=await DB.getRaw('profiles',pid);if(!p)return;await mark('profiles',p);
+    for(const x of (await DB.allRaw('sessions')).filter(x=>x.userId===pid)){await mark('sessions',x);const t=await DB.getRaw('tracks',x.id);if(t)await mark('tracks',t,t.updatedAt||x.updatedAt)}
+    for(const s of ['strength','tests','plans'])for(const x of (await DB.allRaw(s)).filter(x=>x.userId===pid))await mark(s,x);
+    for(const x of (await DB.allRaw('wellness')).filter(x=>x.userId===pid)){const id=pid+'_'+x.date;if(x.id!==id){await DB.purge('wellness',x.id);x.id=id}await mark('wellness',x)}
+    await loadAll()},
+  start(){const kick=()=>{if(lsGet('pendingJoin')&&isClient()&&myProfile())joinWith(lsGet('pendingJoin'));else this.schedule(100)};
+    kick();addEventListener('online',kick);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')this.schedule(100)})}
+};
+// Entrenador: conectar este móvil con la hoja (también desde un enlace #coach=)
+async function coachConnect(code){code=String(code||'').trim();if(!code){toast('Pega tu código de entrenador');return}
+  let res;try{res=await sheetCall({action:'ping',token:code})}catch(e){toast('No se puede conectar con la hoja. Comprueba que tienes internet');return}
+  if(!res.ok){toast(res.error==='token'?'Ese código no vale. Cópialo de tu hoja: pestaña config, celda B2':'La hoja no ha respondido bien. Prueba otra vez en un momento');return}
+  if(res.role!=='coach'){toast('Ese código no es de entrenador');return}
+  lsSet('coachToken',code);lsSet('syncCursor','0');lsSet('syncError','');lsSet('mode','coach');lsSet('coachDev','1');S.modeFallback=null;
+  closeModal();toRoot('home');toast('Conectado. Descargando los datos…');
+  const t=Date.now();await Sync.now({full:true});
+  const n=S.profiles.filter(p=>Sync.linked(p)).length;
+  toast(+lsGet('lastSyncAt')>=t?`Conectado: ${n} deportista${n===1?'':'s'}`:'Conectado. Los datos llegarán cuando haya conexión')}
+// Deportista: completar una invitación #join=<token>.<id_unico>
+async function joinWith(v,force){const [token,cid]=String(v||'').split('.');
+  if(!token||!cid){toast('El enlace de invitación está incompleto. Pide a tu entrenador que te lo reenvíe');return}
+  if(!isClient()){toast('Este enlace de invitación es para el móvil del deportista');return}
+  const p=myProfile();if(!p){lsSet('pendingJoin',v);clientRoot();render();toast('Crea tu perfil y se conectará con tu entrenador');return}
+  let res;try{res=await sheetCall({action:'ping',token})}catch(e){lsSet('pendingJoin',v);toast('Sin conexión: te conectaré con tu entrenador cuando vuelva internet');return}
+  if(!res.ok||res.role!=='athlete'||res.id_unico!==cid){lsSet('pendingJoin','');toast('Esta invitación ya no vale. Pide a tu entrenador que te la reenvíe');return}
+  if(p.cloudId&&p.cloudId!==cid&&!force){openJoinConfirm(v);return}
+  lsSet('pendingJoin','');p.cloudId=cid;p.cloudToken=token;await DB.put('profiles',p);
+  lsSet('syncError','');lsSet('syncCursor','0');lsSet('lastSyncAt','');
+  await Sync.markAllDirty(p.id);render();toast('Conectando con tu entrenador…');
+  const t=Date.now();await Sync.now({full:true});render();
+  toast(+lsGet('lastSyncAt')>=t?'Conectado con tu entrenador':'Conectado. Tus entrenos se enviarán cuando haya conexión')}
+function openJoinConfirm(v){S.modalKind='join';S.joinV=v;
+  $('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="joinTitle"><div class="sec-h"><h2 id="joinTitle">Nueva invitación</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
+    <span class="hint">Este móvil ya estaba conectado con tu entrenador. ¿Conectar con la nueva invitación?</span>
+    <div class="row"><button class="btn primary" data-act="joinYes">Conectar</button><button class="btn" data-act="wClose">Cancelar</button></div></div>`;
+  $('#modal').hidden=false;document.body.classList.add('modal-open')}
+// Ventana «Sincronización» del menú
+function openSyncModal(){S.modalKind='sync';const coach=!!lsGet('coachToken'),err=lsGet('syncError')==='token',ath=!coach&&S.profiles.find(p=>p.cloudToken);let body;
+  if(ath)body=`<span class="hint">${err?'<b class="warnTxt">La sincronización está parada: tu invitación ya no vale.</b> Pide a tu entrenador una invitación nueva.':`Tus entrenos se envían solos a tu entrenador · ${Sync.status()}.`}</span>
+    <div class="row"><button class="btn small primary" data-act="syncNow">Sincronizar ahora</button><button class="btn small" data-act="syncLeave">Dejar de sincronizar</button></div>`;
+  else if(coach&&!S.syncEdit){const n=S.profiles.filter(p=>Sync.linked(p)).length;
+    body=`<span class="hint">${err?'<b class="warnTxt">La sincronización está parada: el código ya no vale.</b> Pega el código nuevo con «Cambiar código».':`Conectado con tu hoja de Google · ${Sync.status()} · ${n} perfil${n===1?'':'es'} vinculado${n===1?'':'s'}.`}</span>
+    <div class="row"><button class="btn small primary" data-act="syncNow">Actualizar ahora</button><button class="btn small" data-act="syncChange">Cambiar código</button></div>
+    <div class="row"><button class="btn small" data-act="syncRotate">Generar código nuevo</button><button class="btn small danger" data-act="syncOff">Desconectar</button></div>
+    ${info('«Generar código nuevo» crea otra llave y la anterior deja de valer en todos tus móviles: úsalo si pierdes el móvil. «Desconectar» deja de sincronizar este móvil; sus datos se quedan aquí y en la hoja.','Qué hace cada botón')}`}
+  else body=`<span class="hint">Conecta esta app con tu hoja de Google para ver los datos de tus deportistas sin pedírselos.</span>
+    <div class="field"><label for="syncCode">Código de entrenador</label><input id="syncCode" autocomplete="off" spellcheck="false" placeholder="Pégalo aquí"><span class="hint">Está en tu hoja «IMDTraining datos», pestaña config, celda B2.</span></div>
+    <button class="btn primary wide" data-act="syncConnect">Conectar</button>${coach?'<button class="btn wide" data-act="syncBack">Cancelar</button>':''}`;
+  $('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="syncTitle"><div class="sec-h"><h2 id="syncTitle">Sincronización</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>${body}</div>`;
+  $('#modal').hidden=false;document.body.classList.add('modal-open')}
+function syncAlert(){const r=Sync.role();if(!r||lsGet('syncError')!=='token')return'';
+  return `<div class="note"><b>La sincronización está parada</b><span class="hint">${r==='coach'?'El código de entrenador ya no vale. Pega el nuevo: está en tu hoja, pestaña config, celda B2.':'Tu invitación ya no vale. Pide a tu entrenador una invitación nueva.'}</span><div class="row"><button class="btn small" data-act="syncOpen">${r==='coach'?'Cambiar código':'Ver sincronización'}</button></div></div>`}
+// Entrenador: invitar, reenviar y desvincular desde la tarjeta del perfil
+const syncFail=e=>toast(e instanceof SyncTokenError?'Tu código de entrenador ya no vale: revisa Sincronización en el menú':'No se puede conectar con la hoja. Prueba otra vez con internet');
+async function shareInvite(p){const url=appUrl()+'#join='+p.cloudInviteToken+'.'+p.cloudId,text='Te invito a sincronizar tus entrenamientos con IMDTraining. Abre este enlace en Chrome en tu móvil:';
+  // En el móvil, menú de compartir (WhatsApp); en el ordenador, directamente al portapapeles
+  const mobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+  try{if(navigator.share&&mobile){await navigator.share({title:'IMDTraining',text,url});return}}catch(e){if(e.name==='AbortError')return}
+  // En el ordenador solo el enlace: así se puede pegar en la barra de direcciones sin que acabe en una búsqueda
+  try{await navigator.clipboard.writeText(mobile?text+' '+url:url);toast('Enlace de invitación copiado: pégalo en WhatsApp')}catch(e){toast(url)}}
+async function syncInvite(id){let p=prof(id);if(!p)return;
+  let r;try{r=await Sync.call({action:'invite'})}catch(e){syncFail(e);return}
+  p.cloudId=r.id_unico;p.cloudInviteToken=r.token;if(p.id!==meId())p.remote=true;await DB.put('profiles',p);
+  await Sync.markAllDirty(p.id);Sync.now();p=prof(id);render();
+  if(p.id===meId()){toast('Tu perfil ya se sincroniza');return}
+  await shareInvite(p)}
+async function syncResend(id){const p=prof(id);if(!p?.cloudId)return;
+  if(!p.cloudInviteToken){let r;try{r=await Sync.call({action:'invite',id_unico:p.cloudId})}catch(e){syncFail(e);return}p.cloudInviteToken=r.token;await DB.put('profiles',p)}
+  await shareInvite(p)}
+
 /* ================= Arranque ================= */
 async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests');S.plans=await DB.all('plans');S.wellness=await DB.all('wellness')}
 (async()=>{
@@ -2869,10 +3126,13 @@ async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB
   for(const st of S.strength.filter(x=>x.status==='open'&&stEmpty(x)))dropDraft(st.id);
   // Enlace con datos o petición de envío
   const linkCode=location.hash.startsWith('#d=')?location.hash.slice(3):null,askSend=location.hash==='#enviar';
-  if(linkCode||askSend)try{history.replaceState({},'',location.pathname+location.search)}catch(e){}
+  // Sincronización: invitación de deportista (#join=código.id) o código de entrenador (#coach=código). Se quitan de la barra en seguida
+  const joinCode=location.hash.startsWith('#join=')?location.hash.slice(6):null,coachCode=location.hash.startsWith('#coach=')?location.hash.slice(7):null;
+  if(linkCode||askSend||joinCode||coachCode)try{history.replaceState({},'',location.pathname+location.search)}catch(e){}
   let linkKind=null;if(linkCode)try{linkKind=(await unpackData(linkCode)).kind}catch(e){}
   // Modo: enlace de invitación (#cliente), elección guardada o deducido de los datos que ya hay
   let m=lsGet('mode');
+  if(!m&&(joinCode||coachCode)){m=joinCode?'client':'coach';lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m}
   if(!m&&linkKind){m=linkKind==='plan'||linkKind==='session'?'client':'coach';lsSet('mode',m);if(!lsGet('mode'))S.modeFallback=m}
   if(!m){const own=S.profiles.filter(p=>!p.example&&!p.remote);
     if(location.hash==='#cliente')m='client';
@@ -2883,8 +3143,8 @@ async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB
   // Datos de ejemplo (solo modo entrenador): se crean la primera vez y se renuevan si cambia su versión
   const ex=S.profiles.find(p=>p.example);
   if(m==='coach'&&((!S.profiles.length&&!lsGet('seeded'))||(ex&&lsGet('seedv')!=='6'))){
-    if(ex){for(const s of S.sessions.filter(s=>s.userId===ex.id)){await DB.del('sessions',s.id);await DB.del('tracks',s.id)}
-      for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.del('strength',s.id);for(const t of S.tests.filter(t=>t.userId===ex.id))await DB.del('tests',t.id);for(const x of S.plans.filter(x=>x.userId===ex.id))await DB.del('plans',x.id);for(const x of S.wellness.filter(x=>x.userId===ex.id))await DB.del('wellness',x.id);await DB.del('profiles',ex.id)}
+    if(ex){for(const s of S.sessions.filter(s=>s.userId===ex.id)){await DB.purge('sessions',s.id);await DB.purge('tracks',s.id)}
+      for(const s of S.strength.filter(s=>s.userId===ex.id))await DB.purge('strength',s.id);for(const t of S.tests.filter(t=>t.userId===ex.id))await DB.purge('tests',t.id);for(const x of S.plans.filter(x=>x.userId===ex.id))await DB.purge('plans',x.id);for(const x of S.wellness.filter(x=>x.userId===ex.id))await DB.purge('wellness',x.id);await DB.purge('profiles',ex.id)}
     await seedExample();lsSet('seedv','6');await loadAll()}
   try{history.replaceState({},'')}catch(e){}
   // Archivos compartidos a la app desde WhatsApp u otra app (llegan por el service worker)
@@ -2895,6 +3155,9 @@ async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB
   if(sharedN!=null){try{history.replaceState({},'',location.pathname)}catch(e){}await importShared()}
   if(linkCode)await importLink(linkCode);
   if(askSend)askSendFocus();
+  if(coachCode)await coachConnect(coachCode);
+  if(joinCode)await joinWith(joinCode);
+  Sync.start();
   // Instalación como app (solo desde su propio enlace https)
   if('serviceWorker' in navigator&&!inFrame&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
