@@ -43,3 +43,53 @@ function diagnosticoSync() {
   });
   Logger.log('\n' + lines.join('\n'));
 }
+
+/**
+ * Pasa los entrenos de un código antiguo al código nuevo del mismo deportista (no borra nada).
+ * Solo cambia de quién son (userId); el contenido y la fecha de cada registro no se tocan.
+ * Si un registro de bienestar ya existe con el código nuevo para ese día, se deja el del código nuevo.
+ */
+function moverDatos_(from, to) {
+  const athletes = readAthletes_();
+  if (!athletes.byId[from]) throw new Error('No existe el código antiguo ' + from);
+  if (!athletes.byId[to] || athletes.byId[to].revoked) throw new Error('El código nuevo ' + to + ' no existe o está desvinculado');
+  const res = withLock_(function () {
+    const clock = newClock_();
+    const out = {};
+    ['sessions', 'strength', 'tests', 'plans', 'wellness', 'tracks'].forEach(function (s) {
+      const sh = sheet_(s);
+      const n = sh.getLastRow() - 1;
+      out[s] = { moved: 0, skipped: 0 };
+      if (n < 1) return;
+      const cols = s === 'tracks' ? 8 : 7;
+      const vals = sh.getRange(2, 1, n, cols).getValues();
+      const ids = {};
+      vals.forEach(function (v) { ids[String(v[0])] = true; });
+      const trackAt = {};
+      vals.forEach(function (v, i) {
+        if (String(v[1]) !== from) return;
+        if (s === 'wellness') {
+          const nid = to + String(v[0]).slice(from.length);
+          if (ids[nid]) { out[s].skipped++; return; }
+          v[0] = nid;
+          ids[nid] = true;
+        }
+        v[1] = to;
+        if (s === 'tracks') { const id = String(v[0]); v[5] = trackAt[id] || (trackAt[id] = clock.next()); }
+        else v[4] = clock.next();
+        sh.getRange(i + 2, 1, 1, cols).setValues([v]);
+        out[s].moved++;
+      });
+    });
+    clock.save();
+    return { ok: true, out: out };
+  });
+  if (!res.ok) throw new Error('La hoja está ocupada. Vuelve a pulsar Ejecutar en unos segundos.');
+  Logger.log('Movido de ' + from + ' a ' + to + ':\n' + Object.keys(res.out).map(function (s) {
+    return '  ' + s + ': ' + res.out[s].moved + ' movidos' + (res.out[s].skipped ? ', ' + res.out[s].skipped + ' ya estaban en el nuevo' : '');
+  }).join('\n'));
+}
+
+function moverDatosLuci() {
+  moverDatos_('d19c2430a', 'd3729f74a');
+}
