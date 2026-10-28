@@ -24,7 +24,7 @@ const SECCIONES = ['activacion', 'pprincipal', 'pp', 'parteprincipal', 'calentam
 /* ================= Pestaña fuentes ================= */
 
 function prepararFuentes_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = sheet_(PROG_TAB).getParent();
   let f = ss.getSheetByName(FUENTES_TAB);
   if (!f) {
     f = ss.insertSheet(FUENTES_TAB);
@@ -49,12 +49,52 @@ function prepararFuentes_() {
 /* ================= Importar ================= */
 
 function importarExcel() {
+  // Un bloqueo propio (no el de la sincronización) para que el automático y el botón no importen a la vez
+  const lock = LockService.getDocumentLock();
+  if (!lock.tryLock(60000)) { toast_('Ya se está importando. Prueba otra vez en un minuto.'); return false; }
+  try { importar_(); return true; } finally { lock.releaseLock(); }
+}
+
+// Botón «Importar y publicar ahora» y modo automático
+function importarYPublicar() {
+  if (importarExcel() !== false) publicarProgramacion();
+}
+
+// Lo que ejecuta el automático cada 30 minutos (de 7:00 a 23:59; de noche no hace nada)
+function importacionAutomatica() {
+  const tz = sheet_(PROG_TAB).getParent().getSpreadsheetTimeZone();
+  const h = +Utilities.formatDate(new Date(), tz, 'H');
+  if (h < 7) return;
+  importarYPublicar();
+}
+
+function activarAutomatico() {
+  quitarAutomatico_();
+  ScriptApp.newTrigger('importacionAutomatica').timeBased().everyMinutes(30).create();
+  PropertiesService.getScriptProperties().setProperty('autoImport', '1');
+  alert_('Automático activado: cada 30 minutos (de 7:00 a 24:00) se importan los Excel marcados en «fuentes» y se publican en las apps.\n\n' +
+    'Para quitarlo: IMDTraining > Automático: desactivar.');
+}
+
+function desactivarAutomatico() {
+  quitarAutomatico_();
+  PropertiesService.getScriptProperties().deleteProperty('autoImport');
+  alert_('Automático desactivado. Puedes seguir usando «Importar de Excel» y «Publicar» a mano.');
+}
+
+function quitarAutomatico_() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'importacionAutomatica') ScriptApp.deleteTrigger(t);
+  });
+}
+
+function importar_() {
   const f = prepararFuentes_();
   const prog = sheet_(PROG_TAB);
   ensureOrigenCol_(prog);
   const n = f.getLastRow() - 1;
   if (n < 1) { toast_('Pega los enlaces en la pestaña «fuentes» y vuelve a pulsar Importar.'); f.activate(); return; }
-  const tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  const tz = sheet_(PROG_TAB).getParent().getSpreadsheetTimeZone();
   const dep = readDeportistas_();
   const rows = f.getRange(2, 1, n, 6).getValues();
   let total = 0, conError = 0;
@@ -89,8 +129,7 @@ function importarExcel() {
     f.getRange(i + 2, 5, 1, 2).setValues([[estado, Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm')]]);
   });
   SpreadsheetApp.flush();
-  toast_('Importadas ' + total + ' sesiones' + (conError ? ' · ' + conError + ' archivo(s) con error (mira «fuentes»)' : '') +
-    '. Revisa «programacion» y pulsa Publicar.');
+  toast_('Importadas ' + total + ' sesiones' + (conError ? ' · ' + conError + ' archivo(s) con error (mira «fuentes»)' : '') + '.');
 }
 
 function ensureOrigenCol_(prog) {

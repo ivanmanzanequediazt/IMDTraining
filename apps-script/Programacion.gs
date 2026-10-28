@@ -35,6 +35,9 @@ function onOpen() {
     .addItem('Actualizar estados', 'actualizarEstados')
     .addSeparator()
     .addItem('Importar de Excel', 'importarExcel')
+    .addItem('Importar y publicar ahora', 'importarYPublicar')
+    .addItem('Automático: activar (cada 30 min)', 'activarAutomatico')
+    .addItem('Automático: desactivar', 'desactivarAutomatico')
     .addSeparator()
     .addItem('Preparar pestañas de programación', 'prepararProgramacion')
     .addToUi();
