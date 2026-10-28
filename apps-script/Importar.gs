@@ -533,30 +533,55 @@ function valorDe_(v, letra, letras) {
 }
 
 // Sesiones -> filas de «programacion» (22 columnas + Origen)
+// "Sentadilla + plancha" -> ["Sentadilla", "plancha"]; los paréntesis se quitan ("A + (B + C)" -> A, B, C)
+function partesBiserie_(name) {
+  return String(name).split('+').map(function (x) { return x.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim(); })
+    .filter(function (x) { return x; });
+}
+
+// "8 rep / 6-8rep" o "8, 12" -> una parte por ejercicio de la biserie (si cuadra el número de partes; si no, null)
+function repartir_(txt, n) {
+  if (n < 2 || !txt) return null;
+  const p = String(txt).split(/\s*[\/,;]\s*/).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+  return p.length === n ? p : null;
+}
+
 function filasDeSesion_(apodo, s, origen, letra, letras) {
   const notas = [];
-  const filas = s.ejercicios.map(function (e) {
-    const r = PROG_HEADERS.map(function () { return ''; });
-    r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = 'Fuerza';
-    r[PC.ejercicio] = e.name;
-    r[PC.unilateral] = false; r[PC.plyo] = false;
+  const filas = [];
+  s.ejercicios.forEach(function (e) {
+    const nombres = partesBiserie_(e.name);
+    const n = nombres.length || 1;
+    const tipo = n === 2 ? 'biserie' : n === 3 ? 'triserie' : n > 3 ? 'circuito' : '';
     const series = typeof e.series === 'number' ? Math.round(e.series) : primerNumero_(e.series, false);
-    r[PC.series] = series && series >= 1 && series <= 20 ? series : 1;
-    const reps = primerNumero_(e.repsTxt, false);
-    r[PC.reps] = reps && reps >= 1 ? reps : '';
-    if (e.repsTxt && !/^\d+$/.test(e.repsTxt)) r[PC.variante] = e.repsTxt.replace(/\s+/g, ' ');
+    const repsP = repartir_(e.repsTxt, n);
     const peso = valorDe_(e.pesoTxt, letra, letras);
-    const kg = peso.txt === '' ? null : primerNumero_(peso.txt, true);
-    if (kg !== null && kg > 0 && kg <= 1000) r[PC.kg] = kg;
-    if (peso.txt && /[a-záéíóúñ]{2}/i.test(peso.txt)) notas.push(e.name + ': ' + peso.txt);
+    const pesoP = repartir_(peso.txt, n);
     const rpe = valorDe_(e.rpe, letra, letras);
     const rpeN = typeof rpe.val === 'number' ? rpe.val : primerNumero_(rpe.txt, true);
-    if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '') r[PC.rpe] = rpeN;
+    (nombres.length ? nombres : [e.name]).forEach(function (nombre, k) {
+      const r = PROG_HEADERS.map(function () { return ''; });
+      r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = 'Fuerza';
+      r[PC.ejercicio] = nombre;
+      r[PC.unilateral] = false; r[PC.plyo] = false;
+      r[PC.series] = series && series >= 1 && series <= 20 ? series : 1;
+      const repsTxt = repsP ? repsP[k] : e.repsTxt;
+      const reps = primerNumero_(repsTxt, false);
+      r[PC.reps] = reps && reps >= 1 ? reps : '';
+      const textoReps = repsTxt && !/^\d+$/.test(repsTxt) ? repsTxt.replace(/\s+/g, ' ') : '';
+      r[PC.variante] = [tipo, textoReps].filter(function (x) { return x; }).join(' · ');
+      // Peso: repartido si viene separado ("40 / 10"); si es uno solo, es del primer ejercicio de la biserie
+      const pesoTxt = pesoP ? pesoP[k] : (k === 0 ? peso.txt : '');
+      const kg = pesoTxt === '' ? null : primerNumero_(pesoTxt, true);
+      if (kg !== null && kg > 0 && kg <= 1000) r[PC.kg] = kg;
+      if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '') r[PC.rpe] = rpeN;
+      r[PC.origen] = origen;
+      filas.push(r);
+    });
+    if (peso.txt && /[a-záéíóúñ]{2}/i.test(peso.txt)) notas.push(e.name + ': ' + peso.txt);
     if (e.obs) notas.push(e.name + ': ' + e.obs);
-    r[PC.origen] = origen;
-    return r;
   });
-  if (notas.length) filas[0][PC.notas] = notas.join(' · ');
+  if (notas.length && filas.length) filas[0][PC.notas] = notas.join(' · ');
   return filas;
 }
 
@@ -599,5 +624,5 @@ function planImportacion_(vals, origen, apodo, sesiones, fmt, letra, letras) {
   return { borrarFilas: borrarFilas, nuevas: nuevas, borrar: borrar };
 }
 
-if (typeof module !== 'undefined') module.exports = { parseQuienes_: parseQuienes_, valorDe_: valorDe_, readXlsx_: readXlsx_, parseWorkbook_: parseWorkbook_, mesDeNombre_: mesDeNombre_,
+if (typeof module !== 'undefined') module.exports = { partesBiserie_: partesBiserie_, parseQuienes_: parseQuienes_, valorDe_: valorDe_, readXlsx_: readXlsx_, parseWorkbook_: parseWorkbook_, mesDeNombre_: mesDeNombre_,
   filasDeSesion_: filasDeSesion_, planImportacion_: planImportacion_, primerNumero_: primerNumero_ };

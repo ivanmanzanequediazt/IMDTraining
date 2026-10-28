@@ -9,7 +9,7 @@ const dir = __dirname;
 const ctx = { console, Utilities: { formatDate: d => d.toISOString().slice(0, 10) } };
 vm.createContext(ctx);
 const src = ['Code.gs', 'Programacion.gs', 'Importar.gs'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') +
-  '\n;this.__ = {parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS};';
+  '\n;this.__ = {partesBiserie_, parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS};';
 vm.runInContext(src, ctx);
 const X = ctx.__;
 
@@ -61,6 +61,20 @@ console.log('· Archivo compartido (O: Olga, S: Sergio)');
   eq(o.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[25, 8], [20, 8], [17.5, '']], 'Olga: kg y RPE');
   eq(sa.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[12, 8], [20, 7], [10, '']], 'Sergio: kg y RPE');
   eq([o[0][X.PC.notas], sa[0][X.PC.notas]], ["Press: 17'5 lado", ''], 'notas solo con lo suyo');
+}
+console.log('· Biseries');
+{
+  eq(X.partesBiserie_('Remo barra + PM unipodal kb contralateral '), ['Remo barra', 'PM unipodal kb contralateral'], 'biserie');
+  eq(X.partesBiserie_('Ext tronco pica + (Plancha comando + Rot cubanas disco)'), ['Ext tronco pica', 'Plancha comando', 'Rot cubanas disco'], 'triserie con paréntesis');
+  const s = { fecha: '2026-10-06', sesion: 'T', ejercicios: [
+    { name: 'Remo barra + PM unipodal', series: 3, repsTxt: '4-6rep / 6-8rep', pesoTxt: '40 / 12', rpe: 8, obs: '' },
+    { name: 'Press inclinado + remo mentón', series: 3, repsTxt: '8, 12', pesoTxt: '20', rpe: '', obs: '' },
+    { name: 'Sentadilla + plancha', series: 2, repsTxt: '6', pesoTxt: 'O: 50 S: 30', rpe: '', obs: '' }] };
+  const f = X.filasDeSesion_('Pepe', s, 'excel:A', 'S', ['O', 'S']);
+  eq(f.map(r => [r[X.PC.ejercicio], r[X.PC.series], r[X.PC.reps], r[X.PC.variante], r[X.PC.kg], r[X.PC.rpe]]), [
+    ['Remo barra', 3, 4, 'biserie · 4-6rep', 40, 8], ['PM unipodal', 3, 6, 'biserie · 6-8rep', 12, 8],
+    ['Press inclinado', 3, 8, 'biserie', 20, ''], ['remo mentón', 3, 12, 'biserie', '', ''],
+    ['Sentadilla', 2, 6, 'biserie', 30, ''], ['plancha', 2, 6, 'biserie', '', '']], 'cada ejercicio con sus reps y kilos');
 }
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
 {
