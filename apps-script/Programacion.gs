@@ -18,12 +18,12 @@ const PROG_TAB = 'programacion';
 const DEP_TAB = 'deportistas';
 const PROG_HEADERS = ['Deportista', 'Fecha', 'Sesión', 'Tipo', 'Ejercicio', 'Variante', 'Unilateral', 'Pliometría',
   'Series', 'Reps', 'Kg', '%1RM', 'RPE', 'RIR', 'Intensidad', 'Minutos', 'Zona', 'Intervalos', 'Indicaciones',
-  'Acción', 'Estado', 'id'];
+  'Acción', 'Estado', 'id', 'Origen'];
 const PC = {}; // índice (0..21) de cada columna por nombre corto
 ['apodo', 'fecha', 'sesion', 'tipo', 'ejercicio', 'variante', 'unilateral', 'plyo', 'series', 'reps', 'kg', 'pct',
-  'rpe', 'rir', 'int', 'minutos', 'zona', 'intervalos', 'notas', 'accion', 'estado', 'id']
+  'rpe', 'rir', 'int', 'minutos', 'zona', 'intervalos', 'notas', 'accion', 'estado', 'id', 'origen']
   .forEach(function (k, i) { PC[k] = i; });
-const PROG_COLS = PROG_HEADERS.length;          // 22
+const PROG_COLS = PROG_HEADERS.length;          // 23 (Origen: filas importadas de Excel, oculta)
 const INT_BY_NAME = { baja: 1, media: 2, alta: 3, b: 1, m: 2, a: 3 };
 const STATUS_TXT = { pending: 'Pendiente', inprogress: 'En curso', done: 'Hecho' };
 
@@ -33,6 +33,8 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('IMDTraining')
     .addItem('Publicar programación', 'publicarProgramacion')
     .addItem('Actualizar estados', 'actualizarEstados')
+    .addSeparator()
+    .addItem('Importar de Excel', 'importarExcel')
     .addSeparator()
     .addItem('Preparar pestañas de programación', 'prepararProgramacion')
     .addToUi();
@@ -65,6 +67,7 @@ function prepararProgramacion() {
   if (!prog) prog = ss.insertSheet(PROG_TAB);
   if (prog.getLastRow() === 0) prog.getRange(1, 1, 1, PROG_COLS).setValues([PROG_HEADERS]);
   if (prog.getMaxColumns() < PROG_COLS) prog.insertColumnsAfter(prog.getMaxColumns(), PROG_COLS - prog.getMaxColumns());
+  if (prog.getRange(1, PC.origen + 1).getValue() === '') prog.getRange(1, PC.origen + 1).setValue('Origen');
   const head = prog.getRange(1, 1, 1, PROG_COLS);
   head.setFontWeight('bold').setBackground('#e8eaed').setWrap(true).setVerticalAlignment('middle');
   prog.setFrozenRows(1);
@@ -88,7 +91,8 @@ function prepararProgramacion() {
   ['sesion', 'ejercicio', 'variante', 'intervalos', 'notas'].forEach(function (k) { col(k).setNumberFormat('@'); });
   col('estado').setFontColor('#5f6368').setFontStyle('italic');
   col('id').setNumberFormat('@');
-  prog.hideColumns(PC.id + 1);
+  col('origen').setNumberFormat('@');
+  prog.hideColumns(PC.id + 1, 2);
 
   const widths = { apodo: 110, fecha: 95, sesion: 130, tipo: 85, ejercicio: 150, variante: 110, unilateral: 75,
     plyo: 75, series: 55, reps: 55, kg: 55, pct: 55, rpe: 50, rir: 50, int: 85, minutos: 65, zona: 60,
@@ -544,8 +548,8 @@ function buildPlan_(g, id, cid, existing, now) {
       const r = g.rows[i];
       const n = 'fila ' + r.row + ': ';
       if (!r.ejercicio) return { ok: false, error: n + 'falta el ejercicio' };
-      if (!(r.series >= 1) || r.series > 20 || r.series % 1) return { ok: false, error: n + 'Series tiene que ser un número entre 1 y 20' };
-      if (!(r.reps >= 1) || r.reps % 1) return { ok: false, error: n + 'faltan las Reps' };
+      if (r.series !== null && (!(r.series >= 1) || r.series > 20 || r.series % 1)) return { ok: false, error: n + 'Series tiene que ser un número entre 1 y 20' };
+      if (r.reps !== null && (!(r.reps >= 1) || r.reps % 1)) return { ok: false, error: n + 'Reps tiene que ser un número entero' };
       const bad = [['Kg', r.kg, 0, 1000], ['%1RM', r.pct, 0, 120], ['RPE', r.rpe, 0, 10], ['RIR', r.rir, 0, 10]]
         .filter(function (x) { return x[1] !== null && !(x[1] >= x[2] && x[1] <= x[3]); })[0];
       if (bad) return { ok: false, error: n + bad[0] + ' no válido' };
@@ -566,7 +570,7 @@ function buildPlan_(g, id, cid, existing, now) {
           if (mode === 'pct') ex.load = 'pct';
         }
       }
-      for (let k = 0; k < r.series; k++) {
+      for (let k = 0; k < (r.series === null ? 1 : r.series); k++) {
         const s = { reps: r.reps };
         if (r.plyo) s.int = r.int;
         else { s.kg = pct !== null ? null : r.kg; if (pct !== null) s.pct = pct; }
