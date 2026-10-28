@@ -38,8 +38,8 @@ function prepararFuentes_() {
     f.getRange(2, 3, n, 1).setNumberFormat('@');
     f.getRange(2, 4, n, 1).insertCheckboxes();
     f.getRange(2, 5, n, 2).setFontColor('#5f6368').setFontStyle('italic');
-    f.getRange('A1').setNote('El apodo del cliente (el mismo de «deportistas»).\nSi el archivo es de varios clientes que entrenan juntos: «O: Oscar Isalud, S: Sara Isalud», y en el Excel escribid los pesos como «O: 25 S: 12».');
-    f.getRange('B1').setNote('Mes y año del archivo: 10/2026 u «octubre 2026». Si lo dejas vacío, se saca del nombre del archivo (ANTONIO_OCTUBRE_26).');
+    f.getRange('A1').setNote('El apodo del cliente (el mismo de «deportistas»).\nSi el archivo es de varios clientes que entrenan juntos: «O: Olga Ejemplo, S: Sergio Ejemplo», y en el Excel escribid los pesos como «O: 25 S: 12».');
+    f.getRange('B1').setNote('Mes y año del archivo: 10/2026 u «octubre 2026». Si lo dejas vacío, se saca del nombre del archivo (PEPE_OCTUBRE_26).');
     f.getRange('C1').setNote('En OneDrive: Compartir > «Cualquier persona con el vínculo puede ver» > Copiar vínculo, y pégalo aquí.');
     f.getRange('D1').setNote('Marcado = se importa al pulsar «Importar de Excel». Desmárcalo en los meses que ya han pasado.');
   }
@@ -64,7 +64,7 @@ function importarExcel() {
     let estado;
     try {
       const quienes = parseQuienes_(apodoTxt);
-      if (!quienes) throw new Error('falta el apodo (o, si el archivo es de varios, «O: Oscar Isalud, S: Sara Isalud»)');
+      if (!quienes) throw new Error('falta el apodo (o, si el archivo es de varios, «O: Olga Ejemplo, S: Sergio Ejemplo»)');
       quienes.forEach(function (q) {
         if (!dep.byApodo[norm_(q.apodo)]) throw new Error('el apodo «' + q.apodo + '» no está en «deportistas»');
       });
@@ -281,7 +281,7 @@ function parseMes_(v, tz) {
   return null;
 }
 
-// ANTONIO_OCTUBRE_26.xlsx -> {y:2026, m:10}; sin año -> el año en curso
+// PEPE_OCTUBRE_26.xlsx -> {y:2026, m:10}; sin año -> el año en curso
 function mesDeNombre_(name) {
   const s = sinAcentos_(String(name || '')).replace(/\.xlsx?$/, '');
   const parts = s.split(/[_\-\s.]+/);
@@ -420,7 +420,7 @@ function parseWorkbook_(wb, y, m) {
   return { sesiones: sesiones, avisos: avisos };
 }
 
-// Columna Apodo de «fuentes»: "Antonio Isalud" o, si el archivo es de varios, "O: Oscar Isalud, S: Sara Isalud"
+// Columna Apodo de «fuentes»: "Pepe Ejemplo" o, si el archivo es de varios, "O: Olga Ejemplo, S: Sergio Ejemplo"
 // -> [{letra:null, apodo}] | [{letra:'O', apodo}, {letra:'S', apodo}] | null
 function parseQuienes_(txt) {
   const s = str_(txt);

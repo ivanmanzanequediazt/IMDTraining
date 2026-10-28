@@ -18,7 +18,7 @@ const eq = (a, b, msg) => { const ok = JSON.stringify(a) === JSON.stringify(b); 
 const ok = (c, msg) => eq(!!c, true, msg);
 
 console.log('· Utilidades');
-eq(X.mesDeNombre_('ANTONIO_OCTUBRE_26.xlsx'), { m: 10, y: 2026 }, 'mes y año del nombre');
+eq(X.mesDeNombre_('PEPE_OCTUBRE_26.xlsx'), { m: 10, y: 2026 }, 'mes y año del nombre');
 eq(X.mesDeNombre_('Ana_Marzo_2027.xlsx'), { m: 3, y: 2027 }, 'año con 4 cifras');
 eq(X.mesDeNombre_('PEPE_OCTUBRE.xlsx').m, 10, 'sin año');
 eq([X.primerNumero_("17'5 lado", true), X.primerNumero_('50 kg', true), X.primerNumero_('poner lastre', true), X.primerNumero_('4-6rep', false), X.primerNumero_("3 x 4''", false)],
@@ -34,7 +34,7 @@ if (fx && fs.existsSync(fx)) {
   console.log('   avisos: ' + res.avisos.join(' / '));
   // Filas y planes
   const filas = [];
-  res.sesiones.forEach(s => X.filasDeSesion_('Antonio', s, 'excel:x').forEach(r => filas.push(r)));
+  res.sesiones.forEach(s => X.filasDeSesion_('Pepe', s, 'excel:x').forEach(r => filas.push(r)));
   const parsed = X.parseRows_([X.PC && Array(X.PROG_COLS).fill('h')].concat(filas), d => d);
   const groups = X.groupSessions_(parsed);
   let errs = 0;
@@ -45,21 +45,21 @@ if (fx && fs.existsSync(fx)) {
   console.log('   ejemplo → ' + p0.date + ' «' + p0.title + '»: ' + p0.exercises.map(e => e.name + (e.variant ? ' [' + e.variant + ']' : '') + ' ' + e.sets.length + 'x' + e.sets[0].reps + (e.sets[0].kg ? '@' + e.sets[0].kg : '')).join('; ') + (p0.notes ? ' · notas: ' + p0.notes : ''));
 } else console.log('· (sin Excel de ejemplo: se salta)');
 
-console.log('· Archivo compartido (O: Oscar, S: Sara)');
+console.log('· Archivo compartido (O: Olga, S: Sergio)');
 {
-  eq(X.parseQuienes_('O: Oscar Isalud, S: Sara Isalud'), [{ letra: 'O', apodo: 'Oscar Isalud' }, { letra: 'S', apodo: 'Sara Isalud' }], 'apodos con letra');
-  eq(X.parseQuienes_('Antonio Isalud'), [{ letra: null, apodo: 'Antonio Isalud' }], 'un solo apodo');
+  eq(X.parseQuienes_('O: Olga Ejemplo, S: Sergio Ejemplo'), [{ letra: 'O', apodo: 'Olga Ejemplo' }, { letra: 'S', apodo: 'Sergio Ejemplo' }], 'apodos con letra');
+  eq(X.parseQuienes_('Pepe Ejemplo'), [{ letra: null, apodo: 'Pepe Ejemplo' }], 'un solo apodo');
   const L = ['O', 'S'];
   eq(['O: 25 S: 12', 'O:25kg / S:12kg', 's: 12 o: 25', "O: 17'5 lado S: 10", 'O 25', '20', 'S: 12'].map(x => X.valorDe_(x, 'O', L).txt),
-     ['25', '25kg', '25', "17'5 lado", 'O 25', '20', ''], 'peso de Oscar');
-  eq(X.valorDe_('O: 25 S: 12', 'S', L).txt, '12', 'peso de Sara');
+     ['25', '25kg', '25', "17'5 lado", 'O 25', '20', ''], 'peso de Olga');
+  eq(X.valorDe_('O: 25 S: 12', 'S', L).txt, '12', 'peso de Sergio');
   const s = { fecha: '2026-10-06', sesion: 'Pierna', ejercicios: [
     { name: 'Sentadilla', series: 3, repsTxt: '8', pesoTxt: 'O: 25 S: 12', rpe: 8, obs: '' },
     { name: 'Remo', series: 3, repsTxt: '10', pesoTxt: '20', rpe: 'O: 8 S: 7', obs: '' },
     { name: 'Press', series: 3, repsTxt: '10', pesoTxt: "O: 17'5 lado S: 10", rpe: '', obs: '' }] };
-  const o = X.filasDeSesion_('Oscar Isalud', s, 'excel:A#O', 'O', L), sa = X.filasDeSesion_('Sara Isalud', s, 'excel:A#S', 'S', L);
-  eq(o.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[25, 8], [20, 8], [17.5, '']], 'Oscar: kg y RPE');
-  eq(sa.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[12, 8], [20, 7], [10, '']], 'Sara: kg y RPE');
+  const o = X.filasDeSesion_('Olga Ejemplo', s, 'excel:A#O', 'O', L), sa = X.filasDeSesion_('Sergio Ejemplo', s, 'excel:A#S', 'S', L);
+  eq(o.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[25, 8], [20, 8], [17.5, '']], 'Olga: kg y RPE');
+  eq(sa.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[12, 8], [20, 7], [10, '']], 'Sergio: kg y RPE');
   eq([o[0][X.PC.notas], sa[0][X.PC.notas]], ["Press: 17'5 lado", ''], 'notas solo con lo suyo');
 }
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
@@ -67,15 +67,15 @@ console.log('· Reimportar conserva ids y marca para borrar lo que ya no está')
   const s1 = { fecha: '2026-10-06', sesion: 'Tracc', ejercicios: [{ name: 'Remo', series: 3, repsTxt: '8', pesoTxt: '', rpe: '', obs: '' }] };
   const s2 = { fecha: '2026-10-08', sesion: 'Empuje', ejercicios: [{ name: 'Press', series: 3, repsTxt: '6-8rep', pesoTxt: "17'5 lado", rpe: 8, obs: '' }] };
   const vals = [];
-  [s1, s2].forEach(s => X.filasDeSesion_('Antonio', s, 'excel:A').forEach(r => vals.push(r)));
+  [s1, s2].forEach(s => X.filasDeSesion_('Pepe', s, 'excel:A').forEach(r => vals.push(r)));
   vals.forEach((r, i) => { r[X.PC.id] = i === 0 ? 'hA' : 'hB'; r[X.PC.estado] = '✓ Publicado · Pendiente'; });
-  const otra = Array(X.PROG_COLS).fill(''); otra[X.PC.apodo] = 'Luci'; otra[X.PC.origen] = ''; vals.push(otra);
+  const otra = Array(X.PROG_COLS).fill(''); otra[X.PC.apodo] = 'Ana'; otra[X.PC.origen] = ''; vals.push(otra);
   const s1b = { fecha: '2026-10-06', sesion: 'Tracc', ejercicios: [{ name: 'Remo', series: 4, repsTxt: '8', pesoTxt: '', rpe: '', obs: '' }] };
-  const plan = X.planImportacion_(vals, 'excel:A', 'Antonio', [s1b], d => d);
+  const plan = X.planImportacion_(vals, 'excel:A', 'Pepe', [s1b], d => d);
   eq(plan.borrarFilas, [0, 1], 'solo se rehacen las filas de este Excel');
   eq(plan.nuevas.map(r => [r[X.PC.sesion], r[X.PC.series], r[X.PC.id], r[X.PC.accion]]), [['Tracc', 4, 'hA', ''], ['Empuje', '', 'hB', 'Borrar']], 'id conservado y sesión quitada marcada para borrar');
   eq(plan.borrar, 1, 'una para borrar');
-  const v2 = X.filasDeSesion_('Antonio', s2, 'excel:A')[0];
+  const v2 = X.filasDeSesion_('Pepe', s2, 'excel:A')[0];
   eq([v2[X.PC.reps], v2[X.PC.variante], v2[X.PC.kg], v2[X.PC.rpe], v2[X.PC.notas]], [6, '6-8rep', 17.5, 8, "Press: 17'5 lado"], 'texto de reps y peso');
 }
 
