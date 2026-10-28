@@ -18,7 +18,8 @@ const FUENTES_TAB = 'fuentes';
 const FUENTES_HEADERS = ['Apodo', 'Mes', 'Enlace', 'Importar', 'Estado', 'Última importación'];
 const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const SECCIONES = ['activacion', 'pprincipal', 'pp', 'parteprincipal', 'calentamiento', 'vueltaalacalma', 'enfriamiento',
+const PRINCIPAL = ['pprincipal', 'pp', 'parteprincipal', 'principal', 'ppal'];
+const SECCIONES = ['activacion', 'pprincipal', 'pp', 'parteprincipal', 'principal', 'ppal', 'calentamiento', 'vueltaalacalma', 'enfriamiento',
   'movilidad', 'core', 'finisher', 'accesorios', 'complementarios', 'fuerza', 'potencia', 'pliometria'];
 
 /* ================= Pestaña fuentes ================= */
@@ -404,6 +405,7 @@ function fechaBloque_(d1, d2, y, m, dow) {
 function parseWorkbook_(wb, y, m) {
   const avisos = [];
   const bloques = [];
+  const sinPrincipal = [];
   let sinNombre = 0;
   wb.forEach(function (sh) {
     const nm = String(sh.name).trim().match(/^(\d{1,2})\s*[-–_]\s*(\d{1,2})$/);
@@ -448,7 +450,7 @@ function parseWorkbook_(wb, y, m) {
         const fecha = fechaBloque_(d1, d2, y, m, dow);
         if (!fecha) { avisos.push(DIAS[dow] + ' no cae entre los días ' + sh.name + ' (' + where + ')'); return; }
         const ejercicios = [];
-        let vacias = 0, trasHueco = false;
+        let vacias = 0, trasHueco = false, seccion = '', hayPrincipal = false;
         for (let rr = r + 1; rr <= Math.min(maxRow, r + 40); rr++) {
           const v = { name: txt(rr, col.name), series: at(rr, col.series), reps: at(rr, col.reps), peso: at(rr, col.peso),
             rpe: at(rr, col.rpe), obs: txt(rr, col.obs) };
@@ -460,13 +462,22 @@ function parseWorkbook_(wb, y, m) {
           }
           vacias = 0;
           if (v.name && (diaDe_(v.name) >= 0 || sinAcentos_(v.name).replace(/[^a-z]/g, '') === 'ejercicios')) break;
+          if (v.name && !otros && (esSeccion_(v.name) || (v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20))) {
+            seccion = sinAcentos_(v.name).replace(/[^a-z]/g, '');
+            if (PRINCIPAL.indexOf(seccion) >= 0) hayPrincipal = true;
+            continue;
+          }
           // Después de un hueco, solo cuentan las filas con series o repeticiones (no las notas sueltas de abajo)
           if (trasHueco && v.series === '' && v.reps === '') continue;
           if (!v.name) { sinNombre++; continue; }
-          if (!otros && esSeccion_(v.name)) continue;
-          if (!otros && v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20) continue;
           ejercicios.push({ name: v.name.replace(/\s+/g, ' '), series: v.series, repsTxt: String(v.reps).trim(),
-            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs });
+            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: PRINCIPAL.indexOf(seccion) >= 0 });
+        }
+        // Solo la parte principal; si el bloque no tiene «P. PRINCIPAL», se importa entero (y se avisa)
+        if (hayPrincipal) {
+          for (let k = ejercicios.length - 1; k >= 0; k--) if (!ejercicios[k].principal) ejercicios.splice(k, 1);
+        } else if (ejercicios.length) {
+          sinPrincipal.push(sh.name + ' ' + DIAS[dow].replace('miercoles', 'miércoles').replace('sabado', 'sábado'));
         }
         if (!ejercicios.length) return;
         bloques.push({ hoja: sh.name, fecha: fecha, dia: DIAS[dow], label: label, ejercicios: ejercicios });
@@ -495,6 +506,7 @@ function parseWorkbook_(wb, y, m) {
     sesiones.push({ fecha: b.fecha, sesion: sesion, hoja: b.hoja, ejercicios: b.ejercicios });
   });
   sesiones.sort(function (a, b) { return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0; });
+  if (sinPrincipal.length) avisos.push('sin «P. PRINCIPAL», importado entero: ' + sinPrincipal.join(', '));
   if (sinNombre) avisos.push(sinNombre + ' fila' + (sinNombre === 1 ? '' : 's') + ' con series pero sin ejercicio (saltada' + (sinNombre === 1 ? '' : 's') + ')');
   return { sesiones: sesiones, avisos: avisos };
 }
