@@ -148,20 +148,49 @@ function descargarXlsx_(link) {
   } catch (e) { /* seguimos con lo demás */ }
   add(link);
   const fallos = [];
+  // Enlaces nuevos de OneDrive personal: la web de OneDrive pide primero un permiso de invitado ("Badger") y con él
+  // descarga el archivo compartido. No es una vía documentada por Microsoft: si deja de funcionar, avisará el error.
+  try {
+    const tk = UrlFetchApp.fetch('https://api-badgerp.svc.ms/v1.0/token', { method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ appId: '5cbed6ac-a083-4e14-b191-b4ba07653de2' }), muteHttpExceptions: true });
+    const token = tk.getResponseCode() === 200 ? JSON.parse(tk.getContentText()).token : null;
+    if (token) {
+      const h = { Authorization: 'Badger ' + token, Prefer: 'autoredeem' };
+      const base = 'https://my.microsoftpersonalcontent.com/_api/v2.0/shares/u!' + b64 + '/driveitem';
+      const r1 = UrlFetchApp.fetch(base + '/content', { headers: h, followRedirects: true, muteHttpExceptions: true });
+      const ok1 = descargaValida_(r1);
+      if (ok1) return ok1;
+      const r2 = UrlFetchApp.fetch(base, { headers: h, muteHttpExceptions: true });
+      if (r2.getResponseCode() === 200) {
+        const it = JSON.parse(r2.getContentText());
+        const url = it['@content.downloadUrl'] || it['@microsoft.graph.downloadUrl'];
+        if (url) {
+          const ok2 = descargaValida_(UrlFetchApp.fetch(url, { followRedirects: true, muteHttpExceptions: true }), it.name);
+          if (ok2) return ok2;
+        }
+      }
+      fallos.push('b' + r1.getResponseCode() + '/' + r2.getResponseCode());
+    } else fallos.push('b' + tk.getResponseCode());
+  } catch (e) { fallos.push('bx'); }
   for (let i = 0; i < tries.length; i++) {
     try {
       const r = UrlFetchApp.fetch(tries[i], { followRedirects: true, muteHttpExceptions: true });
-      const bytes = r.getContent();
-      if (r.getResponseCode() === 200 && bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4B) {
-        const cd = String(r.getHeaders()['Content-Disposition'] || r.getHeaders()['content-disposition'] || '');
-        const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
-        return { blob: r.getBlob(), name: m ? decodeURIComponent(m[1]) : '' };
-      }
+      const ok = descargaValida_(r);
+      if (ok) return ok;
       fallos.push(r.getResponseCode());
     } catch (e) { fallos.push('x'); }
   }
   throw new Error('no se pudo descargar (' + fallos.join(',') + '). Comprueba que el archivo está compartido como ' +
     '«Cualquier persona con el vínculo puede ver» y que es .xlsx');
+}
+
+// Respuesta que es de verdad un .xlsx (empieza por "PK", es un zip) -> {blob, name}; si no, null
+function descargaValida_(r, nombre) {
+  const bytes = r.getContent();
+  if (r.getResponseCode() !== 200 || bytes.length < 5 || bytes[0] !== 0x50 || bytes[1] !== 0x4B) return null;
+  const cd = String(r.getHeaders()['Content-Disposition'] || r.getHeaders()['content-disposition'] || '');
+  const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+  return { blob: r.getBlob(), name: nombre || (m ? decodeURIComponent(m[1]) : '') };
 }
 
 function unzipXlsx_(blob) {
