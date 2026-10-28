@@ -103,6 +103,17 @@ function ensureOrigenCol_(prog) {
   }
 }
 
+// Última fila con algo escrito (las casillas sin marcar no cuentan: llegan hasta el final de la hoja)
+function ultimaFilaConDatos_(prog) {
+  const last = prog.getLastRow();
+  if (last < 2) return 1;
+  const vals = prog.getRange(2, 1, last - 1, PC.accion + 1).getValues();
+  for (let i = vals.length - 1; i >= 0; i--) {
+    if (vals[i].some(function (x) { return x !== '' && x !== false && x !== null; })) return i + 2;
+  }
+  return 1;
+}
+
 // Sustituye las filas de este origen por las nuevas. Conserva el id (columna oculta) de las sesiones que siguen
 // existiendo, para que Publicar las actualice en vez de crear otras; las que ya no están en el Excel y se habían
 // publicado quedan en una fila con Acción «Borrar», para que Publicar las quite de la app.
@@ -121,7 +132,7 @@ function escribirImportadas_(prog, origen, apodo, sesiones, letra, letras) {
     k = end + 1;
   }
   if (plan.nuevas.length) {
-    const start = prog.getLastRow() + 1;
+    const start = ultimaFilaConDatos_(prog) + 1;
     if (start + plan.nuevas.length - 1 > prog.getMaxRows()) prog.insertRowsAfter(prog.getMaxRows(), start + plan.nuevas.length - prog.getMaxRows());
     prog.getRange(start, 1, plan.nuevas.length, PROG_COLS).setValues(plan.nuevas);
   }
