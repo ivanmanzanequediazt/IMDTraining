@@ -1070,7 +1070,7 @@ function alertsHTML(uid,noGlobal){let h=noGlobal?'':syncAlert()+backupNudge();co
   return h}
 function profileCard(p){const all=allOf(p.id),last=all[0],ser=acwrSeries(dailyLoads(loadItems(p.id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'),cur=ser[ser.length-1],st=acwrStatus(cur?.ratio),pend=all.some(s=>s.rpePost==null);
   return `<button class="pcard" data-act="openProfile" data-id="${p.id}"><span class="avatar">${esc(p.name.trim()[0]?.toUpperCase()||'?')}</span>
-    <span class="grow"><span class="t">${esc(p.name)}${pend?'<i class="pdot" title="RPE pendiente"></i>':''}</span><span class="s">${last?'Última sesión '+ago(last.startTime):'Sin sesiones'}${p.remote&&p.lastImport&&Date.now()-p.lastImport>=7*864e5?` · <b class="warnTxt">sin datos hace ${Math.floor((Date.now()-p.lastImport)/864e5)} d</b>`:''}</span>
+    <span class="grow"><span class="t">${esc(p.name)}${pend?'<i class="pdot" title="RPE pendiente"></i>':''}</span><span class="s">${last?'Última sesión '+ago(last.startTime):'Sin sesiones'}${p.remote&&!Sync.linked(p)&&p.lastImport&&Date.now()-p.lastImport>=7*864e5?` · <b class="warnTxt">sin datos hace ${Math.floor((Date.now()-p.lastImport)/864e5)} d</b>`:''}</span>
     <span class="tags">${p.id===meId()?'<span class="tag up">Tú</span>':''}${p.example?'<span class="tag ex">Ejemplo</span>':''}${p.remote?'<span class="tag str">Cliente</span>':''}</span></span>
     <span class="acwr-mini" style="--c:${zc(st.z)}"><b class="num">${cur?.ratio!=null?dec(cur.ratio,2):'—'}</b><span>ACWR</span></span></button>`}
 V.home=()=>{
