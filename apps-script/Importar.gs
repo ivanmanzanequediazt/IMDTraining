@@ -38,7 +38,7 @@ function prepararFuentes_() {
     f.getRange(2, 3, n, 1).setNumberFormat('@');
     f.getRange(2, 4, n, 1).insertCheckboxes();
     f.getRange(2, 5, n, 2).setFontColor('#5f6368').setFontStyle('italic');
-    f.getRange('A1').setNote('El apodo del cliente (el mismo de «deportistas»).');
+    f.getRange('A1').setNote('El apodo del cliente (el mismo de «deportistas»).\nSi el archivo es de varios clientes que entrenan juntos: «O: Oscar Isalud, S: Sara Isalud», y en el Excel escribid los pesos como «O: 25 S: 12».');
     f.getRange('B1').setNote('Mes y año del archivo: 10/2026 u «octubre 2026». Si lo dejas vacío, se saca del nombre del archivo (ANTONIO_OCTUBRE_26).');
     f.getRange('C1').setNote('En OneDrive: Compartir > «Cualquier persona con el vínculo puede ver» > Copiar vínculo, y pégalo aquí.');
     f.getRange('D1').setNote('Marcado = se importa al pulsar «Importar de Excel». Desmárcalo en los meses que ya han pasado.');
@@ -59,20 +59,28 @@ function importarExcel() {
   const rows = f.getRange(2, 1, n, 6).getValues();
   let total = 0, conError = 0;
   rows.forEach(function (v, i) {
-    const apodo = str_(v[0]), mesTxt = v[1], link = str_(v[2]);
+    const apodoTxt = str_(v[0]), mesTxt = v[1], link = str_(v[2]);
     if (!link || !bool_(v[3])) return;
     let estado;
     try {
-      if (!apodo) throw new Error('falta el apodo');
-      if (!dep.byApodo[norm_(apodo)]) throw new Error('el apodo «' + apodo + '» no está en «deportistas»');
+      const quienes = parseQuienes_(apodoTxt);
+      if (!quienes) throw new Error('falta el apodo (o, si el archivo es de varios, «O: Oscar Isalud, S: Sara Isalud»)');
+      quienes.forEach(function (q) {
+        if (!dep.byApodo[norm_(q.apodo)]) throw new Error('el apodo «' + q.apodo + '» no está en «deportistas»');
+      });
       const dl = descargarXlsx_(link);
       const ym = parseMes_(mesTxt, tz) || mesDeNombre_(dl.name);
       if (!ym) throw new Error('pon el mes en la columna Mes (por ejemplo 10/2026)');
       const wb = readXlsx_(unzipXlsx_(dl.blob));
       const res = parseWorkbook_(wb, ym.y, ym.m);
-      const out = escribirImportadas_(prog, 'excel:' + link, apodo, res.sesiones);
-      total += res.sesiones.length;
-      estado = '✓ ' + res.sesiones.length + ' sesiones' + (out.borrar ? ' · ' + out.borrar + ' para borrar' : '') +
+      let borrar = 0;
+      const letras = quienes.map(function (q) { return q.letra; }).filter(function (x) { return x; });
+      quienes.forEach(function (q) {
+        borrar += escribirImportadas_(prog, 'excel:' + link + (q.letra ? '#' + q.letra : ''), q.apodo, res.sesiones, q.letra, letras).borrar;
+      });
+      total += res.sesiones.length * quienes.length;
+      estado = '✓ ' + res.sesiones.length + ' sesiones' + (quienes.length > 1 ? ' × ' + quienes.length + ' deportistas' : '') +
+        (borrar ? ' · ' + borrar + ' para borrar' : '') +
         (res.avisos.length ? ' · Avisos: ' + res.avisos.join('; ') : '');
     } catch (e) {
       estado = 'Error: ' + (e && e.message ? e.message : e);
@@ -98,11 +106,11 @@ function ensureOrigenCol_(prog) {
 // Sustituye las filas de este origen por las nuevas. Conserva el id (columna oculta) de las sesiones que siguen
 // existiendo, para que Publicar las actualice en vez de crear otras; las que ya no están en el Excel y se habían
 // publicado quedan en una fila con Acción «Borrar», para que Publicar las quite de la app.
-function escribirImportadas_(prog, origen, apodo, sesiones) {
+function escribirImportadas_(prog, origen, apodo, sesiones, letra, letras) {
   const last = prog.getLastRow();
   const vals = last > 1 ? prog.getRange(2, 1, last - 1, PROG_COLS).getValues() : [];
   const fmt = function (d) { return Utilities.formatDate(d, prog.getParent().getSpreadsheetTimeZone(), 'yyyy-MM-dd'); };
-  const plan = planImportacion_(vals, origen, apodo, sesiones, fmt);
+  const plan = planImportacion_(vals, origen, apodo, sesiones, fmt, letra, letras);
   // Borrar las filas antiguas de este origen (de abajo arriba, por tramos seguidos)
   const del = plan.borrarFilas.slice().sort(function (a, b) { return b - a; });
   let k = 0;
@@ -412,8 +420,41 @@ function parseWorkbook_(wb, y, m) {
   return { sesiones: sesiones, avisos: avisos };
 }
 
+// Columna Apodo de «fuentes»: "Antonio Isalud" o, si el archivo es de varios, "O: Oscar Isalud, S: Sara Isalud"
+// -> [{letra:null, apodo}] | [{letra:'O', apodo}, {letra:'S', apodo}] | null
+function parseQuienes_(txt) {
+  const s = str_(txt);
+  if (!s) return null;
+  if (!/^\s*[A-Za-zÁÉÍÓÚÑáéíóúñ]\s*[:=]/.test(s)) return [{ letra: null, apodo: s }];
+  const out = [];
+  s.split(/[,;\n]+/).forEach(function (p) {
+    const m = p.trim().match(/^([A-Za-zÁÉÍÓÚÑáéíóúñ])\s*[:=]\s*(.+)$/);
+    if (m) out.push({ letra: m[1].toUpperCase(), apodo: m[2].trim() });
+  });
+  return out.length ? out : null;
+}
+
+// Celda compartida "O: 25 S: 12" -> lo de la letra pedida ("25"). Sin letras, vale para todos.
+// Devuelve {txt, val}: txt = texto de esta persona (sin las partes de los demás), val = número si la celda es número.
+function valorDe_(v, letra, letras) {
+  if (typeof v === 'number') return { txt: String(v), val: v };
+  const s = String(v === null || v === undefined ? '' : v).trim();
+  if (!letra || !letras || !letras.length || !s) return { txt: s, val: null };
+  const set = letras.join('') + letras.join('').toLowerCase();
+  const re = new RegExp('(^|[^A-Za-zÁÉÍÓÚÑáéíóúñ])([' + set + '])\\s*[:=]', 'g');
+  const marcas = [];
+  let m;
+  while ((m = re.exec(s))) marcas.push({ letra: m[2].toUpperCase(), ini: m.index + m[1].length, fin: re.lastIndex });
+  if (!marcas.length) return { txt: s, val: null };
+  const partes = {};
+  marcas.forEach(function (k, i) {
+    partes[k.letra] = s.slice(k.fin, i + 1 < marcas.length ? marcas[i + 1].ini : s.length).replace(/[\s,;\/|-]+$/, '').trim();
+  });
+  return { txt: partes[letra] || '', val: null };
+}
+
 // Sesiones -> filas de «programacion» (22 columnas + Origen)
-function filasDeSesion_(apodo, s, origen) {
+function filasDeSesion_(apodo, s, origen, letra, letras) {
   const notas = [];
   const filas = s.ejercicios.map(function (e) {
     const r = PROG_HEADERS.map(function () { return ''; });
@@ -425,10 +466,13 @@ function filasDeSesion_(apodo, s, origen) {
     const reps = primerNumero_(e.repsTxt, false);
     r[PC.reps] = reps && reps >= 1 ? reps : '';
     if (e.repsTxt && !/^\d+$/.test(e.repsTxt)) r[PC.variante] = e.repsTxt.replace(/\s+/g, ' ');
-    const kg = e.pesoTxt === '' ? null : primerNumero_(e.pesoTxt, true);
+    const peso = valorDe_(e.pesoTxt, letra, letras);
+    const kg = peso.txt === '' ? null : primerNumero_(peso.txt, true);
     if (kg !== null && kg > 0 && kg <= 1000) r[PC.kg] = kg;
-    if (e.pesoTxt && !/^\d+(?:[.,]\d+)?$/.test(e.pesoTxt)) notas.push(e.name + ': ' + e.pesoTxt);
-    if (typeof e.rpe === 'number' && e.rpe >= 0 && e.rpe <= 10) r[PC.rpe] = e.rpe;
+    if (peso.txt && /[a-záéíóúñ]{2}/i.test(peso.txt)) notas.push(e.name + ': ' + peso.txt);
+    const rpe = valorDe_(e.rpe, letra, letras);
+    const rpeN = typeof rpe.val === 'number' ? rpe.val : primerNumero_(rpe.txt, true);
+    if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '') r[PC.rpe] = rpeN;
     if (e.obs) notas.push(e.name + ': ' + e.obs);
     r[PC.origen] = origen;
     return r;
@@ -438,7 +482,7 @@ function filasDeSesion_(apodo, s, origen) {
 }
 
 // vals: filas actuales de «programacion» (sin cabecera). Devuelve qué filas borrar (índices 0..) y las filas nuevas.
-function planImportacion_(vals, origen, apodo, sesiones, fmt) {
+function planImportacion_(vals, origen, apodo, sesiones, fmt, letra, letras) {
   const key = function (a, f, s) { return norm_(a) + '|' + f + '|' + norm_(s); };
   const viejas = {};          // clave -> {id, estado}
   const borrarFilas = [];
@@ -457,7 +501,7 @@ function planImportacion_(vals, origen, apodo, sesiones, fmt) {
   sesiones.forEach(function (s) {
     const k = key(apodo, s.fecha, s.sesion);
     vistas[k] = true;
-    const filas = filasDeSesion_(apodo, s, origen);
+    const filas = filasDeSesion_(apodo, s, origen, letra, letras);
     const old = viejas[k];
     if (old && old.id) filas.forEach(function (r) { r[PC.id] = old.id; });
     filas.forEach(function (r) { nuevas.push(r); });
@@ -476,5 +520,5 @@ function planImportacion_(vals, origen, apodo, sesiones, fmt) {
   return { borrarFilas: borrarFilas, nuevas: nuevas, borrar: borrar };
 }
 
-if (typeof module !== 'undefined') module.exports = { readXlsx_: readXlsx_, parseWorkbook_: parseWorkbook_, mesDeNombre_: mesDeNombre_,
+if (typeof module !== 'undefined') module.exports = { parseQuienes_: parseQuienes_, valorDe_: valorDe_, readXlsx_: readXlsx_, parseWorkbook_: parseWorkbook_, mesDeNombre_: mesDeNombre_,
   filasDeSesion_: filasDeSesion_, planImportacion_: planImportacion_, primerNumero_: primerNumero_ };

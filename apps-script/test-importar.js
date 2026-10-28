@@ -9,7 +9,7 @@ const dir = __dirname;
 const ctx = { console, Utilities: { formatDate: d => d.toISOString().slice(0, 10) } };
 vm.createContext(ctx);
 const src = ['Code.gs', 'Programacion.gs', 'Importar.gs'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') +
-  '\n;this.__ = {readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS};';
+  '\n;this.__ = {parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS};';
 vm.runInContext(src, ctx);
 const X = ctx.__;
 
@@ -45,6 +45,23 @@ if (fx && fs.existsSync(fx)) {
   console.log('   ejemplo → ' + p0.date + ' «' + p0.title + '»: ' + p0.exercises.map(e => e.name + (e.variant ? ' [' + e.variant + ']' : '') + ' ' + e.sets.length + 'x' + e.sets[0].reps + (e.sets[0].kg ? '@' + e.sets[0].kg : '')).join('; ') + (p0.notes ? ' · notas: ' + p0.notes : ''));
 } else console.log('· (sin Excel de ejemplo: se salta)');
 
+console.log('· Archivo compartido (O: Oscar, S: Sara)');
+{
+  eq(X.parseQuienes_('O: Oscar Isalud, S: Sara Isalud'), [{ letra: 'O', apodo: 'Oscar Isalud' }, { letra: 'S', apodo: 'Sara Isalud' }], 'apodos con letra');
+  eq(X.parseQuienes_('Antonio Isalud'), [{ letra: null, apodo: 'Antonio Isalud' }], 'un solo apodo');
+  const L = ['O', 'S'];
+  eq(['O: 25 S: 12', 'O:25kg / S:12kg', 's: 12 o: 25', "O: 17'5 lado S: 10", 'O 25', '20', 'S: 12'].map(x => X.valorDe_(x, 'O', L).txt),
+     ['25', '25kg', '25', "17'5 lado", 'O 25', '20', ''], 'peso de Oscar');
+  eq(X.valorDe_('O: 25 S: 12', 'S', L).txt, '12', 'peso de Sara');
+  const s = { fecha: '2026-10-06', sesion: 'Pierna', ejercicios: [
+    { name: 'Sentadilla', series: 3, repsTxt: '8', pesoTxt: 'O: 25 S: 12', rpe: 8, obs: '' },
+    { name: 'Remo', series: 3, repsTxt: '10', pesoTxt: '20', rpe: 'O: 8 S: 7', obs: '' },
+    { name: 'Press', series: 3, repsTxt: '10', pesoTxt: "O: 17'5 lado S: 10", rpe: '', obs: '' }] };
+  const o = X.filasDeSesion_('Oscar Isalud', s, 'excel:A#O', 'O', L), sa = X.filasDeSesion_('Sara Isalud', s, 'excel:A#S', 'S', L);
+  eq(o.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[25, 8], [20, 8], [17.5, '']], 'Oscar: kg y RPE');
+  eq(sa.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[12, 8], [20, 7], [10, '']], 'Sara: kg y RPE');
+  eq([o[0][X.PC.notas], sa[0][X.PC.notas]], ["Press: 17'5 lado", ''], 'notas solo con lo suyo');
+}
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
 {
   const s1 = { fecha: '2026-10-06', sesion: 'Tracc', ejercicios: [{ name: 'Remo', series: 3, repsTxt: '8', pesoTxt: '', rpe: '', obs: '' }] };
