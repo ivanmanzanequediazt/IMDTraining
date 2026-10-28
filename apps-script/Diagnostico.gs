@@ -90,6 +90,5 @@ function moverDatos_(from, to) {
   }).join('\n'));
 }
 
-function moverDatosLuci() {
-  moverDatos_('d19c2430a', 'd3729f74a');
-}
+// Para usarla, crea una función como esta con los dos códigos (antiguo, nuevo) y ejecútala una vez:
+// function moverDatosDeportista() { moverDatos_('dCODIGOVIEJO', 'dCODIGONUEVO'); }
