@@ -85,7 +85,7 @@ function prepararProgramacion() {
     .requireValueInRange(ss.getSheetByName(DEP_TAB).getRange('B2:B'), true).setAllowInvalid(true).build());
   col('fecha').setNumberFormat('dd/mm/yyyy')
     .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).build());
-  col('tipo').setDataValidation(list(['Fuerza', 'Aeróbico']));
+  col('tipo').setDataValidation(list(['Fuerza', 'Activación', 'Aeróbico']));
   col('unilateral').insertCheckboxes();
   col('plyo').insertCheckboxes();
   col('int').setDataValidation(list(['Baja', 'Media', 'Alta']));
@@ -418,6 +418,7 @@ function parseRows_(values, fmt) {
       fecha: fecha,
       sesion: sesion,
       kind: tipo === '' || tipo.indexOf('fue') === 0 ? 'strength'
+        : tipo.indexOf('act') === 0 ? 'act'
         : tipo.indexOf('aer') === 0 || tipo.indexOf('aeró') === 0 ? 'hr' : 'bad',
       ejercicio: str_(v[PC.ejercicio]),
       variante: str_(v[PC.variante]),
@@ -518,37 +519,43 @@ const DEFAULT_HR = { type: 'Carrera', minutes: 40, zone: 2 };
 // Lo que compara Publicar para saber si algo ha cambiado
 function contentOf_(d) {
   return JSON.stringify({ title: d.title || '', kind: d.kind || 'strength', date: d.date || '', notes: d.notes || '',
-    exercises: d.kind === 'hr' ? null : (d.exercises || []), hr: d.kind === 'hr' ? (d.hr || null) : null });
+    exercises: d.kind === 'hr' ? null : (d.exercises || []), hr: d.kind === 'hr' ? (d.hr || null) : null,
+    cardio: d.kind === 'hr' ? null : (d.cardio || null) });
 }
 
 // -> {ok:true, data, changed} | {ok:false, error}
 function buildPlan_(g, id, cid, existing, now) {
   const kinds = {};
   g.rows.forEach(function (r) { kinds[r.kind] = true; });
-  if (kinds.bad) return { ok: false, error: 'el Tipo tiene que ser Fuerza o Aeróbico' };
-  if (kinds.hr && kinds.strength) return { ok: false, error: 'una sesión es de fuerza o aeróbica, no las dos' };
+  if (kinds.bad) return { ok: false, error: 'el Tipo tiene que ser Fuerza, Activación o Aeróbico' };
+  const aer = g.rows.filter(function (r) { return r.kind === 'hr'; });
+  if (aer.length > 1) return { ok: false, error: 'solo una fila de Aeróbico por sesión' };
+  const fuerza = g.rows.filter(function (r) { return r.kind !== 'hr'; });
   const notes = (g.rows.filter(function (r) { return r.notas; })[0] || {}).notas || '';
-  const content = { title: g.sesion, kind: kinds.hr ? 'hr' : 'strength', date: g.fecha, notes: notes };
-
-  if (kinds.hr) {
-    if (g.rows.length > 1) return { ok: false, error: 'una sesión aeróbica va en una sola fila' };
-    const r = g.rows[0];
+  const content = { title: g.sesion, kind: fuerza.length ? 'strength' : 'hr', date: g.fecha, notes: notes };
+  let cardio = null;
+  if (aer.length) {
+    const r = aer[0];
     const type = r.ejercicio || 'Carrera';
     if (r.intervalos) {
       const blocks = parseIntervals_(r.intervalos);
       if (!blocks) return { ok: false, error: 'intervalos no válidos: escribe por ejemplo 10 Z2, 3 Z4, 10 Z2' };
-      content.hr = { type: type, minutes: Math.round(blocks.reduce(function (a, b) { return a + b.min; }, 0)), zone: DEFAULT_HR.zone,
+      cardio = { type: type, minutes: Math.round(blocks.reduce(function (a, b) { return a + b.min; }, 0)), zone: DEFAULT_HR.zone,
         mode: 'int', blocks: blocks };
     } else {
       if (!(r.minutos > 0) || !(r.zona >= 1)) return { ok: false, error: 'pon Minutos y Zona, o Intervalos' };
-      content.hr = { type: type, minutes: r.minutos, zone: r.zona };
+      cardio = { type: type, minutes: r.minutos, zone: r.zona };
     }
+  }
+
+  if (!fuerza.length) {
+    content.hr = cardio;
     content.exercises = [];
   } else {
     const exs = [];
     let last = null;
-    for (let i = 0; i < g.rows.length; i++) {
-      const r = g.rows[i];
+    for (let i = 0; i < fuerza.length; i++) {
+      const r = fuerza[i];
       const n = 'fila ' + r.row + ': ';
       if (!r.ejercicio) return { ok: false, error: n + 'falta el ejercicio' };
       if (r.series !== null && (!(r.series >= 1) || r.series > 20 || r.series % 1)) return { ok: false, error: n + 'Series tiene que ser un número entre 1 y 20' };
@@ -558,10 +565,11 @@ function buildPlan_(g, id, cid, existing, now) {
       if (bad) return { ok: false, error: n + bad[0] + ' no válido' };
       if (r.int !== null && isNaN(r.int)) return { ok: false, error: n + 'Intensidad tiene que ser Baja, Media o Alta' };
       const pct = r.plyo || r.pct === null ? null : (r.pct > 0 && r.pct <= 1.2 ? Math.round(r.pct * 1000) / 10 : r.pct);
-      const key = [norm_(r.ejercicio), norm_(r.variante), r.unilateral, r.plyo].join('|');
+      const key = [norm_(r.ejercicio), norm_(r.variante), r.unilateral, r.plyo, r.kind].join('|');
       if (!last || last.key !== key) {
         last = { key: key, ex: { name: r.ejercicio, variant: r.variante, unilateral: r.unilateral, sets: [] } };
         if (r.plyo) last.ex.plyo = true;
+        if (r.kind === 'act') last.ex.act = true;    // activación: se marca como hecha, no suma carga
         exs.push(last);
       }
       const ex = last.ex;
@@ -584,6 +592,7 @@ function buildPlan_(g, id, cid, existing, now) {
     }
     content.exercises = exs.map(function (x) { return x.ex; });
     content.hr = existing && existing.hr && existing.kind !== 'hr' ? existing.hr : { type: DEFAULT_HR.type, minutes: DEFAULT_HR.minutes, zone: DEFAULT_HR.zone };
+    content.cardio = cardio;                        // aeróbico al final de la sesión de fuerza (concurrente)
   }
 
   const changed = !existing || contentOf_(existing) !== contentOf_(content);

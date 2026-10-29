@@ -160,7 +160,7 @@ canvas.scrub{touch-action:pan-y;cursor:crosshair;border-radius:6px}
 .ex-f{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chipset{font:500 13px var(--mono);background:var(--soft);padding:3px 8px;border-radius:6px}
-.ex-var{display:flex;gap:8px;align-items:center}
+.ex-var{display:flex;gap:4px 8px;align-items:center;flex-wrap:wrap}.ex-var>input{flex:1 1 160px;min-width:0}
 .ex-var input:not([type]){font-size:15px;padding:8px 12px;flex:1;min-width:0}
 .uni{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer;padding:6px 4px}
 .uni input{width:18px;height:18px;accent-color:var(--accent)}
@@ -451,6 +451,13 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
 .mg-fold summary,.zcard>summary{cursor:pointer;color:var(--muted);font-size:14px;padding:4px 0}
 .zcard>summary{color:var(--ink);font-weight:600}
 .danger-zone.plain{margin-top:8px}.danger-zone.plain summary{color:var(--muted);font-size:14px;cursor:pointer;text-align:center;padding:8px}
+/* Activación (lista para marcar) y aeróbico post-sesión */
+.act-list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.act-row{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:10px;border-radius:12px;border:1px solid var(--line,rgba(127,127,127,.3));background:transparent;color:inherit;cursor:pointer;font:inherit}
+.act-row .grow{display:flex;flex-direction:column;gap:2px}
+.act-box{flex:none;width:24px;height:24px;border-radius:7px;border:2px solid var(--accent);display:grid;place-items:center;font-weight:800;color:#fff}
+.act-row.done .act-box{background:var(--accent)}.act-row.done b{opacity:.65;text-decoration:line-through}
+.sec-lbl{display:block;margin:14px 2px 6px}
 </style>
 
 <nav id="drawer" aria-label="Perfiles">
@@ -768,7 +775,7 @@ const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],wellness:[],view:
 let inFrame=false;try{inFrame=window.top!==window.self}catch(e){inFrame=true}
 const btOK=!!navigator.bluetooth&&!inFrame;
 const prof=id=>S.profiles.find(p=>p.id===id);
-const sessOf=uid=>S.sessions.filter(s=>s.userId===uid&&s.status==='done').sort((a,b)=>b.startTime-a.startTime);
+const sessOf=uid=>S.sessions.filter(s=>s.userId===uid&&s.status==='done'&&!s.parentId).sort((a,b)=>b.startTime-a.startTime);
 const stOf=uid=>S.strength.filter(s=>s.userId===uid&&s.status==='done').sort((a,b)=>b.startTime-a.startTime);
 const stById=id=>S.strength.find(s=>s.id===id);
 // Todas las sesiones terminadas del perfil (FC y fuerza), más reciente primero
@@ -1059,7 +1066,7 @@ function alertsHTML(uid,noGlobal){let h=noGlobal?'':syncAlert()+backupNudge();co
   if(S.memOnly&&!noGlobal)h+=`<div class="note"><b>Los datos no se guardarán</b><span class="hint">Este navegador no permite almacenamiento. Abre la app desde su propio enlace para que guarde perfiles y sesiones.</span></div>`;
   for(const s of S.sessions.filter(s=>mine(s)&&s.status==='recording'&&(!S.rec||S.rec.id!==s.id)))
     h+=`<div class="note"><b>Sesión sin terminar · ${esc(prof(s.userId)?.name||'')}</b><span class="hint">Empezó ${fmtDT(s.startTime)}. Se cerró la app antes de finalizarla.</span><div class="row"><button class="btn small primary" data-act="recover" data-id="${s.id}">Guardar lo grabado</button><button class="btn small danger" data-act="discard" data-id="${s.id}">Descartar</button></div></div>`;
-  for(const s of S.sessions.filter(s=>mine(s)&&s.status==='done'&&s.rpePost==null&&Date.now()-s.endTime<7*864e5))
+  for(const s of S.sessions.filter(s=>mine(s)&&s.status==='done'&&!s.parentId&&s.rpePost==null&&Date.now()-s.endTime<7*864e5))
     h+=`<button class="item" data-act="openSession" data-id="${s.id}"><span class="grow"><span class="t">Falta el RPE post${isClient()?'':' · '+esc(prof(s.userId)?.name||'')}</span><br><span class="s">${esc(s.type)} · terminó ${ago(s.endTime)}</span></span><span class="tag pend">Anotar</span></button>`;
   for(const s of S.strength.filter(s=>mine(s)&&s.status==='done'&&s.rpePost!=null&&!(s.durationMin>0)&&Date.now()-(s.endTime||s.startTime)<21*864e5))
     h+=`<button class="item" data-act="openStrength" data-id="${s.id}"><span class="grow"><span class="t">Falta la duración${isClient()?'':' · '+esc(prof(s.userId)?.name||'')}</span><span class="s">${esc(s.type)} (fuerza) · sin ella no se calcula la sRPE</span></span><span class="tag pend">Anotar</span></button>`;
@@ -1299,9 +1306,9 @@ V.profile=()=>{
 };
 V.pre=()=>{
   const p=prof(S.arg);const f=S.form;if(f.rpePre===undefined)f.rpePre=null;if(!f.type)f.type=lsGet('lastType_'+p.id)||'Carrera';
-  const pl=f.planId&&planById(f.planId);
-  return `${pl?`<div class="note info slim">${ic('clock')}<span class="hint"><b>Programado:</b> ${esc(pl.title)} · ${planSummary(pl)}${pl.notes?'<br>'+esc(pl.notes):''}</span></div>`:''}<div class="card"><div class="field"><label for="stype">Tipo de sesión</label><input id="stype" list="types" value="${esc(f.type)}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div></div>
-  <section class="sec"><div class="sec-h"><h3>RPE pre · ¿cómo llegas?</h3><button class="link" data-act="clearPre">Omitir</button></div><span class="hint">Fatiga o cansancio percibido ahora mismo, escala CR-10.</span>${rpeScale('rpePre','pre',f.rpePre)}</section>
+  const pl=f.planId&&planById(f.planId),par=f.parentId&&stById(f.parentId);
+  return `${par?`<div class="note info slim">${ic('dumbbell')}<span class="hint"><b>Aeróbico de la sesión «${esc(par.type||'Fuerza')}»</b>${f.cardio?' · '+cardioTxt(f.cardio):''}. Cuenta dentro de esa sesión: el RPE se pide al terminarla.</span></div>`:''}${pl?`<div class="note info slim">${ic('clock')}<span class="hint"><b>Programado:</b> ${esc(pl.title)} · ${planSummary(pl)}${pl.notes?'<br>'+esc(pl.notes):''}</span></div>`:''}<div class="card"><div class="field"><label for="stype">Tipo de sesión</label><input id="stype" list="types" value="${esc(f.type)}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div></div>
+  ${par?'':`<section class="sec"><div class="sec-h"><h3>RPE pre · ¿cómo llegas?</h3><button class="link" data-act="clearPre">Omitir</button></div><span class="hint">Fatiga o cansancio percibido ahora mismo, escala CR-10.</span>${rpeScale('rpePre','pre',f.rpePre)}</section>`}
   <section class="sec"><h3>Pulsómetro</h3><div class="card" id="devBox"></div></section>
   <button class="btn primary wide" id="startBtn" data-act="start">Empezar sesión</button>`;
 };
@@ -1326,7 +1333,7 @@ function updDevice(){
 }
 V.live=()=>{
   const r=S.rec;
-  const pl=r.planId&&planById(r.planId);
+  const pl=(r.planId&&planById(r.planId))||(r.cardioPlan?{hr:r.cardioPlan}:null);
   return `${r.blocks?'<div class="card iv-card" id="ivBox"></div>':pl?`<div class="note info slim plan-live">${ic('clock')}<span class="hint"><b>Objetivo:</b> ${pl.hr?.minutes||'—'} min${pl.hr?.zone?' en Z'+pl.hr.zone:''} · <span id="lPlan" class="num"></span></span></div>`:''}<div class="note" hidden><b id="liveSt"></b><button class="btn small" data-act="connect" ${btOK?'':'hidden'}>Volver a conectar</button></div>
   <div class="live-hr"><span class="big" id="lBpm">—</span><span class="unit">PPM</span><span class="zpill" id="lZone">—</span></div>
   <div class="stats">${stat('00:00','Tiempo','lTime')}${stat('—','FC media','lAvg')}${stat('—','FC máx','lMax')}</div>
@@ -1389,7 +1396,8 @@ V.summary=()=>{
   ${s.blocks&&s.ivRes?.length?`<div class="card"><span class="lbl">Intervalos · tiempo en la zona objetivo</span>${ivBar(s.blocks)}<div class="ivlist">${s.blocks.map((b,k)=>{const x=s.ivRes[k],pc=x?Math.round(x.inMs/(b.min*600)):null;
     return `<div class="ivrow" style="--c:${zc(b.zone)}"><span class="ex-n sm">${k+1}</span><b class="num">${fmtBl(b.min)}</b><span class="zpill sm" style="background:${zc(b.zone)}">Z${b.zone}</span><span class="grow"><span class="ivpct"><i style="width:${pc??0}%;background:${zc(b.zone)}"></i></span></span><b class="num">${pc==null?'—':pc+' %'}</b></div>`}).join('')}</div><span class="hint">Porcentaje de cada bloque con la FC dentro de su zona. Al empezar un bloque intenso es normal que la FC tarde 1–2 min en subir.</span></div>`:''}
   <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(s.zoneMs,s.noSignalMs)}<span class="hint num">Zonas aplicadas: ${s.zoneLimits.join(' · ')} ppm (FCmáx ${s.hrMax})</span></div>
-  ${s.rpePost==null?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="savePending">Guardar RPE</button></section>`:''}
+  ${s.parentId?`<div class="note info slim">${ic('dumbbell')}<span class="hint">Parte aeróbica de una sesión de fuerza: el RPE y la carga (sRPE) van en esa sesión.</span><button class="btn small" data-act="openStrength" data-id="${s.parentId}">Ver la sesión</button></div>`:''}
+  ${s.rpePost==null&&!s.parentId?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="savePending">Guardar RPE</button></section>`:''}
   <div class="card"><div class="field"><label for="snotes2">Notas</label><textarea id="snotes2" data-act="notes">${esc(s.notes)}</textarea></div><span class="hint">${esc(s.deviceName)}</span></div>
   <div class="row">${athleteBtn('hr',s.id,s)}<button class="btn" data-act="exportSession">Exportar CSV de la sesión</button><button class="btn danger" data-act="delSession">Borrar sesión</button></div>`;
 };
@@ -1444,9 +1452,13 @@ V.strength=()=>{
   ${effSeg(st.userId)}<details class="card"${st.rpePre!=null?'':''}><summary>RPE pre · ¿cómo llegas?${st.rpePre!=null?` <span class="tag">${st.rpePre}</span>`:' <span class="hint">(opcional)</span>'}</summary>${rpeScale('stRpePre','pre',st.rpePre)}</details>`;
   if(autoMuscles(st))saveStSoon(st);
   const recs=new Map(exerciseRecords(st.userId).map(r=>[r.key,r]));
-  st.exercises.forEach((e,i)=>{const k=strengthStats({exercises:[e]}).ex[0],vars=variantsOf(st.userId,e.name);
+  const acts=st.exercises.map((e,i)=>[e,i]).filter(([e])=>e.act);let num=0;
+  if(acts.length)h+=`<div class="card"><div class="sec-h"><span class="lbl">Activación</span><span class="hint num">${acts.filter(([e])=>e.done).length}/${acts.length}</span></div>
+    <div class="act-list">${acts.map(([e,i])=>`<button type="button" class="act-row${e.done?' done':''}" data-act="stActDone" data-i="${i}" aria-pressed="${!!e.done}"><span class="act-box" aria-hidden="true">${e.done?'✓':''}</span><span class="grow"><b>${esc(e.name)}</b>${e.variant||(e.plan||[]).length?`<span class="hint num">${[actPlanTxt(e.plan),esc(e.variant||'')].filter(x=>x).join(' · ')}</span>`:''}</span></button>`).join('')}</div>
+    <span class="hint">Márcalos al hacerlos. La activación no suma volumen ni carga.</span></div><span class="lbl sec-lbl">Parte principal</span>`;
+  st.exercises.forEach((e,i)=>{if(e.act)return;num++;const k=strengthStats({exercises:[e]}).ex[0],vars=variantsOf(st.userId,e.name);
     h+=`<div class="card ex">
-    <div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
+    <div class="ex-h"><span class="ex-n">${num}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
       <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
     ${e.plyo?'':isClient()?`<details class="mg-fold"><summary>Grupos musculares</summary>${mgChips(e,i)}</details>`:mgChips(e,i)}
@@ -1462,11 +1474,26 @@ V.strength=()=>{
   if(!st.exercises.length)h+=`<div class="empty">Añade el primer ejercicio. Cada serie guarda repeticiones, kg y RPE (CR-10).</div>`;
   h+=`<datalist id="exlist">${exerciseNames(st.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
   <button class="btn wide" data-act="stAddEx">+ Añadir ejercicio</button>
+  ${cardioCard(st)}
   <div class="card"><span class="lbl">Total de la sesión</span><div class="stats" id="stTot">${stTotHTML(tot)}</div>
   ${info('Esfuerzo de cada serie, a elegir arriba: <b>RPE</b> en escala CR-10 (3 moderado · 5 duro · 7 muy duro · 10 máximo) o <b>RIR</b>, repeticiones que te quedaban en reserva (0 = al fallo, 2 = podías hacer 2 más; Zourdos et al., 2016). La elección se guarda en el perfil. La sRPE de la sesión sigue siendo CR-10. Para ejercicios con el peso corporal deja 0 kg o pon el lastre.<br><br>Pliometría: marca la casilla (se activa sola si el nombre lo indica: salto, CMJ, drop jump, multisaltos…) y anota contactos e intensidad en vez de kg. No suma a los kg ni al reparto por grupos.<br><br>Grupos musculares: un toque lo marca como principal, otro como secundario (cuenta ½ serie) y otro lo quita. Se propone una asignación según el nombre y se recuerda la tuya para la próxima vez.','Ayuda')}</div>
   ${st.status==='open'?`<button class="btn primary wide" data-act="stFinish">Terminar sesión</button>`:`<button class="btn primary wide" data-act="stDone">Guardar cambios</button>`}`;
   return h;
 };
+// Activación: series × reps programadas
+const actPlanTxt=pl=>{const v=(pl||[]).filter(x=>x.reps||x.kg);if(!v.length)return'';const f=x=>`${x.reps??'—'}${x.kg?' × '+fmtKg(x.kg)+' kg':''}`;
+  return v.every(x=>f(x)===f(v[0]))?`${v.length} × ${f(v[0])}`:v.map(f).join(' · ')};
+const cardioTxt=h=>h?planSummary({kind:'hr',hr:h}):'';
+// Aeróbico al final de la sesión de fuerza (concurrente): se graba con el pulsómetro y cuenta dentro de esta sesión
+function cardioCard(st){const c=st.cardioId&&S.sessions.find(x=>x.id===st.cardioId),plan=st.cardio,bs=plan&&ivBlocks(plan);
+  if(c)return `<div class="card"><div class="sec-h"><span class="lbl">Aeróbico post-sesión${c.type?' · '+esc(c.type):''}</span><span class="tag up">Hecho</span></div>
+    <div class="stats">${stat(fmtDur(c.activeMs),'Duración')}${stat(c.avgHr??'—','FC media')}${stat(c.maxHr??'—','FC máx')}${stat(trimp(c)??'—','TRIMP')}</div>
+    <button class="btn small" data-act="openSession" data-id="${c.id}">${ic('heart','sm')}Ver FC y zonas</button></div>`;
+  if(S.rec&&S.rec.parentId===st.id)return `<div class="note info"><b>Aeróbico grabándose</b><span class="hint">Vuelve a la pantalla del pulsómetro para terminarlo.</span><button class="btn small primary" data-act="stCardioLive">${ic('heart','sm')}Ir al aeróbico</button></div>`;
+  if(st.status!=='open')return plan?`<div class="note info slim">${ic('heart')}<span class="hint">Aeróbico programado sin registrar: ${cardioTxt(plan)}</span></div>`:'';
+  return `<div class="card"><div class="sec-h"><span class="lbl">Aeróbico post-sesión</span>${plan?'<span class="tag pend">Programado</span>':''}</div>
+    ${plan?`<span class="num">${cardioTxt(plan)}</span>${bs?ivBar(bs):''}`:'<span class="hint">Si hoy hay parte aeróbica, grábala aquí con el pulsómetro: cuenta dentro de esta misma sesión.</span>'}
+    <button class="btn ${plan?'primary ':''}wide" data-act="stCardio">${ic('heart')}${plan?'Empezar aeróbico con pulsómetro':'Añadir aeróbico con pulsómetro'}</button></div>`}
 const rmKey=()=>{const k=lsGet('rmFormula');return RM_FORMULAS[k]?k:'brzycki'};
 // Grupos musculares en el registro: toque = principal, otro toque = secundario, otro = quitar
 function autoMuscles(st){let ch=false;
@@ -1529,10 +1556,13 @@ V.ssum=()=>{
   <div class="stats">${stat((st.durationMin||'—')+(st.durationMin?'′':''),'Duración')}${stat(fmtKg(t.vol),'Kg totales')}${stat(t.sets,'Series fuerza')}${t.contacts?stat(t.contacts,'Contactos'):''}${t.rir!=null?stat(dec(t.rir,1),'RIR medio'):''}${t.rpe!=null||t.rir==null?stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio serie'):''}${stat(st.rpePost??'—','RPE post')}${stat(l??'—','sRPE (UA)')}</div>
   ${st.rpePre!=null?`<span class="hint">RPE pre: ${st.rpePre} (${RPE_PRE[st.rpePre]||'—'})</span>`:''}
   ${(()=>{const mv=muscleVolume([st]),c=MG.filter(([g])=>mv.groups[g].sets>0).map(([g,l])=>`<span class="chipset">${l} ${dec(mv.groups[g].sets,Number.isInteger(mv.groups[g].sets)?0:1)}</span>`);return c.length?`<span class="lbl">Series por grupo</span><div class="chips">${c.join('')}</div>`:''})()}</div>
+  ${cardioCard(st)}
   <section class="sec"><h3>Ejercicios</h3>
   ${isClient()?'':`<div class="field"><label for="rmF">Fórmula del 1RM estimado</label><select id="rmF">${Object.entries(RM_FORMULAS).map(([k,v])=>`<option value="${k}"${k===fk?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>`}`;
   const maxC=Math.max(1,...t.ex.map(e=>e.contacts||0));
-  t.ex.forEach((e,i)=>{const src=st.exercises[i];
+  const actsDone=st.exercises.filter(e=>e.act);
+  if(actsDone.length)h+=`<div class="card"><span class="lbl">Activación</span><div class="chips">${actsDone.map(e=>`<span class="chipset">${e.done?'✓ ':''}${esc(e.name)}</span>`).join('')}</div></div>`;
+  t.ex.forEach((e,i)=>{const src=st.exercises[i];if(src?.act)return;
     if(e.plyo){h+=`<div class="card ex"><div class="sec-h"><b>${esc(e.name||'Sin nombre')}${normTxt(e.variant)?` <span class="muted" style="font-weight:400">· ${esc(e.variant)}</span>`:''}</b><span class="tag str">Pliometría</span></div>
       <div class="zb-r st-bar"><span class="k"></span><div class="zb-t"><div class="zb-f" style="width:${e.contacts/maxC*100}%;background:var(--z4)"></div></div><span class="v">${e.contacts}</span><span class="p">cont.</span></div>
       <div class="chips">${(src?.sets||[]).filter(s=>+s.reps>0).map(s=>`<span class="chipset num">${e.unilateral?s.side+' ':''}${s.reps}${s.int?' '+INTS[s.int]:''}${effTxt(s)}</span>`).join('')}</div>
@@ -1911,7 +1941,8 @@ const zoneRange=(p,z)=>{if(!p||!z)return'';const lim=zoneLimits(p);return `${lim
 function planSummary(pl){if(pl.kind==='hr'){const h=pl.hr||{},bs=ivBlocks(h);
     if(bs)return `${fmtBl(ivTotal(bs)).replace("'",'')} min · ${ivText(bs)}${h.type?' · '+h.type:''}`;
     return `${h.minutes||'—'} min${h.zone?' · Z'+h.zone:''}${h.type?' · '+h.type:''}`}
-  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name));return `${ex.length} ejercicio${ex.length===1?'':'s'} · ${ex.reduce((a,e)=>a+e.sets.length,0)} series`}
+  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)&&!e.act),na=(pl.exercises||[]).filter(e=>normTxt(e.name)&&e.act).length,c=pl.cardio;
+  return `${na?`Activación ${na} · `:''}${ex.length} ejercicio${ex.length===1?'':'s'} · ${ex.reduce((a,e)=>a+e.sets.length,0)} series${c?` · + ${c.mode==='int'&&ivBlocks(c)?fmtBl(ivTotal(ivBlocks(c))).replace("'",'')+' min':(c.minutes||'—')+' min'} ${esc(c.type||'aeróbico').toLowerCase()}`:''}`}
 function planSetsText(sets,uni){const v=(sets||[]).filter(x=>x.reps||x.kg||x.pct);if(!v.length)return'';
   const f=x=>`${x.reps??'—'}${x.pct?' × '+x.pct+' %'+(x.kg?' ('+fmtKg(x.kg)+' kg)':''):x.kg?' × '+fmtKg(x.kg)+' kg':''}${effTxt(x)}`;
   const same=v.every(x=>f(x)===f(v[0]));return (same?`${v.length} × ${f(v[0])}`:v.map(f).join(' · '))+(uni?' por lado':'')}
@@ -2008,7 +2039,7 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
         ${pl.hr.type?`<span class="hint">Tipo: ${esc(pl.hr.type)}</span>`:''}<span class="hint">Durante la sesión la app te indica cada bloque y avisa con pitido y vibración al cambiar.</span></div>`}
     else if(pl.kind==='hr'){const h2=pl.hr||{},lim=p?zoneLimits(p):null,z=+h2.zone;
       h+=`<div class="card"><span class="lbl">Objetivo</span><div class="stats">${stat((h2.minutes||'—')+' min','Duración')}${stat(z?'Z'+z:'—','Zona')}${stat(z&&lim?`${lim[z-1]}–${z<5?lim[z]-1:p.hrMax}`:'—','ppm')}</div>${h2.type?`<span class="hint">Tipo: ${esc(h2.type)}</span>`:''}</div>`}
-    else h+=`<section class="sec"><h3>Ejercicios</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}${e.plyo?' <span class="tag str">Pliometría</span>':''}</div><div class="chips">${e.plyo?e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'} cont.${x.int?' '+INT[x.int].toLowerCase():''}${effTxt(x)}</span>`).join(''):e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${effTxt(x)}</span>`).join('')}</div></div>`).join('')}</div></section>`}
+    else h+=planActHTML(pl)+`<section class="sec"><h3>${(pl.exercises||[]).some(e=>e.act)?'Parte principal':'Ejercicios'}</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)&&!e.act).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}${e.plyo?' <span class="tag str">Pliometría</span>':''}</div><div class="chips">${e.plyo?e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'} cont.${x.int?' '+INT[x.int].toLowerCase():''}${effTxt(x)}</span>`).join(''):e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${effTxt(x)}</span>`).join('')}</div></div>`).join('')}</div></section>`}
   else{
     if(pl.src==='hoja')h+=`<div class="note info slim">${ic('info')}<span class="hint"><b>Programado desde la hoja de Google.</b> Si lo cambias aquí, la próxima vez que pulses «Publicar» en la hoja se sustituirá por lo que haya en la hoja.</span></div>`;
     h+=`<div class="field"><label for="plTitle">Título</label><input id="plTitle" data-pf="title" value="${esc(pl.title||'')}"></div>
@@ -2037,7 +2068,7 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
     else{const prev=stOf(pl.userId).slice(0,12),em=effMode(pl.userId);h+=effSeg(pl.userId);
       if(prev.length)h+=`<div class="field"><label for="plCopy">Copiar ejercicios de una sesión anterior</label><select id="plCopy"><option value="">Elegir sesión…</option>${prev.map(x=>`<option value="${x.id}">${esc(x.type)} · ${fmtDate(x.startTime)}</option>`).join('')}</select></div>`;
       pl.exercises.forEach((e,i)=>{h+=`<div class="card ex"><div class="ex-h"><span class="ex-n">${i+1}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
-        <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
+        <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyo"${e.plyo?' checked':''}> Pliometría</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="act"${e.act?' checked':''}> Activación</label></div>
         ${e.plyo?'':(()=>{const pct=e.load==='pct',rm=planRM(pl.userId,e);return `<div class="load-row"><span class="lbl">Carga</span><div class="seg two mini" role="radiogroup" aria-label="Unidad de carga"><button type="button" role="radio" aria-checked="${!pct}" class="${pct?'':'on'}" data-act="plLoad" data-i="${i}" data-v="kg">Kg</button><button type="button" role="radio" aria-checked="${pct}" class="${pct?'on':''}" data-act="plLoad" data-i="${i}" data-v="pct">%1RM</button></div>
           <span class="hint num" id="plrm${i}">${pct?(rm?`1RM est. ${fmtKg(rm)} kg → ${pctKgText(e,rm)}`:'Sin 1RM estimado de este ejercicio: se usarán los kg que calcule su app si tiene registros'):(rm?`1RM est. ${fmtKg(rm)} kg`:'')}</span></div>`})()}
         <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':e.load==='pct'?'%1RM':'Kg'}</span><span>${em==='rir'?'RIR obj.':'RPE obj.'}</span><span></span></div>
@@ -2047,8 +2078,17 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
           ${em==='rir'?`<select data-pe="${i}" data-ps="${j}" data-pk="rir" aria-label="RIR objetivo serie ${j+1}">${rirOpts(x.rir)}</select>`:`<select data-pe="${i}" data-ps="${j}" data-pk="rpe" aria-label="RPE objetivo serie ${j+1}">${rpeOpts(x.rpe)}</select>`}
           <button class="icon-btn" data-act="plDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${j+1}">×</button></div>`).join('')}</div>
         <div class="ex-f"><button class="btn small" data-act="plAddSet" data-i="${i}">+ Serie</button><span class="hint num">${e.plyo?(k=>k.contacts?k.contacts*(e.unilateral?2:1)+' contactos'+(e.unilateral?' (las dos piernas)':''):'')(strengthStats({exercises:[e]}).ex[0]):''}${e.unilateral&&!e.plyo?'Cada serie se hace con los dos lados':''}</span></div></div>`});
-      h+=`<datalist id="exlist">${exerciseNames(pl.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist><button class="btn wide" data-act="plAddEx">+ Añadir ejercicio</button>`}
+      h+=`<datalist id="exlist">${exerciseNames(pl.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist><button class="btn wide" data-act="plAddEx">+ Añadir ejercicio</button>`;
+      const c=pl.cardio;
+      h+=c?`<div class="card"><div class="sec-h"><span class="lbl">Aeróbico post-sesión</span><button class="icon-btn" data-act="plCardioDel" aria-label="Quitar el aeróbico">×</button></div>
+        ${ivBlocks(c)?`<span class="num">${cardioTxt(c)}</span>${ivBar(ivBlocks(c))}<span class="hint">Intervalos programados desde la hoja: cámbialos allí.</span>`:`<div class="g3">
+        <div class="field"><label for="plCType">Tipo</label><input id="plCType" data-pf="cardio.type" list="types" value="${esc(c.type||'')}"><datalist id="types">${TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div>
+        <div class="field"><label for="plCMin">Minutos</label><input id="plCMin" type="number" inputmode="numeric" data-pf="cardio.minutes" value="${c.minutes??''}"></div>
+        <div class="field"><label for="plCZone">Zona</label><select id="plCZone" data-pf="cardio.zone">${[1,2,3,4,5].map(z=>`<option value="${z}"${+c.zone===z?' selected':''}>Z${z}</option>`).join('')}</select></div></div>`}
+        <span class="hint">Se graba con el pulsómetro al final de la sesión de fuerza y cuenta dentro de la misma sesión.</span></div>`
+        :`<button class="btn wide" data-act="plCardioAdd">${ic('heart')}+ Aeróbico post-sesión</button>`}
     h+=`<div class="card"><div class="field"><label for="plNotes">Indicaciones para el deportista</label><textarea id="plNotes" data-pf="notes" placeholder="Calentamiento, descansos, técnica, parte de cardio…">${esc(pl.notes||'')}</textarea></div></div>`}
+  if(cl&&pl.kind!=='hr'&&pl.cardio)h+=`<div class="card"><div class="sec-h"><span class="lbl">Aeróbico post-sesión</span></div><span class="num">${cardioTxt(pl.cardio)}</span>${ivBlocks(pl.cardio)?ivBar(ivBlocks(pl.cardio)):''}${cl?'<span class="hint">Al terminar la parte de fuerza, pulsa «Empezar aeróbico» en la sesión y conecta el pulsómetro.</span>':''}</div>`;
   // Acciones
   if(done)h+=`<div class="note info slim">${ic('info')}<span class="hint">Hecho ${pl.doneAt?fmtDT(pl.doneAt):''}.${doneSes?'':' La sesión llegará cuando el deportista te envíe sus datos.'}</span></div>${doneSes?`<button class="btn wide" data-act="plOpenDone">Ver la sesión realizada</button>`:''}`;
   if(cl){if(!done)h+=`<button class="btn primary wide big-btn" data-act="plStart">${ic(pl.kind==='hr'?'heart':'dumbbell')}${pl.status==='inprogress'?'Continuar entrenamiento':'Empezar entrenamiento'}</button>`}
@@ -2057,16 +2097,19 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
     ${info('Pulsa «Enviar» y elige WhatsApp. Tu deportista abre el archivo con IMDTraining (compartiéndolo a la app o con «Abrir entrenamiento recibido» en el menú) y le aparecerá en su resumen. Al hacerlo, la sesión se rellena con lo programado y solo tiene que anotar lo que cambie y el RPE. Cuando te envíe sus datos, este entrenamiento se marcará como hecho.<br><br>«Hacerlo ahora» es para cuando lo entrenas tú en persona: lo registras en tu móvil y al terminar puedes enviarle la sesión.','Cómo funciona')}`;
   h+=`<details class="card danger-zone"><summary>Borrar entrenamiento programado</summary><button class="btn danger wide" data-act="plDel">Borrar</button></details>`;
   return h};
+function planActHTML(pl){const a=(pl.exercises||[]).filter(e=>e.act&&normTxt(e.name));if(!a.length)return'';
+  return `<section class="sec"><h3>Activación</h3><div class="card"><div class="act-list">${a.map(e=>`<div class="act-row" style="cursor:default"><span class="act-box" aria-hidden="true"></span><span class="grow"><b>${esc(e.name)}</b><span class="hint num">${[actPlanTxt(e.sets),esc(e.variant||'')].filter(x=>x).join(' · ')}</span></span></div>`).join('')}</div></div></section>`}
 // Empezar un entrenamiento programado
 async function startPlan(pl){const p=prof(pl.userId);if(!p){toast('No se encuentra el perfil de este entrenamiento');return}
   if(pl.kind==='hr'){if(S.rec){toast('Ya hay una sesión grabándose');return}S.form={type:pl.hr?.type||pl.title,planId:pl.id};go('pre',p.id,{keepForm:true});return}
   const cur=pl.doneId&&stById(pl.doneId);if(pl.status==='inprogress'&&cur&&cur.status==='open'){go('strength',cur.id);return}
-  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)).map(e=>e.plyo?{name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,plyo:true,plyoAuto:false,
+  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)).map(e=>e.act?{name:e.name.trim(),variant:(e.variant||'').trim(),act:true,done:false,plan:(e.sets||[]).map(x=>({reps:x.reps??null,kg:x.kg??null})),sets:[]}:e.plyo?{name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,plyo:true,plyoAuto:false,
     plan:e.sets.map(x=>({reps:x.reps??null,int:x.int??null,rpe:x.rpe??null,rir:x.rir??null})),
     sets:e.unilateral?e.sets.flatMap(x=>[{side:'I',reps:x.reps??null,int:x.int??null,kg:null,rpe:null},{side:'D',reps:x.reps??null,int:x.int??null,kg:null,rpe:null}]):e.sets.map(x=>({reps:x.reps??null,int:x.int??null,kg:null,rpe:null}))}:({name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,
     ...(e.muscles?{muscles:{...e.muscles},mAuto:false}:{}),plan:e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),pct:e.load==='pct'?x.pct??null:null,rpe:x.rpe??null,rir:x.rir??null})),
     sets:e.unilateral?e.sets.flatMap(x=>{const k=planKg(p.id,e,x);return [{side:'I',reps:x.reps??null,kg:k,rpe:null},{side:'D',reps:x.reps??null,kg:k,rpe:null}]}):e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),rpe:null}))}));
-  const st={id:uid(),userId:p.id,kind:'strength',type:pl.title||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,rpePre:null,rpePost:null,rpePostTime:null,notes:'',status:'open',planId:pl.id,
+  ex.sort((a,b)=>(b.act?1:0)-(a.act?1:0));
+  const st={id:uid(),userId:p.id,kind:'strength',type:pl.title||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,rpePre:null,rpePost:null,rpePostTime:null,notes:'',status:'open',planId:pl.id,...(pl.cardio?{cardio:JSON.parse(JSON.stringify(pl.cardio))}:{}),
     exercises:ex.length?ex:[{name:'',sets:[{reps:null,kg:null,rpe:null}]}]};
   await saveSt(st);pl.status='inprogress';pl.doneId=st.id;await savePlan(pl);go('strength',st.id);toast('Sesión preparada: anota solo lo que cambie y el RPE de cada serie')}
 async function markPlanDone(planId,sid,at){const pl=planById(planId)||await DB.get('plans',planId);if(!pl)return;
@@ -2076,8 +2119,9 @@ async function unmarkPlan(planId,sid){const pl=planById(planId);if(!pl||pl.doneI
 $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
   if(el.dataset.pb!=null){const b=pl.hr.blocks[+el.dataset.pb];if(!b)return;const k=el.dataset.pbk;b[k]=el.value===''?null:+String(el.value).replace(',','.');
     if(k==='zone'){savePlan(pl).then(rerenderKeepFocus);return}const w=$('#plIvBar');if(w)w.innerHTML=ivBar(ivBlocks(pl.hr)||[])}
+  else if(el.dataset.pf&&el.dataset.pf.startsWith('cardio.')){if(!pl.cardio)return;const k=el.dataset.pf.slice(7);pl.cardio[k]=k==='type'?el.value:(el.value===''?null:+el.value)}
   else if(el.dataset.pf){const f=el.dataset.pf;if(f.startsWith('hr.')){pl.hr=pl.hr||{};const k=f.slice(3);pl.hr[k]=k==='type'?el.value:(el.value===''?null:+el.value);if(k==='zone'){savePlanSoon(pl);const y=scrollY;render();scrollTo(0,y);return}}else pl[f]=el.value}
-  else if(el.dataset.pe!=null&&el.dataset.pk!=='unilateral'&&el.dataset.pk!=='plyo'){const ex=pl.exercises[+el.dataset.pe];if(!ex)return;
+  else if(el.dataset.pe!=null&&el.dataset.pk!=='unilateral'&&el.dataset.pk!=='plyo'&&el.dataset.pk!=='act'){const ex=pl.exercises[+el.dataset.pe];if(!ex)return;
     if(el.dataset.ps!=null){const x=ex.sets[+el.dataset.ps];x[el.dataset.pk]=el.value===''?null:+el.value;
       if(ex.load==='pct'){const rm=planRM(pl.userId,ex);x.kg=rm&&x.pct?roundKg(rm*x.pct/100):null;const h=$('#plrm'+el.dataset.pe);if(h&&rm)h.textContent=`1RM est. ${fmtKg(rm)} kg → ${pctKgText(ex,rm)}`}}
     else ex[el.dataset.pk]=el.value}
@@ -2085,6 +2129,7 @@ $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;con
   savePlanSoon(pl);const t=$('#plTot');if(t)t.textContent=planSummary(pl)});
 $('#app').addEventListener('change',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
   if(el.dataset.pk==='unilateral'){pl.exercises[+el.dataset.pe].unilateral=el.checked;savePlan(pl).then(rerenderKeepFocus)}
+  if(el.dataset.pk==='act'){pl.exercises[+el.dataset.pe].act=el.checked;savePlan(pl).then(rerenderKeepFocus)}
   if(el.dataset.pk==='plyo'){const ex=pl.exercises[+el.dataset.pe];ex.plyo=el.checked;ex.plyoAuto=false;if(ex.plyo)for(const x of ex.sets){x.kg=null;x.pct=null;if(x.reps>12)x.reps=8}savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y)})}
   if(el.dataset.pk==='name'){const ex=pl.exercises[+el.dataset.pe];if(ex&&(ex.plyo==null||ex.plyoAuto)&&isPlyoName(ex.name)!==!!ex.plyo){ex.plyo=isPlyoName(ex.name);ex.plyoAuto=true;savePlan(pl).then(rerenderKeepFocus)}}
   if(el.id==='plCopy'&&el.value){const st=stById(el.value);if(!st)return;pl.exercises=exercisesFromSession(st);if(!pl.title||pl.title==='Entrenamiento de fuerza')pl.title=st.type;
@@ -2546,6 +2591,8 @@ const A={
   openPlan:id=>go('plan',id),
   async plHrMode(_,b){const pl=planById(S.arg);pl.hr=pl.hr||{type:'Carrera',minutes:40,zone:2};pl.hr.mode=b.dataset.v;
     if(pl.hr.mode==='int'&&!(pl.hr.blocks||[]).length)pl.hr.blocks=[{min:10,zone:2},{min:3,zone:4},{min:10,zone:2}];await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plCardioAdd(){const pl=planById(S.arg);pl.cardio={type:'Carrera',minutes:20,zone:2};await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
+  async plCardioDel(){const pl=planById(S.arg);delete pl.cardio;await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plBlkAdd(){const pl=planById(S.arg),bs=pl.hr.blocks,l=bs[bs.length-1];bs.push({min:l?.min??5,zone:l?.zone??2});await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plBlkDup(_,b){const pl=planById(S.arg),i=+b.dataset.i;pl.hr.blocks.splice(i+1,0,{...pl.hr.blocks[i]});await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plBlkDel(_,b){const pl=planById(S.arg);pl.hr.blocks.splice(+b.dataset.i,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
@@ -2599,6 +2646,7 @@ const A={
     const p=prof(S.arg);S.form.type=($('#stype').value||'Otro').trim();lsSet('lastType_'+p.id,S.form.type);
     const r=newRec(p,{rpePre:S.form.rpePre,type:S.form.type});
     if(S.form.planId){r.planId=S.form.planId;const pl=planById(r.planId);if(pl){pl.status='inprogress';pl.doneId=r.id;await savePlan(pl);const bs=ivBlocks(pl.hr);if(bs){r.blocks=bs.map(x=>({min:+x.min,zone:+x.zone}));r.ivi=0;r.ivBase=0;r.ivRes=[];actx();askNotif();keepAlive('iv',true)}}}
+    if(S.form.parentId){r.parentId=S.form.parentId;r.rpePre=null;if(S.form.cardio)r.cardioPlan=S.form.cardio;const bs=ivBlocks(S.form.cardio);if(bs){r.blocks=bs.map(x=>({min:+x.min,zone:+x.zone}));r.ivi=0;r.ivBase=0;r.ivRes=[];actx();askNotif();keepAlive('iv',true)}}
     r.startTime=Date.now();r.running=true;r.segStart=r.startTime;S.rec=r;blog(`Sesión aeróbica iniciada (${BLE.status==='sim'?'simulador':BLE.name()}, último dato hace ${BLE.last?Math.round((Date.now()-BLE.last)/1000):'—'} s)`);
     await saveRec();S.autosave=setInterval(saveRec,15000);
     keepAwake(true);actx();askNotif();keepAlive('rec',true);S.stack=S.stack.filter(x=>x[0]!=='pre');go('live',null,{push:false});
@@ -2608,7 +2656,10 @@ const A={
     if(r.running){r.acc+=now-r.segStart;r.running=false;r.pauses.push([now,null]);r.seg++}
     else{r.pauses[r.pauses.length-1][1]=now;r.segStart=now;r.running=true}
     updLive();saveRec()},
-  finish(b){arm(b,'Pulsa otra vez para terminar',async()=>{const id=await finishRec();clearInterval(S.tick);startRecov(id)})},
+  finish(b){arm(b,'Pulsa otra vez para terminar',async()=>{const id=await finishRec();clearInterval(S.tick);
+    const s=S.sessions.find(x=>x.id===id);
+    if(s?.parentId){const st=stById(s.parentId);if(st){st.cardioId=id;await saveSt(st)}go('strength',s.parentId,{push:false});toast('Aeróbico guardado. Cuando acabes, pulsa «Terminar sesión»');return}
+    startRecov(id)})},
   recSkip(){clearInterval(S.recovTick);const id=S.recov?.sid||S.arg;S.recov=null;go('post',id,{push:false})},
   restAdd(b){REST.end=Math.max(Date.now()+1000,REST.end+(+b.dataset.v)*1000);REST.dur=Math.max(REST.dur,(REST.end-Date.now())/1000);restArm();restTick()},
   restStop(){REST.end=0;clearInterval(REST.tick);REST.tick=null;restArm();renderRest()},
@@ -2688,8 +2739,13 @@ const A={
     const sel=document.querySelectorAll(`select[data-ex="${b.dataset.i}"]`);sel[sel.length-1]?.focus({preventScroll:true})},
   async stDelSet(_,b){const st=stById(S.arg),e=st.exercises[+b.dataset.i],j=+b.dataset.j;
     if(e.unilateral&&e.sets[j]?.side==='I'&&e.sets[j+1]?.side==='D')e.sets.splice(j,2);else e.sets.splice(j,1);await saveSt(st);const y=scrollY;render();scrollTo(0,y)},
+  async stActDone(_,b){const st=stById(S.arg),e=st?.exercises[+b.dataset.i];if(!e)return;e.done=!e.done;await saveSt(st);const y=scrollY;render();scrollTo(0,y)},
+  stCardio(){const st=stById(S.arg);if(!st)return;if(S.rec){toast('Ya hay una sesión grabándose');return}
+    S.form={type:st.cardio?.type||lsGet('lastType_'+st.userId)||'Carrera',parentId:st.id,cardio:st.cardio||null};go('pre',st.userId,{keepForm:true})},
+  stCardioLive(){if(S.rec)go('live',null)},
   async stFinish(_,b){const st=stById(S.arg);
-    if(!strengthStats(st).sets){toast('Anota al menos una serie con repeticiones');return}
+    if(S.rec&&S.rec.parentId===st.id){toast('Termina antes el aeróbico');return}
+    if(!strengthStats(st).sets&&!st.cardioId){toast('Anota al menos una serie con repeticiones');return}
     arm(b,'Pulsa otra vez para terminar',async()=>{
       st.exercises=st.exercises.filter(e=>e.name.trim()||e.sets.some(s=>+s.reps>0)).map(e=>({...e,name:e.name.trim()||'Ejercicio',variant:(e.variant||'').trim(),unilateral:!!e.unilateral,sets:e.sets.filter(s=>+s.reps>0)}));
       st.endTime=Date.now();const m=Math.round((st.endTime-st.startTime)/60000);st.durationMin=m>=1&&m<=240?m:null;st.status='done';
@@ -2705,7 +2761,8 @@ const A={
     if(st.rpePost==null){if(S.form.rpePost==null){toast('Elige el RPE de la sesión');return}st.rpePost=S.form.rpePost;st.rpePostTime=Date.now()}
     await saveSt(st);S.form={};const y=scrollY;render();scrollTo(0,y);toast(`Guardado · carga ${stLoad(st)} UA`)},
   stEdit(){go('strength',S.arg)},
-  async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;const pid=stById(id)?.planId;if(pid)await unmarkPlan(pid,id);await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
+  async stDel(_,b){arm(b,'Pulsa otra vez para borrar',async()=>{const id=S.arg;const pid=stById(id)?.planId;if(pid)await unmarkPlan(pid,id);
+    const cid=stById(id)?.cardioId;if(cid){await DB.del('sessions',cid);await DB.del('tracks',cid);S.sessions=S.sessions.filter(s=>s.id!==cid)}await DB.del('strength',id);S.strength=S.strength.filter(s=>s.id!==id);back();toast('Sesión borrada')})},
   stExport(){const st=stById(S.arg),p=prof(st.userId),rows=['usuario;fecha;sesion;ejercicio;variante;unilateral;lado;serie;reps_o_contactos;kg;rpe;volumen_kg;tipo;intensidad;rir'];
     for(const e of st.exercises)e.sets.filter(s=>+s.reps>0).forEach((s,j)=>rows.push([p.name,new Date(st.startTime).toLocaleString('es-ES'),st.type,e.name,e.variant||'',e.unilateral?'sí':'no',e.unilateral?(s.side==='I'?'izquierda':'derecha'):'',e.unilateral?Math.floor(j/2)+1:j+1,s.reps,e.plyo?'':dec(+s.kg||0,1),s.rpe??'',e.plyo?'':dec(s.reps*(+s.kg||0),1),e.plyo?'pliometria':'fuerza',e.plyo?INT[+s.int]||'':'',s.rir??''].map(v=>String(v).replace(/;/g,',')).join(';')));
     download(`${slug(p.name)}_${fileDate(st.startTime)}_fuerza.csv`,rows.join('\r\n'),'text/csv')},

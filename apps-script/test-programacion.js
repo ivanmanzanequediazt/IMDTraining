@@ -215,16 +215,18 @@ test('Errores (H8) y validaciones', () => {
   eq(st[1], '✓ Publicado · Pendiente', 'sin fecha: usa la de la fila de arriba');
   ok(/intervalos no válidos/.test(st[2]), 'intervalos: ' + st[2]);
   ok(/kg o %1RM/.test(st[3]) && st[3] === st[4], 'mezcla kg y %: ' + st[3]);
-  ok(/fuerza o aeróbica/.test(st[5]) && st[5] === st[6], 'mezcla de tipos: ' + st[5]);
+  eq([st[5], st[6]], ['✓ Publicado · Pendiente', '✓ Publicado · Pendiente'], 'fuerza + aeróbico = sesión concurrente');
+  const conc = live(api).find(p => p.data.title === 'E');
+  eq([conc && conc.data.kind, conc && conc.data.cardio, conc && conc.data.exercises.length], ['strength', { type: 'Carrera', minutes: 30, zone: 2 }, 1], 'aeróbico al final de la de fuerza');
   ok(/repetido/.test(st[7]), 'apodo repetido: ' + st[7]);
   ok(/fecha no válida/.test(st[8]), 'fecha imposible: ' + st[8]);
   ok(/RPE no válido/.test(st[9]), 'RPE fuera de rango: ' + st[9]);
   eq(st[10], '✓ Publicado · Pendiente', 'lo correcto se publica igualmente');
-  eq(live(api).length, 2, 'solo se publican las correctas');
+  eq(live(api).length, 3, 'solo se publican las correctas');
   const s2 = load(); s2.ss.sheets.deportistas.data.push(['d1', 'DG']);
   setProg(s2.ss, [{ apodo: 'DG', sesion: 'A', ejercicio: 'Press', series: 3, reps: 5 }]); s2.api.publicarProgramacion();
   ok(/falta la fecha/.test(col(s2.ss, 'estado')[0]), 'primera fila sin fecha: ' + col(s2.ss, 'estado')[0]);
-  ok(ss.toasts.some(t => /7 con error/.test(t)), 'aviso final: ' + ss.toasts.slice(-1));
+  ok(ss.toasts.some(t => /6 con error/.test(t)), 'aviso final: ' + ss.toasts.slice(-1));
 });
 
 test('Copiar filas con su id oculto; juntar sesiones; deportista desvinculado; hoja ocupada', () => {
@@ -275,6 +277,24 @@ test('Celdas vacías = fila de arriba', () => {
   eq(col(ss, 'estado').filter(x => x).every(x => x === '✓ Publicado · Pendiente'), true, 'todo publicado: ' + col(ss, 'estado'));
   const L = live(api).map(p => [p.userId, p.data.date, p.data.title, (p.data.exercises || []).map(e => e.name).join('+')].join(' ')).sort();
   eq(L, ['d1 2026-10-19 Pierna Sentadilla+Zancada', 'd1 2026-10-21 Torso Press+Remo', 'd2 2026-10-21 Rodaje ', 'd2 2026-10-21 Torso Press'], 'sesiones heredadas');
+});
+
+test('Activación y aeróbico en la misma sesión', () => {
+  const { ss, api } = load();
+  ss.sheets.deportistas.data.push(['d1', 'DG']);
+  setProg(ss, [
+    { apodo: 'DG', fecha: D('2026-11-02'), sesion: 'Pierna', tipo: 'Activación', ejercicio: 'Puente glúteo', series: 2, reps: 10 },
+    { tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 3, reps: 5, kg: 80 },
+    { tipo: 'Aeróbico', ejercicio: 'Bicicleta', intervalos: '5 Z2, 4 Z4' },
+    { tipo: 'Aeróbico', ejercicio: 'Carrera', minutos: 10, zona: 'Z2' },
+  ]);
+  api.publicarProgramacion();
+  ok(/solo una fila de Aeróbico/.test(col(ss, 'estado')[0]), 'dos filas aeróbicas: ' + col(ss, 'estado')[0]);
+  ss.sheets.programacion.data.pop();
+  api.publicarProgramacion();
+  const p = live(api)[0].data;
+  eq(p.exercises.map(e => e.name + (e.act ? '(act)' : '')), ['Puente glúteo(act)', 'Sentadilla'], 'activación marcada');
+  eq(p.cardio, { type: 'Bicicleta', minutes: 9, zone: 2, mode: 'int', blocks: [{ min: 5, zone: 2 }, { min: 4, zone: 4 }] }, 'aeróbico por intervalos al final');
 });
 
 console.log(`\n${passes} comprobaciones correctas, ${fails} fallos`);

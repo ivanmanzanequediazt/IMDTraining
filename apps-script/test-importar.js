@@ -83,12 +83,14 @@ console.log('· Plantilla nueva (lista por semana)');
     A5: 'Lunes', B5: 'Pierna', C5: 'Activación', D5: 'Puente', E5: 2, F5: 10,
     C6: 'P. Principal', D6: 'Sentadilla', E6: 3, F6: 8, G6: '8-10', H6: 24, I6: 12, J6: 7,
     D7: 'Zancada', E7: 3, F7: 8, H7: 10, I7: 6, K7: 'Sí',
-    A8: 'Jueves', D8: 'Press + Remo', E8: 3, F8: 8, H8: 50 };
+    A8: 'Jueves', D8: 'Press + Remo', E8: 3, F8: 8, H8: 50,
+    C9: 'Vuelta a la calma', D9: 'Estiramientos', N4: 'Minutos', O4: 'Zona', P4: 'Intervalos', C10: 'Aeróbico', D10: 'Bicicleta', N10: 20, O10: 'Z2' };
   const res = X.parseWorkbook_([{ name: 'Semana 1', cells: c }, { name: 'INSTRUCCIONES', cells: { A1: 'Cómo', D5: 'x' } }], null, null);
-  eq(res.sesiones.map(s => s.fecha + ' ' + s.sesion + ': ' + s.ejercicios.map(e => e.name).join(',')), ['2026-11-02 Pierna: Sentadilla,Zancada', '2026-11-05 Entreno jueves: Press + Remo'], 'sesiones de la lista');
+  eq(res.sesiones.map(s => s.fecha + ' ' + s.sesion + ': ' + s.ejercicios.map(e => e.name || e.aer.type).join(',')), ['2026-11-02 Pierna: Puente,Sentadilla,Zancada', '2026-11-05 Entreno jueves: Press + Remo,Bicicleta'], 'sesiones de la lista (con activación)');
   const f = X.filasDeSesion_('Sergio', res.sesiones[0], 'x', 'S', ['O', 'S']);
-  eq(f.map(r => [r[X.PC.ejercicio], r[X.PC.kg], r[X.PC.variante], r[X.PC.unilateral]]), [['Sentadilla', 12, '8-10', false], ['Zancada', 6, '', true]], 'peso de su columna, nota y unilateral');
-  ok(res.avisos.some(a => /sin «P. PRINCIPAL»/.test(a)), 'aviso del jueves sin P. Principal');
+  eq(f.map(r => [r[X.PC.tipo], r[X.PC.ejercicio], r[X.PC.kg], r[X.PC.variante], r[X.PC.unilateral]]), [['Activación', 'Puente', '', '', false], ['Fuerza', 'Sentadilla', 12, '8-10', false], ['Fuerza', 'Zancada', 6, '', true]], 'activación, peso de su columna, nota y unilateral');
+  const fj = X.filasDeSesion_('Sergio', res.sesiones[1], 'x', 'S', ['O', 'S']);
+  eq(fj.map(r => [r[X.PC.tipo], r[X.PC.ejercicio], r[X.PC.minutos], r[X.PC.zona]]), [['Fuerza', 'Press', '', ''], ['Fuerza', 'Remo', '', ''], ['Aeróbico', 'Bicicleta', 20, 'Z2']], 'vuelta a la calma fuera y aeróbico al final');
 }
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
 {

@@ -11,7 +11,8 @@
  *   - Hojas de semana con nombre "día-día" (p. ej. 05-09). Las demás hojas se ignoran.
  *   - En cada hoja, bloques con una fila de cabecera EJERCICIOS · SERIES · REPETICIONES · PESO · RPE · OBSERVACIONES.
  *     Encima de la cabecera: el día (LUNES, Martes…) y, opcionalmente, el nombre de la sesión (Tracc, Empuje…).
- *   - Debajo, un ejercicio por fila hasta la primera fila vacía. ACTIVACIÓN, P. PRINCIPAL, PP… son secciones y se saltan.
+ *   - Debajo, un ejercicio por fila. ACTIVACIÓN y P. PRINCIPAL (o PP) son secciones: pasan a la app la activación
+ *     (como lista para marcar) y la parte principal; las demás secciones (vuelta a la calma…) se quedan en el Excel.
  */
 
 const FUENTES_TAB = 'fuentes';
@@ -19,6 +20,8 @@ const FUENTES_HEADERS = ['Apodo', 'Mes', 'Enlace', 'Importar', 'Estado', 'Últim
 const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const PRINCIPAL = ['pprincipal', 'pp', 'parteprincipal', 'principal', 'ppal'];
+const ACTIVACION = ['activacion', 'calentamiento'];
+const AEROBICO = ['aerobico', 'cardio', 'aerobicopostsesion'];
 const SECCIONES = ['activacion', 'pprincipal', 'pp', 'parteprincipal', 'principal', 'ppal', 'calentamiento', 'vueltaalacalma', 'enfriamiento',
   'movilidad', 'core', 'finisher', 'accesorios', 'complementarios', 'fuerza', 'potencia', 'pliometria'];
 
@@ -453,6 +456,9 @@ function parseLista_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
       else if (k === 'unilateral') col.uni = n;
       else if (k.indexOf('pliometr') === 0) col.plyo = n;
       else if (k.indexOf('observ') === 0) col.obs = n;
+      else if (k === 'minutos' || k === 'min') col.min = n;
+      else if (k === 'zona') col.zona = n;
+      else if (k.indexOf('interval') === 0) col.iv = n;
       else if (/^peso/.test(k)) {
         const m = h.match(/^peso\s+([a-z])$/);
         if (m) pesos[m[1].toUpperCase()] = n; else col.peso = n;
@@ -477,15 +483,21 @@ function parseLista_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
     if (!name) continue;
     if (dia < 0) { haySin = true; continue; }
     const k = dia + '|' + norm_(sesion);
-    if (!sesiones[k]) { sesiones[k] = { dia: dia, label: sesion, ejercicios: [], principal: false }; orden.push(k); }
+    if (!sesiones[k]) { sesiones[k] = { dia: dia, label: sesion, ejercicios: [], etiquetas: false }; orden.push(k); }
     const ps = {};
     Object.keys(pesos).forEach(function (l) { const v = at(r, pesos[l]); if (v !== '') ps[l] = String(v); });
-    const esPrincipal = PRINCIPAL.indexOf(bloque) >= 0;
-    if (esPrincipal) sesiones[k].principal = true;
+    if (bloque) sesiones[k].etiquetas = true;
+    const parte = !bloque || PRINCIPAL.indexOf(bloque) >= 0 ? 'p' : ACTIVACION.indexOf(bloque) >= 0 ? 'act' : AEROBICO.indexOf(bloque) >= 0 ? 'aer' : '';
+    if (!parte) continue;                              // vuelta a la calma, accesorios…: se quedan en el Excel
+    if (parte === 'aer') {
+      sesiones[k].ejercicios.push({ aer: { type: name.replace(/\s+/g, ' '), minutos: col.min ? at(r, col.min) : '', zona: col.zona ? txt(r, col.zona) : '',
+        intervalos: col.iv ? txt(r, col.iv) : '' } });
+      continue;
+    }
     const si = function (c) { return c ? /^(si|s|x|1|true)$/.test(sinAcentos_(txt(r, c)).replace(/[^a-z0-9]/g, '')) : false; };
     sesiones[k].ejercicios.push({ name: name.replace(/\s+/g, ' '), series: at(r, col.series || 0), repsTxt: col.reps ? txt(r, col.reps) : '',
       nota: col.nota ? txt(r, col.nota) : '', pesoTxt: col.peso ? txt(r, col.peso) : '', pesos: Object.keys(pesos).length ? ps : null,
-      rpe: col.rpe ? at(r, col.rpe) : '', obs: col.obs ? txt(r, col.obs) : '', unilateral: si(col.uni), plyo: si(col.plyo), principal: esPrincipal });
+      rpe: col.rpe ? at(r, col.rpe) : '', obs: col.obs ? txt(r, col.obs) : '', unilateral: si(col.uni), plyo: si(col.plyo), act: parte === 'act' });
   }
   if (haySin) avisos.push('hoja ' + hoja + ': hay ejercicios sin día (pon el día en la primera fila de cada sesión)');
   if (!orden.length) return;
@@ -495,9 +507,8 @@ function parseLista_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
     const s = sesiones[k];
     const off = (s.dia - t0.getUTCDay() + 7) % 7;
     const t = new Date(t0.getTime() + off * 864e5);
-    let ej = s.ejercicios;
-    if (s.principal) ej = ej.filter(function (e) { return e.principal; });
-    else sinPrincipal.push(hoja + ' ' + DIAS[s.dia].replace('miercoles', 'miércoles').replace('sabado', 'sábado'));
+    const ej = s.ejercicios;
+    if (!s.etiquetas) sinPrincipal.push(hoja + ' ' + DIAS[s.dia].replace('miercoles', 'miércoles').replace('sabado', 'sábado'));
     if (!ej.length) return;
     bloques.push({ hoja: hoja, fecha: ymdStr_(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()), dia: DIAS[s.dia], label: s.label, ejercicios: ej });
   });
@@ -576,12 +587,14 @@ function parseWorkbook_(wb, y, m) {
           if (trasHueco && v.series === '' && v.reps === '') continue;
           if (!v.name) { sinNombre++; continue; }
           ejercicios.push({ name: v.name.replace(/\s+/g, ' '), series: v.series, repsTxt: String(v.reps).trim(),
-            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: PRINCIPAL.indexOf(seccion) >= 0 });
+            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: PRINCIPAL.indexOf(seccion) >= 0,
+            act: ACTIVACION.indexOf(seccion) >= 0 });
         }
-        // Solo la parte principal; si el bloque no tiene «P. PRINCIPAL», se importa entero (y se avisa)
+        // Activación + parte principal; si el bloque no tiene «P. PRINCIPAL», se importa entero (y se avisa)
         if (hayPrincipal) {
-          for (let k = ejercicios.length - 1; k >= 0; k--) if (!ejercicios[k].principal) ejercicios.splice(k, 1);
+          for (let k = ejercicios.length - 1; k >= 0; k--) if (!ejercicios[k].principal && !ejercicios[k].act) ejercicios.splice(k, 1);
         } else if (ejercicios.length) {
+          ejercicios.forEach(function (e) { e.act = false; });
           sinPrincipal.push(sh.name + ' ' + DIAS[dow].replace('miercoles', 'miércoles').replace('sabado', 'sábado'));
         }
         if (!ejercicios.length) return;
@@ -611,7 +624,7 @@ function parseWorkbook_(wb, y, m) {
     sesiones.push({ fecha: b.fecha, sesion: sesion, hoja: b.hoja, ejercicios: b.ejercicios });
   });
   sesiones.sort(function (a, b) { return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0; });
-  if (sinPrincipal.length) avisos.push('sin «P. PRINCIPAL», importado entero: ' + sinPrincipal.join(', '));
+  if (sinPrincipal.length) avisos.push('sin «P. PRINCIPAL» (o sin Bloque), todo como parte principal: ' + sinPrincipal.join(', '));
   if (sinNombre) avisos.push(sinNombre + ' fila' + (sinNombre === 1 ? '' : 's') + ' con series pero sin ejercicio (saltada' + (sinNombre === 1 ? '' : 's') + ')');
   return { sesiones: sesiones, avisos: avisos };
 }
@@ -667,6 +680,21 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
   const notas = [];
   const filas = [];
   s.ejercicios.forEach(function (e) {
+    if (e.aer) {                                     // aeróbico al final de la sesión
+      const r = PROG_HEADERS.map(function () { return ''; });
+      r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = 'Aeróbico';
+      r[PC.ejercicio] = e.aer.type || 'Carrera'; r[PC.unilateral] = false; r[PC.plyo] = false;
+      if (e.aer.intervalos) r[PC.intervalos] = e.aer.intervalos;
+      else {
+        const mn = primerNumero_(e.aer.minutos, true);
+        if (mn) r[PC.minutos] = mn;
+        const z = String(e.aer.zona || '').match(/[1-5]/);
+        if (z) r[PC.zona] = 'Z' + z[0];
+      }
+      r[PC.origen] = origen;
+      filas.push(r);
+      return;
+    }
     const nombres = partesBiserie_(e.name);
     const n = nombres.length || 1;
     const tipo = n === 2 ? 'biserie' : n === 3 ? 'triserie' : n > 3 ? 'circuito' : '';
@@ -679,7 +707,7 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
     const rpeN = typeof rpe.val === 'number' ? rpe.val : primerNumero_(rpe.txt, true);
     (nombres.length ? nombres : [e.name]).forEach(function (nombre, k) {
       const r = PROG_HEADERS.map(function () { return ''; });
-      r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = 'Fuerza';
+      r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = e.act ? 'Activación' : 'Fuerza';
       r[PC.ejercicio] = nombre;
       r[PC.unilateral] = !!e.unilateral; r[PC.plyo] = !!e.plyo;
       r[PC.series] = series && series >= 1 && series <= 20 ? series : 1;
