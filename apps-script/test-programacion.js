@@ -122,14 +122,14 @@ test('Primera publicación: deportistas, fuerza, pirámide, %1RM, pliometría, i
   ss.sheets.deportistas.data[1][1] = 'DG';
   ss.sheets.deportistas.data[2][1] = 'Ana';
   setProg(ss, [
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 3, reps: 8, kg: 70, rpe: 7, notas: 'Calienta 10 min' },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 2, reps: 5, kg: 80, rpe: 8 },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'Pierna A', ejercicio: 'Peso muerto rumano', series: 3, reps: 10, pct: '70%', rir: 2 },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'Pierna A', ejercicio: 'Zancada', unilateral: true, series: 3, reps: 8, kg: '12,5' },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'Pierna A', ejercicio: 'Drop jump', plyo: true, series: 3, reps: 6, int: 'Alta' },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 3, reps: 8, kg: 70, rpe: 7, notas: 'Calienta 10 min' },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 2, reps: 5, kg: 80, rpe: 8 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'Pierna A', ejercicio: 'Peso muerto rumano', series: 3, reps: 10, pct: '70%', rir: 2 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'Pierna A', ejercicio: 'Zancada', unilateral: true, series: 3, reps: 8, kg: '12,5' },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'Pierna A', ejercicio: 'Drop jump', plyo: true, series: 3, reps: 6, int: 'Alta' },
     {},
-    { apodo: 'dg ', fecha: '22/10/2026', sesion: 'Series', tipo: 'Aeróbico', ejercicio: 'Carrera', intervalos: '10 Z2, 3 Z4, 10 Z2' },
-    { apodo: 'Ana', fecha: D('2026-10-21'), sesion: 'Rodaje', tipo: 'Aerobico', minutos: 40, zona: 'Z2' },
+    { apodo: 'dg ', fecha: '22/10/2027', sesion: 'Series', tipo: 'Aeróbico', ejercicio: 'Carrera', intervalos: '10 Z2, 3 Z4, 10 Z2' },
+    { apodo: 'Ana', fecha: D('2027-10-21'), sesion: 'Rodaje', tipo: 'Aerobico', minutos: 40, zona: 'Z2' },
   ]);
   api.publicarProgramacion();
   const st = col(ss, 'estado');
@@ -141,14 +141,14 @@ test('Primera publicación: deportistas, fuerza, pirámide, %1RM, pliometría, i
   eq(ids[5], '', 'fila vacía sin id');
   const P = Object.fromEntries(live(api).map(p => [p.data.title, p]));
   const f = P['Pierna A'];
-  eq([f.userId, f.author, f.data.kind, f.data.date, f.data.notes, f.data.status, f.data.src], ['d1', 'coach', 'strength', '2026-10-20', 'Calienta 10 min', 'pending', 'hoja'], 'cabecera del plan de fuerza');
+  eq([f.userId, f.author, f.data.kind, f.data.date, f.data.notes, f.data.status, f.data.src], ['d1', 'coach', 'strength', '2027-10-20', 'Calienta 10 min', 'pending', 'hoja'], 'cabecera del plan de fuerza');
   eq(f.data.exercises.map(e => e.name), ['Sentadilla', 'Peso muerto rumano', 'Zancada', 'Drop jump'], 'ejercicios en orden; pirámide juntada');
   eq(f.data.exercises[0].sets.map(s => s.reps + 'x' + s.kg + '@' + s.rpe), ['8x70@7', '8x70@7', '8x70@7', '5x80@8', '5x80@8'], 'pirámide');
   eq([f.data.exercises[1].load, f.data.exercises[1].sets[0]], ['pct', { reps: 10, kg: null, pct: 70, rpe: null, rir: 2 }], '%1RM');
   eq([f.data.exercises[2].unilateral, f.data.exercises[2].sets[0].kg], [true, 12.5], 'unilateral y coma decimal');
   eq([f.data.exercises[3].plyo, f.data.exercises[3].sets[0]], [true, { reps: 6, int: 3, rpe: null, rir: null }], 'pliometría');
   eq(P.Series.data.hr, { type: 'Carrera', minutes: 23, zone: 2, mode: 'int', blocks: [{ min: 10, zone: 2 }, { min: 3, zone: 4 }, { min: 10, zone: 2 }] }, 'intervalos (apodo con mayúsculas/espacio y fecha en texto)');
-  eq([P.Series.data.date, P.Series.userId], ['2026-10-22', 'd1'], 'fecha en texto');
+  eq([P.Series.data.date, P.Series.userId], ['2027-10-22', 'd1'], 'fecha en texto');
   eq([P.Rodaje.userId, P.Rodaje.data.kind, P.Rodaje.data.hr], ['d2', 'hr', { type: 'Carrera', minutes: 40, zone: 2 }], 'aeróbico continuo; tipo vacío = Carrera');
 
   // El deportista solo ve lo suyo
@@ -197,17 +197,17 @@ test('Errores (H8) y validaciones', () => {
   const { ss, api } = load();
   ss.sheets.deportistas.data.push(['d1', 'DG'], ['d2', 'X'], ['d9', 'X']);
   setProg(ss, [
-    { apodo: 'Nadie', fecha: D('2026-10-20'), sesion: 'A', ejercicio: 'Press', series: 3, reps: 5 },
+    { apodo: 'Nadie', fecha: D('2027-10-20'), sesion: 'A', ejercicio: 'Press', series: 3, reps: 5 },
     { apodo: 'DG', fecha: '', sesion: 'B', ejercicio: 'Press', series: 3, reps: 5 },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'C', tipo: 'Aeróbico', intervalos: '10 Z9' },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'D', ejercicio: 'Press', series: 3, reps: 5, kg: 50 },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'D', ejercicio: 'Press', series: 1, reps: 3, pct: 90 },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'E', tipo: 'Aeróbico', minutos: 30, zona: 2 },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'E', ejercicio: 'Press', series: 3, reps: 5 },
-    { apodo: 'X', fecha: D('2026-10-20'), sesion: 'F', ejercicio: 'Press', series: 3, reps: 5 },
-    { apodo: 'DG', fecha: '31/02/2026', sesion: 'G', ejercicio: 'Press', series: 3, reps: 5 },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'H', ejercicio: 'Press', series: 3, reps: 5, rpe: 12 },
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'OK', ejercicio: 'Press', series: 3, reps: 5 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'C', tipo: 'Aeróbico', intervalos: '10 Z9' },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'D', ejercicio: 'Press', series: 3, reps: 5, kg: 50 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'D', ejercicio: 'Press', series: 1, reps: 3, pct: 90 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'E', tipo: 'Aeróbico', minutos: 30, zona: 2 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'E', ejercicio: 'Press', series: 3, reps: 5 },
+    { apodo: 'X', fecha: D('2027-10-20'), sesion: 'F', ejercicio: 'Press', series: 3, reps: 5 },
+    { apodo: 'DG', fecha: '31/02/2027', sesion: 'G', ejercicio: 'Press', series: 3, reps: 5 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'H', ejercicio: 'Press', series: 3, reps: 5, rpe: 12 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'OK', ejercicio: 'Press', series: 3, reps: 5 },
   ]);
   api.publicarProgramacion();
   const st = col(ss, 'estado');
@@ -233,24 +233,24 @@ test('Copiar filas con su id oculto; juntar sesiones; deportista desvinculado; h
   const { ss, ctx, api } = load();
   ss.sheets.deportistas.data.push(['d1', 'DG'], ['d3', 'Viejo']);
   setProg(ss, [
-    { apodo: 'DG', fecha: D('2026-10-20'), sesion: 'Pierna', ejercicio: 'Sentadilla', series: 3, reps: 5 },
-    { apodo: 'DG', fecha: D('2026-10-21'), sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
-    { apodo: 'Viejo', fecha: D('2026-10-21'), sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
+    { apodo: 'DG', fecha: D('2027-10-20'), sesion: 'Pierna', ejercicio: 'Sentadilla', series: 3, reps: 5 },
+    { apodo: 'DG', fecha: D('2027-10-21'), sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
+    { apodo: 'Viejo', fecha: D('2027-10-21'), sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
   ]);
   api.publicarProgramacion();
   ok(/desvinculado/.test(col(ss, 'estado')[2]), 'desvinculado: ' + col(ss, 'estado')[2]);
   const [idP, idT] = col(ss, 'id');
   // Iván copia la fila de Pierna (con su id oculto) ENCIMA, para la semana siguiente
   const copy = ss.sheets.programacion.data[1].slice();
-  copy[1] = D('2026-10-27');
+  copy[1] = D('2027-10-27');
   ss.sheets.programacion.data.splice(1, 0, copy);
   api.publicarProgramacion();
   const ids = col(ss, 'id');
   eq(ids[1], idP, 'el original conserva su id aunque la copia esté encima');
   ok(ids[0] && ids[0] !== idP, 'la copia recibe id nuevo');
-  eq(live(api).map(p => p.data.date).sort(), ['2026-10-20', '2026-10-21', '2026-10-27'], 'tres planes, ninguno pisado');
+  eq(live(api).map(p => p.data.date).sort(), ['2027-10-20', '2027-10-21', '2027-10-27'], 'tres planes, ninguno pisado');
   // Juntar Torso dentro de Pierna (cambiando su sesión y fecha): el plan de Torso sobra y se quita
-  ss.sheets.programacion.data[3][1] = D('2026-10-20');
+  ss.sheets.programacion.data[3][1] = D('2027-10-20');
   ss.sheets.programacion.data[3][2] = 'Pierna';
   api.publicarProgramacion();
   ok(plans(api).find(p => p.id === idT).deleted, 'el plan que ya no tiene filas propias se quita');
@@ -265,9 +265,9 @@ test('Celdas vacías = fila de arriba', () => {
   const { ss, api } = load();
   ss.sheets.deportistas.data.push(['d1', 'DG'], ['d2', 'Ana']);
   setProg(ss, [
-    { apodo: 'DG', fecha: D('2026-10-19'), sesion: 'Pierna', ejercicio: 'Sentadilla', series: 3, reps: 5 },
+    { apodo: 'DG', fecha: D('2027-10-19'), sesion: 'Pierna', ejercicio: 'Sentadilla', series: 3, reps: 5 },
     { ejercicio: 'Zancada', series: 3, reps: 8 },
-    { fecha: D('2026-10-21'), sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
+    { fecha: D('2027-10-21'), sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
     { ejercicio: 'Remo', series: 3, reps: 8 },
     {},
     { apodo: 'Ana', sesion: 'Torso', ejercicio: 'Press', series: 3, reps: 5 },
@@ -276,14 +276,14 @@ test('Celdas vacías = fila de arriba', () => {
   api.publicarProgramacion();
   eq(col(ss, 'estado').filter(x => x).every(x => x === '✓ Publicado · Pendiente'), true, 'todo publicado: ' + col(ss, 'estado'));
   const L = live(api).map(p => [p.userId, p.data.date, p.data.title, (p.data.exercises || []).map(e => e.name).join('+')].join(' ')).sort();
-  eq(L, ['d1 2026-10-19 Pierna Sentadilla+Zancada', 'd1 2026-10-21 Torso Press+Remo', 'd2 2026-10-21 Rodaje ', 'd2 2026-10-21 Torso Press'], 'sesiones heredadas');
+  eq(L, ['d1 2027-10-19 Pierna Sentadilla+Zancada', 'd1 2027-10-21 Torso Press+Remo', 'd2 2027-10-21 Rodaje ', 'd2 2027-10-21 Torso Press'], 'sesiones heredadas');
 });
 
 test('Activación y aeróbico en la misma sesión', () => {
   const { ss, api } = load();
   ss.sheets.deportistas.data.push(['d1', 'DG']);
   setProg(ss, [
-    { apodo: 'DG', fecha: D('2026-11-02'), sesion: 'Pierna', tipo: 'Activación', ejercicio: 'Puente glúteo', series: 2, reps: 10 },
+    { apodo: 'DG', fecha: D('2027-11-02'), sesion: 'Pierna', tipo: 'Activación', ejercicio: 'Puente glúteo', series: 2, reps: 10 },
     { tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 3, reps: 5, kg: 80 },
     { tipo: 'Aeróbico', ejercicio: 'Bicicleta', intervalos: '5 Z2, 4 Z4' },
     { tipo: 'Aeróbico', ejercicio: 'Carrera', minutos: 10, zona: 'Z2' },
@@ -295,6 +295,37 @@ test('Activación y aeróbico en la misma sesión', () => {
   const p = live(api)[0].data;
   eq(p.exercises.map(e => e.name + (e.act ? '(act)' : '')), ['Puente glúteo(act)', 'Sentadilla'], 'activación marcada');
   eq(p.cardio, { type: 'Bicicleta', minutes: 9, zone: 2, mode: 'int', blocks: [{ min: 5, zone: 2 }, { min: 4, zone: 4 }] }, 'aeróbico por intervalos al final');
+});
+
+test('Fechas pasadas: se registran como sesión realizada', () => {
+  const { ss, api } = load();
+  ss.sheets.deportistas.data.push(['d1', 'DG']);
+  const ayer = new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 10), manana = new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10);
+  setProg(ss, [
+    { apodo: 'DG', fecha: D(ayer), sesion: 'Pierna', tipo: 'Activación', ejercicio: 'Puente', series: 2, reps: 10 },
+    { tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 3, reps: 5, kg: 80, rpe: 8 },
+    { tipo: 'Fuerza', ejercicio: 'Zancada', unilateral: true, series: 2, reps: 8, kg: 10 },
+    { fecha: D(manana), sesion: 'Torso', tipo: 'Fuerza', ejercicio: 'Press', series: 3, reps: 8 },
+  ]);
+  api.publicarProgramacion();
+  eq(col(ss, 'estado'), ['✓ Publicado · Hecho', '✓ Publicado · Hecho', '✓ Publicado · Hecho', '✓ Publicado · Pendiente'], 'pasado = Hecho; futuro = Pendiente');
+  const pull = JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'pull', since: 0 }) } })).records;
+  const st = pull.filter(r => r.store === 'strength');
+  eq(st.length, 1, 'una sesión realizada');
+  const sd = st[0].data;
+  eq([sd.status, sd.type, sd.exercises.map(e => e.name + ':' + e.sets.length + (e.act ? '(act,' + e.done + ')' : '')), sd.exercises[1].sets[0]],
+    ['done', 'Pierna', ['Puente:0(act,true)', 'Sentadilla:3', 'Zancada:4'], { reps: 5, kg: 80, rpe: 8, rir: null }], 'contenido de la sesión');
+  const pl = pull.find(r => r.store === 'plans' && r.data.title === 'Pierna').data;
+  eq([pl.status, pl.doneId], ['done', st[0].id], 'plan enlazado a la sesión');
+  // El deportista añade duración y RPE en la app; luego cambia un kg en el Excel
+  const conRpe = Object.assign({}, sd, { durationMin: 60, rpePost: 7 });
+  api.doPost({ postData: { contents: JSON.stringify({ token: 'T1', action: 'push', records: [{ store: 'strength', id: st[0].id, userId: 'd1', updatedAt: Date.now() + 5, deleted: false, data: conRpe }] }) } });
+  api.publicarProgramacion();
+  eq(col(ss, 'estado')[0], 'Sin cambios · Hecho', 'volver a publicar no toca nada');
+  ss.sheets.programacion.data[2][COLS.indexOf('kg')] = 85;
+  api.publicarProgramacion();
+  const sd2 = JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'pull', since: 0 }) } })).records.find(r => r.store === 'strength').data;
+  eq([sd2.exercises[1].sets[0].kg, sd2.durationMin, sd2.rpePost], [85, 60, 7], 'cambio del Excel sin perder duración y RPE');
 });
 
 console.log(`\n${passes} comprobaciones correctas, ${fails} fallos`);

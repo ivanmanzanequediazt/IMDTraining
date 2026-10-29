@@ -176,7 +176,8 @@ function publish_(prog, tz, now) {
   syncDeportistas_();
   const dep = readDeportistas_();
   const athletes = readAthletes_();
-  const meta = { plans: readMeta_('plans'), sessions: {} };
+  const meta = { plans: readMeta_('plans'), strength: readMeta_('strength'), sessions: {} };
+  const hoy = Utilities.formatDate(new Date(now), tz, 'yyyy-MM-dd');
   const last = prog.getLastRow();
   const values = last < 1 ? [] : prog.getRange(1, 1, last, PROG_COLS).getValues();
   const fmt = function (d) { return Utilities.formatDate(d, tz, 'yyyy-MM-dd'); };
@@ -234,7 +235,25 @@ function publish_(prog, tz, now) {
     const existing = existingOf(old);
     const built = buildPlan_(g, id, cid, existing, now);
     if (!built.ok) { setAll(g, 'Error: ' + built.error); stats.errors++; return; }
-    if (!built.changed) {
+    let changed = built.changed;
+    // Fecha ya pasada: se guarda como sesión realizada con lo del Excel (si el deportista no la registró él en la app)
+    if (built.data.kind === 'strength' && built.data.date < hoy) {
+      const sid = 'x' + id;
+      const d = built.data;
+      const propia = d.status === 'done' && d.doneId && d.doneId !== sid;
+      const sm = meta.strength[sid];
+      if (!propia && !(sm && sm.deleted)) {            // si se borró a mano en la app, no se vuelve a crear
+        const prev = sm ? readRecord_(sm, meta).data : null;
+        const ses = sesionDesdePlan_(d, sid, cid, prev);
+        if (!prev || JSON.stringify(prev.exercises) !== JSON.stringify(ses.exercises) || prev.startTime !== ses.startTime || prev.type !== ses.type) {
+          meta.strength[sid] = writeRecord_(writer, sm || null, { store: 'strength', id: sid, userId: cid, updatedAt: now, deleted: false },
+            sm ? sm.author : 'coach', clock.next(), JSON.stringify(ses));
+          changed = true;
+        }
+        if (d.status !== 'done' || d.doneId !== sid) { d.status = 'done'; d.doneId = sid; d.doneAt = ses.startTime; changed = true; }
+      }
+    }
+    if (!changed) {
       setAll(g, 'Sin cambios · ' + (STATUS_TXT[existing.status] || 'Pendiente'), id);
       stats.same++;
       return;
@@ -605,6 +624,40 @@ function buildPlan_(g, id, cid, existing, now) {
   data.createdAt = existing && existing.createdAt ? existing.createdAt : now;
   data.src = 'hoja';
   return { ok: true, data: data, changed: changed };
+}
+
+// Plan con fecha pasada -> sesión de fuerza realizada (formato de la app). Conserva lo que se haya añadido luego
+// en la app (duración, RPE pre/post, notas).
+function sesionDesdePlan_(plan, sid, cid, prev) {
+  const nn = function (v) { return v === undefined || v === '' ? null : v; };
+  const t = Date.parse(plan.date + 'T12:00:00Z');
+  const exercises = (plan.exercises || []).map(function (e) {
+    if (e.act) {
+      return { name: e.name, variant: e.variant || '', act: true, done: true,
+        plan: (e.sets || []).map(function (x) { return { reps: nn(x.reps), kg: nn(x.kg) }; }), sets: [] };
+    }
+    const una = function (x, lado) {
+      const o = { reps: nn(x.reps) };
+      if (lado) o.side = lado;
+      if (e.plyo) o.int = nn(x.int);
+      o.kg = e.plyo ? null : nn(x.kg);
+      o.rpe = nn(x.rpe);
+      o.rir = nn(x.rir);
+      return o;
+    };
+    const sets = [];
+    (e.sets || []).forEach(function (x) {
+      if (!(x.reps > 0)) return;
+      if (e.unilateral) { sets.push(una(x, 'I')); sets.push(una(x, 'D')); } else sets.push(una(x));
+    });
+    const ex = { name: e.name, variant: e.variant || '', unilateral: !!e.unilateral, sets: sets };
+    if (e.plyo) ex.plyo = true;
+    return ex;
+  });
+  return { id: sid, userId: cid, kind: 'strength', type: plan.title || 'Fuerza', startTime: t, endTime: t,
+    durationMin: prev ? nn(prev.durationMin) : null, rpePre: prev ? nn(prev.rpePre) : null, rpePost: prev ? nn(prev.rpePost) : null,
+    rpePostTime: prev ? nn(prev.rpePostTime) : null, notes: prev ? (prev.notes || '') : (plan.notes || ''),
+    status: 'done', planId: plan.id, src: 'hoja', exercises: exercises };
 }
 
 /* Para las pruebas con Node (en Apps Script no existe module) */
