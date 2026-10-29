@@ -514,6 +514,110 @@ function parseLista_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
   });
 }
 
+/* ---------- Plantilla de 4 tablas por semana (una por sesión) ---------- */
+// Encima de cada tabla: «SESIÓN n · Día: [ ] · Nombre: [ ] · RPE pre · RPE post». Debajo, la cabecera Bloque · Ejercicio · …
+
+const normH_ = function (v) { return sinAcentos_(String(v)).replace(/[^a-z0-9 ]/g, '').trim(); };
+
+function filasCabecera_(txt, maxRow) {
+  const out = [];
+  for (let r = 1; r <= maxRow; r++) {
+    let e = false, b = false;
+    for (let c = 1; c <= 30; c++) { const h = normH_(txt(r, c)).replace(/ /g, ''); if (h === 'ejercicio' || h === 'ejercicios') e = true; if (h === 'bloque') b = true; }
+    if (e && b) out.push(r);
+  }
+  return out;
+}
+
+function tieneTablas_(txt, maxRow) {
+  const hs = filasCabecera_(txt, maxRow);
+  if (!hs.length) return false;
+  for (let c = 1; c <= 30; c++) if (normH_(txt(hs[0], c)) === 'dia') return false;   // lista con columna Día
+  return true;
+}
+
+function inicioSemana_(at, txt) {
+  for (let r = 1; r <= 3; r++) for (let c = 1; c <= 3; c++) {
+    if (sinAcentos_(txt(r, c)).replace(/[^a-z]/g, '').indexOf('semanadel') === 0) {
+      for (let k = c + 1; k <= c + 3; k++) { const f = fechaExcel_(at(r, k)); if (f) return f; }
+    }
+  }
+  return null;
+}
+
+function columnas_(txt, r) {
+  const col = {}, pesos = {};
+  for (let c = 1; c <= 30; c++) {
+    const h = normH_(txt(r, c)), k = h.replace(/ /g, '');
+    if (!k) continue;
+    if (k === 'bloque' || k === 'parte') col.bloque = c;
+    else if (k === 'ejercicio' || k === 'ejercicios') col.name = c;
+    else if (k === 'series') col.series = c;
+    else if (k === 'reps' || k === 'repeticiones') col.reps = c;
+    else if (k.indexOf('notarep') === 0) col.nota = c;
+    else if (k === 'rpe') col.rpe = c;
+    else if (k === 'unilateral') col.uni = c;
+    else if (k.indexOf('pliometr') === 0) col.plyo = c;
+    else if (k.indexOf('observ') === 0) col.obs = c;
+    else if (k === 'minutos' || k === 'min') col.min = c;
+    else if (k === 'zona') col.zona = c;
+    else if (k.indexOf('interval') === 0) col.iv = c;
+    else if (/^peso/.test(k)) { const m = h.match(/^peso\s+([a-z])$/); if (m) pesos[m[1].toUpperCase()] = c; else col.peso = c; }
+  }
+  return { col: col, pesos: pesos };
+}
+
+// Valor de una etiqueta («Día:», «Nombre:») en las 2 filas de encima de la cabecera: la primera celda con algo a su derecha
+function metaTabla_(txt, hr, etiqueta) {
+  for (let r = hr - 1; r >= Math.max(1, hr - 2); r--) {
+    for (let c = 1; c <= 30; c++) {
+      if (normH_(txt(r, c)) !== etiqueta) continue;
+      for (let k = c + 1; k <= c + 4; k++) { const v = txt(r, k); if (v && normH_(v) !== 'nombre' && normH_(v) !== 'rpe pre') return v; }
+      return '';
+    }
+  }
+  return '';
+}
+
+function parseTablas_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
+  const inicio = inicioSemana_(at, txt);
+  const hrs = filasCabecera_(txt, maxRow);
+  hrs.forEach(function (hr, n) {
+    const cp = columnas_(txt, hr), col = cp.col, pesos = cp.pesos;
+    const fin = n + 1 < hrs.length ? hrs[n + 1] - 2 : maxRow;
+    const diaTxt = metaTabla_(txt, hr, 'dia'), nombre = metaTabla_(txt, hr, 'nombre');
+    const ejercicios = [];
+    let bloque = '', etiquetas = false;
+    for (let r = hr + 1; r <= fin; r++) {
+      const name = col.name ? txt(r, col.name) : '';
+      if (col.bloque && txt(r, col.bloque)) { bloque = sinAcentos_(txt(r, col.bloque)).replace(/[^a-z]/g, ''); etiquetas = true; }
+      if (!name) continue;
+      const parte = !bloque || PRINCIPAL.indexOf(bloque) >= 0 ? 'p' : ACTIVACION.indexOf(bloque) >= 0 ? 'act' : AEROBICO.indexOf(bloque) >= 0 ? 'aer' : '';
+      if (!parte) continue;
+      if (parte === 'aer') {
+        ejercicios.push({ aer: { type: name.replace(/\s+/g, ' '), minutos: col.min ? at(r, col.min) : '', zona: col.zona ? txt(r, col.zona) : '',
+          intervalos: col.iv ? txt(r, col.iv) : '' } });
+        continue;
+      }
+      const ps = {};
+      Object.keys(pesos).forEach(function (l) { const v = at(r, pesos[l]); if (v !== '') ps[l] = String(v); });
+      const si = function (c) { return c ? /^(si|s|x|1|true)$/.test(sinAcentos_(txt(r, c)).replace(/[^a-z0-9]/g, '')) : false; };
+      ejercicios.push({ name: name.replace(/\s+/g, ' '), series: col.series ? at(r, col.series) : '', repsTxt: col.reps ? txt(r, col.reps) : '',
+        nota: col.nota ? txt(r, col.nota) : '', pesoTxt: col.peso ? txt(r, col.peso) : '', pesos: Object.keys(pesos).length ? ps : null,
+        rpe: col.rpe ? at(r, col.rpe) : '', obs: col.obs ? txt(r, col.obs) : '', unilateral: si(col.uni), plyo: si(col.plyo), act: parte === 'act' });
+    }
+    if (!ejercicios.length) return;                     // tabla vacía: ese día no hay sesión
+    const etiq = 'hoja ' + hoja + ' sesión ' + (n + 1);
+    const dow = diaDe_(diaTxt);
+    if (dow < 0) { avisos.push(etiq + ': ' + (diaTxt ? 'día «' + diaTxt + '» no reconocido' : 'falta el día')); return; }
+    if (!inicio) { avisos.push('hoja ' + hoja + ': falta la fecha de «SEMANA DEL»'); return; }
+    const t0 = new Date(inicio + 'T00:00:00Z');
+    const t = new Date(t0.getTime() + ((dow - t0.getUTCDay() + 7) % 7) * 864e5);
+    if (!etiquetas) sinPrincipal.push(etiq);
+    bloques.push({ hoja: hoja, fecha: ymdStr_(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()), dia: DIAS[dow], label: nombre, ejercicios: ejercicios });
+  });
+}
+
 // wb (readXlsx_) -> {sesiones:[{fecha, sesion, hoja, ejercicios:[{name, series, repsTxt, pesoTxt, rpe, obs}]}], avisos:[]}
 function parseWorkbook_(wb, y, m) {
   const avisos = [];
@@ -533,7 +637,11 @@ function parseWorkbook_(wb, y, m) {
     const at = function (r, c) { const v = grid[r] && grid[r][c]; return v === undefined || v === null ? '' : v; };
     const txt = function (r, c) { return String(at(r, c)).trim(); };
     // Plantilla nueva (una lista por semana): «SEMANA DEL (lunes)» arriba a la izquierda
-    if (esHojaLista_(at)) { parseLista_(sh.name, at, txt, maxRow, bloques, avisos, sinPrincipal); return; }
+    if (esHojaLista_(at)) {
+      if (tieneTablas_(txt, maxRow)) parseTablas_(sh.name, at, txt, maxRow, bloques, avisos, sinPrincipal);
+      else parseLista_(sh.name, at, txt, maxRow, bloques, avisos, sinPrincipal);
+      return;
+    }
     const nm = String(sh.name).trim().match(/^(\d{1,2})\s*[-–_]\s*(\d{1,2})$/);
     if (!nm) return;                                   // ANUAL, RPE SERIES, RM BÁSICOS, INSTRUCCIONES…
     if (!y || !m) { avisos.push('hoja ' + sh.name + ': pon el mes en la columna Mes de «fuentes»'); return; }

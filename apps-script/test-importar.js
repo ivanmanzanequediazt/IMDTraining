@@ -92,6 +92,18 @@ console.log('· Plantilla nueva (lista por semana)');
   const fj = X.filasDeSesion_('Sergio', res.sesiones[1], 'x', 'S', ['O', 'S']);
   eq(fj.map(r => [r[X.PC.tipo], r[X.PC.ejercicio], r[X.PC.minutos], r[X.PC.zona]]), [['Fuerza', 'Press', '', ''], ['Fuerza', 'Remo', '', ''], ['Aeróbico', 'Bicicleta', 20, 'Z2']], 'vuelta a la calma fuera y aeróbico al final');
 }
+console.log('· Plantilla de 4 tablas');
+{
+  const c = { A1: 'SEMANA DEL', B1: 46328,
+    A3: 'SESIÓN 1', B3: 'Día:', C3: 'Lunes', E3: 'Nombre:', F3: 'Pierna',
+    A4: 'Bloque', B4: 'Ejercicio', C4: 'Series', D4: 'Reps', E4: 'Nota reps', F4: 'Peso (kg)', G4: 'RPE', K4: 'Minutos', L4: 'Zona', M4: 'Intervalos',
+    A5: 'Activación', B5: 'Puente', C5: 2, D5: 10, A6: 'P. Principal', B6: 'Sentadilla', C6: 3, D6: 8, F6: 60, A7: 'Aeróbico', B7: 'Bici', K7: 15, L7: 'Z2',
+    A22: 'SESIÓN 2', B22: 'Día:', E22: 'Nombre:', A23: 'Bloque', B23: 'Ejercicio', C23: 'Series', D23: 'Reps', B24: 'Press', C24: 3, D24: 8,
+    A41: 'SESIÓN 3', B41: 'Día:', C41: 'Jueves', A42: 'Bloque', B42: 'Ejercicio', C42: 'Series', D42: 'Reps' };
+  const res = X.parseWorkbook_([{ name: 'Semana 1', cells: c }], null, null);
+  eq(res.sesiones.map(s => s.fecha + ' ' + s.sesion + ': ' + s.ejercicios.map(e => e.name || e.aer.type).join(',')), ['2026-11-02 Pierna: Puente,Sentadilla,Bici'], 'tabla con día; vacía e incompleta fuera');
+  ok(res.avisos.some(a => /sesión 2: falta el día/.test(a)), 'aviso: tabla con ejercicios sin día');
+}
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
 {
   const s1 = { fecha: '2026-10-06', sesion: 'Tracc', ejercicios: [{ name: 'Remo', series: 3, repsTxt: '8', pesoTxt: '', rpe: '', obs: '' }] };
