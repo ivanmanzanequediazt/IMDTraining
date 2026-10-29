@@ -342,8 +342,20 @@ function diaDe_(v) {
 }
 
 function esSeccion_(name) {
-  const s = sinAcentos_(name).replace(/[^a-z]/g, '');
-  return SECCIONES.indexOf(s) >= 0;
+  return !!tipoSeccion_(name);
+}
+
+// Título de sección -> 'p' (parte principal) | 'act' (activación / movilidad / calentamiento) | 'aer' | 'otra' | ''
+// Admite palabras de más: «Movilidad general», «Parte principal (fuerza)», «ACTIVACIÓN:»…
+function tipoSeccion_(name) {
+  const k = sinAcentos_(name).replace(/[^a-z]/g, '');
+  if (!k) return '';
+  if (k === 'pp' || k === 'ppal' || /^(parteprincipal|pprincipal|principal|bloqueprincipal)/.test(k)) return 'p';
+  if (/^(activacion|movilidad|calentamiento|warmup)/.test(k)) return 'act';
+  if (/^(aerobico|cardio)/.test(k)) return 'aer';
+  if (k === 'core' || k === 'fuerza' || k === 'potencia' || k === 'pliometria' ||
+      /^(vueltaalacalma|enfriamiento|estiramientos|accesorios|complementarios|finisher|readaptacion)/.test(k)) return 'otra';
+  return '';
 }
 
 // '10/2026', '10-26', 'octubre 2026', fecha -> {y, m}
@@ -487,7 +499,7 @@ function parseLista_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
     const ps = {};
     Object.keys(pesos).forEach(function (l) { const v = at(r, pesos[l]); if (v !== '') ps[l] = String(v); });
     if (bloque) sesiones[k].etiquetas = true;
-    const parte = !bloque || PRINCIPAL.indexOf(bloque) >= 0 ? 'p' : ACTIVACION.indexOf(bloque) >= 0 ? 'act' : AEROBICO.indexOf(bloque) >= 0 ? 'aer' : '';
+    const ts = tipoSeccion_(bloque), parte = !bloque ? 'p' : ts === 'p' || ts === 'act' || ts === 'aer' ? ts : '';
     if (!parte) continue;                              // vuelta a la calma, accesorios…: se quedan en el Excel
     if (parte === 'aer') {
       sesiones[k].ejercicios.push({ aer: { type: name.replace(/\s+/g, ' '), minutos: col.min ? at(r, col.min) : '', zona: col.zona ? txt(r, col.zona) : '',
@@ -592,7 +604,7 @@ function parseTablas_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
       const name = col.name ? txt(r, col.name) : '';
       if (col.bloque && txt(r, col.bloque)) { bloque = sinAcentos_(txt(r, col.bloque)).replace(/[^a-z]/g, ''); etiquetas = true; }
       if (!name) continue;
-      const parte = !bloque || PRINCIPAL.indexOf(bloque) >= 0 ? 'p' : ACTIVACION.indexOf(bloque) >= 0 ? 'act' : AEROBICO.indexOf(bloque) >= 0 ? 'aer' : '';
+      const ts = tipoSeccion_(bloque), parte = !bloque ? 'p' : ts === 'p' || ts === 'act' || ts === 'aer' ? ts : '';
       if (!parte) continue;
       if (parte === 'aer') {
         ejercicios.push({ aer: { type: name.replace(/\s+/g, ' '), minutos: col.min ? at(r, col.min) : '', zona: col.zona ? txt(r, col.zona) : '',
@@ -686,17 +698,18 @@ function parseWorkbook_(wb, y, m) {
           }
           vacias = 0;
           if (v.name && (diaDe_(v.name) >= 0 || sinAcentos_(v.name).replace(/[^a-z]/g, '') === 'ejercicios')) break;
-          if (v.name && !otros && (esSeccion_(v.name) || (v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20))) {
-            seccion = sinAcentos_(v.name).replace(/[^a-z]/g, '');
-            if (PRINCIPAL.indexOf(seccion) >= 0) hayPrincipal = true;
+          // Título de sección: sin series ni repeticiones y con nombre de sección (o en MAYÚSCULAS y corto)
+          const sinNumeros = v.series === '' && v.reps === '';
+          if (v.name && sinNumeros && (esSeccion_(v.name) || (!otros && v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20))) {
+            seccion = tipoSeccion_(v.name) || 'otra';
+            if (seccion === 'p') hayPrincipal = true;
             continue;
           }
           // Después de un hueco, solo cuentan las filas con series o repeticiones (no las notas sueltas de abajo)
           if (trasHueco && v.series === '' && v.reps === '') continue;
           if (!v.name) { sinNombre++; continue; }
           ejercicios.push({ name: v.name.replace(/\s+/g, ' '), series: v.series, repsTxt: String(v.reps).trim(),
-            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: PRINCIPAL.indexOf(seccion) >= 0,
-            act: ACTIVACION.indexOf(seccion) >= 0 });
+            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: seccion === 'p', act: seccion === 'act' });
         }
         // Activación + parte principal; si el bloque no tiene «P. PRINCIPAL», se importa entero (y se avisa)
         if (hayPrincipal) {

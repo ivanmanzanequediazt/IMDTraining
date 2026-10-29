@@ -121,6 +121,14 @@ console.log('· Aeróbico con tiempo y zona en Observaciones');
   eq(plan('25 minutos en Z3')[1], { type: 'Bicicleta', minutes: 25, zone: 3 }, 'texto libre con minutos y zona');
   ok(/Minutos y Zona/.test(plan('a tope')), 'sin tiempo: error en Estado');
 }
+console.log('· Títulos de sección con palabras de más');
+{
+  const c = { A2: 'LUNES', A4: 'EJERCICIOS', B4: 'SERIES', C4: 'REPETICIONES', D4: 'PESO', E4: 'RPE', F4: 'OBSERVACIONES',
+    A5: 'Movilidad general', F5: '10 min', A6: 'Gato-camello', B6: 2, C6: 8, A7: 'Parte principal', D7: 'según sensaciones', A8: 'Sentadilla', B8: 3, C8: 5,
+    A9: 'Vuelta a la calma', A10: 'Estiramiento isquios', B10: 1, C10: 30 };
+  const res = X.parseWorkbook_([{ name: '05-09', cells: c }], 2026, 10);
+  eq(res.sesiones[0].ejercicios.map(e => e.name + (e.act ? '(act)' : '')), ['Gato-camello(act)', 'Sentadilla'], 'secciones reconocidas; movilidad = activación');
+}
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
 {
   const s1 = { fecha: '2026-10-06', sesion: 'Tracc', ejercicios: [{ name: 'Remo', series: 3, repsTxt: '8', pesoTxt: '', rpe: '', obs: '' }] };
