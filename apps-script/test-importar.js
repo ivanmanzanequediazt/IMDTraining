@@ -9,7 +9,7 @@ const dir = __dirname;
 const ctx = { console, Utilities: { formatDate: d => d.toISOString().slice(0, 10) } };
 vm.createContext(ctx);
 const src = ['Code.gs', 'Programacion.gs', 'Importar.gs'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') +
-  '\n;this.__ = {partesBiserie_, parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS};';
+  '\n;this.__ = {fechaExcel_, partesBiserie_, parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS};';
 vm.runInContext(src, ctx);
 const X = ctx.__;
 
@@ -75,6 +75,20 @@ console.log('· Biseries');
     ['Remo barra', 3, 4, 'biserie · 4-6rep', 40, 8], ['PM unipodal', 3, 6, 'biserie · 6-8rep', 12, 8],
     ['Press inclinado', 3, 8, 'biserie', 20, ''], ['remo mentón', 3, 12, 'biserie', '', ''],
     ['Sentadilla', 2, 6, 'biserie', 30, ''], ['plancha', 2, 6, 'biserie', '', '']], 'cada ejercicio con sus reps y kilos');
+}
+console.log('· Plantilla nueva (lista por semana)');
+{
+  eq([X.fechaExcel_(46328), X.fechaExcel_('02/11/2026')], ['2026-11-02', '2026-11-02'], 'fechas de Excel');
+  const c = { A1: 'SEMANA DEL', B1: 46328, A4: 'Día', B4: 'Sesión', C4: 'Bloque', D4: 'Ejercicio', E4: 'Series', F4: 'Reps', G4: 'Nota reps', H4: 'Peso O', I4: 'Peso S', J4: 'RPE', K4: 'Unilateral', L4: 'Pliometría', M4: 'Observaciones',
+    A5: 'Lunes', B5: 'Pierna', C5: 'Activación', D5: 'Puente', E5: 2, F5: 10,
+    C6: 'P. Principal', D6: 'Sentadilla', E6: 3, F6: 8, G6: '8-10', H6: 24, I6: 12, J6: 7,
+    D7: 'Zancada', E7: 3, F7: 8, H7: 10, I7: 6, K7: 'Sí',
+    A8: 'Jueves', D8: 'Press + Remo', E8: 3, F8: 8, H8: 50 };
+  const res = X.parseWorkbook_([{ name: 'Semana 1', cells: c }, { name: 'INSTRUCCIONES', cells: { A1: 'Cómo', D5: 'x' } }], null, null);
+  eq(res.sesiones.map(s => s.fecha + ' ' + s.sesion + ': ' + s.ejercicios.map(e => e.name).join(',')), ['2026-11-02 Pierna: Sentadilla,Zancada', '2026-11-05 Entreno jueves: Press + Remo'], 'sesiones de la lista');
+  const f = X.filasDeSesion_('Sergio', res.sesiones[0], 'x', 'S', ['O', 'S']);
+  eq(f.map(r => [r[X.PC.ejercicio], r[X.PC.kg], r[X.PC.variante], r[X.PC.unilateral]]), [['Sentadilla', 12, '8-10', false], ['Zancada', 6, '', true]], 'peso de su columna, nota y unilateral');
+  ok(res.avisos.some(a => /sin «P. PRINCIPAL»/.test(a)), 'aviso del jueves sin P. Principal');
 }
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
 {

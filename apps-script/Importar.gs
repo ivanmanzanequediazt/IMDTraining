@@ -110,8 +110,7 @@ function importar_() {
         if (!dep.byApodo[norm_(q.apodo)]) throw new Error('el apodo «' + q.apodo + '» no está en «deportistas»');
       });
       const dl = descargarXlsx_(link);
-      const ym = parseMes_(mesTxt, tz) || mesDeNombre_(dl.name);
-      if (!ym) throw new Error('pon el mes en la columna Mes (por ejemplo 10/2026)');
+      const ym = parseMes_(mesTxt, tz) || mesDeNombre_(dl.name) || { y: null, m: null };   // la plantilla nueva no lo necesita
       const wb = readXlsx_(unzipXlsx_(dl.blob));
       const res = parseWorkbook_(wb, ym.y, ym.m);
       let borrar = 0;
@@ -401,6 +400,109 @@ function fechaBloque_(d1, d2, y, m, dow) {
   return out.length === 1 ? out[0] : null;
 }
 
+/* ---------- Plantilla nueva: una lista por semana ---------- */
+// Fila 1: «SEMANA DEL (lunes)» + fecha. Cabecera: Día · Sesión · Bloque · Ejercicio · Series · Reps · Nota reps ·
+// Peso (o «Peso X» por cliente) · RPE · Unilateral · Pliometría · Observaciones. Día, Sesión y Bloque vacíos = los de arriba.
+
+function esHojaLista_(at) {
+  for (let r = 1; r <= 3; r++) for (let c = 1; c <= 3; c++) {
+    if (sinAcentos_(String(at(r, c))).replace(/[^a-z]/g, '').indexOf('semanadel') === 0) return true;
+  }
+  return false;
+}
+
+// Fecha de Excel (número de serie o texto dd/mm/aaaa) -> 'YYYY-MM-DD' | null
+function fechaExcel_(v) {
+  if (typeof v === 'number' && v > 20000 && v < 80000) {
+    const t = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 864e5);
+    return ymdStr_(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+  }
+  const m = String(v || '').trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/);
+  if (m) return ymdStr_(m[3].length === 2 ? 2000 + +m[3] : +m[3], +m[2], +m[1]);
+  return null;
+}
+
+function parseLista_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
+  // Fecha de inicio de semana: la celda a la derecha de «SEMANA DEL»
+  let inicio = null;
+  for (let r = 1; r <= 3 && !inicio; r++) for (let c = 1; c <= 3 && !inicio; c++) {
+    if (sinAcentos_(txt(r, c)).replace(/[^a-z]/g, '').indexOf('semanadel') === 0) {
+      for (let k = c + 1; k <= c + 3 && !inicio; k++) inicio = fechaExcel_(at(r, k));
+    }
+  }
+  // Cabecera
+  let hr = 0;
+  const col = {}, pesos = {};
+  for (let r = 1; r <= 12 && !hr; r++) {
+    const hs = {};
+    for (let c = 1; c <= 30; c++) hs[c] = sinAcentos_(txt(r, c)).replace(/[^a-z0-9 ]/g, '').trim();
+    const vals = Object.keys(hs).map(function (c) { return hs[c]; });
+    if (vals.indexOf('ejercicio') < 0 && vals.indexOf('ejercicios') < 0) continue;
+    if (vals.indexOf('dia') < 0) continue;
+    hr = r;
+    Object.keys(hs).forEach(function (c) {
+      const h = hs[c], n = +c, k = h.replace(/ /g, '');
+      if (k === 'dia') col.dia = n;
+      else if (k === 'sesion') col.sesion = n;
+      else if (k === 'bloque' || k === 'parte') col.bloque = n;
+      else if (k === 'ejercicio' || k === 'ejercicios') col.name = n;
+      else if (k === 'series') col.series = n;
+      else if (k === 'reps' || k === 'repeticiones') col.reps = n;
+      else if (k.indexOf('notarep') === 0) col.nota = n;
+      else if (k === 'rpe') col.rpe = n;
+      else if (k === 'unilateral') col.uni = n;
+      else if (k.indexOf('pliometr') === 0) col.plyo = n;
+      else if (k.indexOf('observ') === 0) col.obs = n;
+      else if (/^peso/.test(k)) {
+        const m = h.match(/^peso\s+([a-z])$/);
+        if (m) pesos[m[1].toUpperCase()] = n; else col.peso = n;
+      }
+    });
+  }
+  if (!hr || !col.name) { avisos.push('hoja ' + hoja + ': no encuentro la fila de cabecera (Día · Sesión · … · Ejercicio)'); return; }
+  const sesiones = {}, orden = [];
+  let dia = -1, sesion = '', bloque = '', vacias = 0, haySin = false;
+  for (let r = hr + 1; r <= maxRow; r++) {
+    const name = txt(r, col.name);
+    const fila = [col.dia, col.sesion, col.bloque, col.name, col.series, col.reps].some(function (c) { return c && txt(r, c) !== ''; });
+    if (!fila) { if (++vacias >= 10) break; continue; }
+    vacias = 0;
+    // Un día nuevo empieza sesión nueva: su nombre y su bloque no se heredan del día anterior
+    if (col.dia && txt(r, col.dia)) {
+      const d = diaDe_(txt(r, col.dia));
+      if (d >= 0) { dia = d; sesion = ''; bloque = ''; } else avisos.push('hoja ' + hoja + ' fila ' + r + ': día «' + txt(r, col.dia) + '» no reconocido');
+    }
+    if (col.sesion && txt(r, col.sesion)) { sesion = txt(r, col.sesion); if (!(col.bloque && txt(r, col.bloque))) bloque = ''; }
+    if (col.bloque && txt(r, col.bloque)) bloque = sinAcentos_(txt(r, col.bloque)).replace(/[^a-z]/g, '');
+    if (!name) continue;
+    if (dia < 0) { haySin = true; continue; }
+    const k = dia + '|' + norm_(sesion);
+    if (!sesiones[k]) { sesiones[k] = { dia: dia, label: sesion, ejercicios: [], principal: false }; orden.push(k); }
+    const ps = {};
+    Object.keys(pesos).forEach(function (l) { const v = at(r, pesos[l]); if (v !== '') ps[l] = String(v); });
+    const esPrincipal = PRINCIPAL.indexOf(bloque) >= 0;
+    if (esPrincipal) sesiones[k].principal = true;
+    const si = function (c) { return c ? /^(si|s|x|1|true)$/.test(sinAcentos_(txt(r, c)).replace(/[^a-z0-9]/g, '')) : false; };
+    sesiones[k].ejercicios.push({ name: name.replace(/\s+/g, ' '), series: at(r, col.series || 0), repsTxt: col.reps ? txt(r, col.reps) : '',
+      nota: col.nota ? txt(r, col.nota) : '', pesoTxt: col.peso ? txt(r, col.peso) : '', pesos: Object.keys(pesos).length ? ps : null,
+      rpe: col.rpe ? at(r, col.rpe) : '', obs: col.obs ? txt(r, col.obs) : '', unilateral: si(col.uni), plyo: si(col.plyo), principal: esPrincipal });
+  }
+  if (haySin) avisos.push('hoja ' + hoja + ': hay ejercicios sin día (pon el día en la primera fila de cada sesión)');
+  if (!orden.length) return;
+  if (!inicio) { avisos.push('hoja ' + hoja + ': falta la fecha de «SEMANA DEL»'); return; }
+  const t0 = new Date(inicio + 'T00:00:00Z');
+  orden.forEach(function (k) {
+    const s = sesiones[k];
+    const off = (s.dia - t0.getUTCDay() + 7) % 7;
+    const t = new Date(t0.getTime() + off * 864e5);
+    let ej = s.ejercicios;
+    if (s.principal) ej = ej.filter(function (e) { return e.principal; });
+    else sinPrincipal.push(hoja + ' ' + DIAS[s.dia].replace('miercoles', 'miércoles').replace('sabado', 'sábado'));
+    if (!ej.length) return;
+    bloques.push({ hoja: hoja, fecha: ymdStr_(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()), dia: DIAS[s.dia], label: s.label, ejercicios: ej });
+  });
+}
+
 // wb (readXlsx_) -> {sesiones:[{fecha, sesion, hoja, ejercicios:[{name, series, repsTxt, pesoTxt, rpe, obs}]}], avisos:[]}
 function parseWorkbook_(wb, y, m) {
   const avisos = [];
@@ -408,9 +510,6 @@ function parseWorkbook_(wb, y, m) {
   const sinPrincipal = [];
   let sinNombre = 0;
   wb.forEach(function (sh) {
-    const nm = String(sh.name).trim().match(/^(\d{1,2})\s*[-–_]\s*(\d{1,2})$/);
-    if (!nm) return;                                   // ANUAL, RPE SERIES, RM BÁSICOS…
-    const d1 = +nm[1], d2 = +nm[2];
     const grid = {};
     let maxRow = 0;
     Object.keys(sh.cells).forEach(function (ref) {
@@ -422,6 +521,12 @@ function parseWorkbook_(wb, y, m) {
     });
     const at = function (r, c) { const v = grid[r] && grid[r][c]; return v === undefined || v === null ? '' : v; };
     const txt = function (r, c) { return String(at(r, c)).trim(); };
+    // Plantilla nueva (una lista por semana): «SEMANA DEL (lunes)» arriba a la izquierda
+    if (esHojaLista_(at)) { parseLista_(sh.name, at, txt, maxRow, bloques, avisos, sinPrincipal); return; }
+    const nm = String(sh.name).trim().match(/^(\d{1,2})\s*[-–_]\s*(\d{1,2})$/);
+    if (!nm) return;                                   // ANUAL, RPE SERIES, RM BÁSICOS, INSTRUCCIONES…
+    if (!y || !m) { avisos.push('hoja ' + sh.name + ': pon el mes en la columna Mes de «fuentes»'); return; }
+    const d1 = +nm[1], d2 = +nm[2];
     for (let r = 1; r <= maxRow; r++) {
       Object.keys(grid[r] || {}).forEach(function (cs) {
         const c = +cs;
@@ -567,7 +672,8 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
     const tipo = n === 2 ? 'biserie' : n === 3 ? 'triserie' : n > 3 ? 'circuito' : '';
     const series = typeof e.series === 'number' ? Math.round(e.series) : primerNumero_(e.series, false);
     const repsP = repartir_(e.repsTxt, n);
-    const peso = valorDe_(e.pesoTxt, letra, letras);
+    const peso = e.pesos ? { txt: letra && e.pesos[letra] !== undefined ? String(e.pesos[letra]) : (letra ? '' : e.pesoTxt), val: null }
+      : valorDe_(e.pesoTxt, letra, letras);
     const pesoP = repartir_(peso.txt, n);
     const rpe = valorDe_(e.rpe, letra, letras);
     const rpeN = typeof rpe.val === 'number' ? rpe.val : primerNumero_(rpe.txt, true);
@@ -575,17 +681,17 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const r = PROG_HEADERS.map(function () { return ''; });
       r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = 'Fuerza';
       r[PC.ejercicio] = nombre;
-      r[PC.unilateral] = false; r[PC.plyo] = false;
+      r[PC.unilateral] = !!e.unilateral; r[PC.plyo] = !!e.plyo;
       r[PC.series] = series && series >= 1 && series <= 20 ? series : 1;
       const repsTxt = repsP ? repsP[k] : e.repsTxt;
       const reps = primerNumero_(repsTxt, false);
       r[PC.reps] = reps && reps >= 1 ? reps : '';
       const textoReps = repsTxt && !/^\d+$/.test(repsTxt) ? repsTxt.replace(/\s+/g, ' ') : '';
-      r[PC.variante] = [tipo, textoReps].filter(function (x) { return x; }).join(' · ');
+      r[PC.variante] = [tipo, textoReps, e.nota || ''].filter(function (x) { return x; }).join(' · ');
       // Peso: repartido si viene separado ("40 / 10"); si es uno solo, es del primer ejercicio de la biserie
       const pesoTxt = pesoP ? pesoP[k] : (k === 0 ? peso.txt : '');
       const kg = pesoTxt === '' ? null : primerNumero_(pesoTxt, true);
-      if (kg !== null && kg > 0 && kg <= 1000) r[PC.kg] = kg;
+      if (kg !== null && kg > 0 && kg <= 1000 && !e.plyo) r[PC.kg] = kg;
       if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '') r[PC.rpe] = rpeN;
       r[PC.origen] = origen;
       filas.push(r);
@@ -636,5 +742,5 @@ function planImportacion_(vals, origen, apodo, sesiones, fmt, letra, letras) {
   return { borrarFilas: borrarFilas, nuevas: nuevas, borrar: borrar };
 }
 
-if (typeof module !== 'undefined') module.exports = { partesBiserie_: partesBiserie_, parseQuienes_: parseQuienes_, valorDe_: valorDe_, readXlsx_: readXlsx_, parseWorkbook_: parseWorkbook_, mesDeNombre_: mesDeNombre_,
+if (typeof module !== 'undefined') module.exports = { fechaExcel_: fechaExcel_, partesBiserie_: partesBiserie_, parseQuienes_: parseQuienes_, valorDe_: valorDe_, readXlsx_: readXlsx_, parseWorkbook_: parseWorkbook_, mesDeNombre_: mesDeNombre_,
   filasDeSesion_: filasDeSesion_, planImportacion_: planImportacion_, primerNumero_: primerNumero_ };
