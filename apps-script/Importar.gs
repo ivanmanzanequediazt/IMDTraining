@@ -572,7 +572,7 @@ function metaTabla_(txt, hr, etiqueta) {
   for (let r = hr - 1; r >= Math.max(1, hr - 2); r--) {
     for (let c = 1; c <= 30; c++) {
       if (normH_(txt(r, c)) !== etiqueta) continue;
-      for (let k = c + 1; k <= c + 4; k++) { const v = txt(r, k); if (v && normH_(v) !== 'nombre' && normH_(v) !== 'rpe pre') return v; }
+      for (let k = c + 1; k <= c + 4; k++) { const v = txt(r, k); if (/:\s*$/.test(v)) return ''; if (v) return v; }   // otra etiqueta: está vacío
       return '';
     }
   }
@@ -596,7 +596,7 @@ function parseTablas_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
       if (!parte) continue;
       if (parte === 'aer') {
         ejercicios.push({ aer: { type: name.replace(/\s+/g, ' '), minutos: col.min ? at(r, col.min) : '', zona: col.zona ? txt(r, col.zona) : '',
-          intervalos: col.iv ? txt(r, col.iv) : '' } });
+          intervalos: col.iv ? txt(r, col.iv) : '', obs: col.obs ? txt(r, col.obs) : '' } });
         continue;
       }
       const ps = {};
@@ -792,12 +792,24 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const r = PROG_HEADERS.map(function () { return ''; });
       r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = 'Aeróbico';
       r[PC.ejercicio] = e.aer.type || 'Carrera'; r[PC.unilateral] = false; r[PC.plyo] = false;
+      const ob = e.aer.obs || '';
       if (e.aer.intervalos) r[PC.intervalos] = e.aer.intervalos;
-      else {
+      else if (e.aer.minutos !== '' && e.aer.minutos !== undefined) {
         const mn = primerNumero_(e.aer.minutos, true);
         if (mn) r[PC.minutos] = mn;
         const z = String(e.aer.zona || '').match(/[1-5]/);
         if (z) r[PC.zona] = 'Z' + z[0];
+      } else if (ob) {
+        // Observaciones: «20 min Z2» (continuo) o «10 Z2, 3 Z4, 10 Z2» (intervalos); si no se entiende, primer número y zona
+        const bs = parseIntervals_(ob.replace(/\b(suave|rodaje|fuerte|ritmo|a|al|de)\b/gi, ' '));
+        if (bs && bs.length === 1) { r[PC.minutos] = bs[0].min; r[PC.zona] = 'Z' + bs[0].zone; }
+        else if (bs) r[PC.intervalos] = ob;
+        else {
+          const mn = primerNumero_(ob, true), z = ob.match(/z\s*([1-5])/i);
+          if (mn) r[PC.minutos] = mn;
+          if (z) r[PC.zona] = 'Z' + z[1];
+        }
+        notas.push(r[PC.ejercicio] + ': ' + ob);
       }
       r[PC.origen] = origen;
       filas.push(r);

@@ -25,11 +25,11 @@ fill = lambda c: PatternFill('solid', fgColor=c)
 
 def build(path, pareja):
     pesos = ['Peso O', 'Peso S'] if pareja else ['Peso (kg)']
-    cols = ['Bloque', 'Ejercicio', 'Series', 'Reps', 'Nota reps'] + pesos + ['RPE', 'Unilateral', 'Pliometría', 'Minutos', 'Zona', 'Intervalos', 'Observaciones']
-    widths = {'Bloque': 15, 'Ejercicio': 34, 'Series': 8, 'Reps': 8, 'Nota reps': 13, 'Peso (kg)': 10, 'Peso O': 9, 'Peso S': 9, 'RPE': 7,
-              'Unilateral': 10, 'Pliometría': 10, 'Minutos': 9, 'Zona': 7, 'Intervalos': 20, 'Observaciones': 30}
+    cols = ['Bloque', 'Ejercicio', 'Series', 'Reps', 'Nota reps'] + pesos + ['RPE', 'Unilateral', 'Pliometría', 'Observaciones']
+    widths = {'Bloque': 17, 'Ejercicio': 34, 'Series': 8, 'Reps': 8, 'Nota reps': 13, 'Peso (kg)': 10, 'Peso O': 9, 'Peso S': 9, 'RPE': 7,
+              'Unilateral': 14, 'Pliometría': 10, 'Observaciones': 40}
     idx = {c: i + 1 for i, c in enumerate(cols)}
-    centro = {'Series', 'Reps', 'RPE', 'Unilateral', 'Pliometría', 'Minutos', 'Zona'} | set(pesos)
+    centro = {'Series', 'Reps', 'RPE', 'Unilateral', 'Pliometría'} | set(pesos)
     wb = Workbook()
 
     # ---------- INSTRUCCIONES ----------
@@ -49,7 +49,7 @@ def build(path, pareja):
         ('Peso O / Peso S: un peso por cliente. Cambia la letra del título por la inicial de cada uno (Peso A, Peso M…) '
          'y usa esas mismas letras en la pestaña «fuentes» de Google (por ejemplo «O: apodo de uno, S: apodo del otro»).') if pareja else
         'Peso (kg): solo el número (17,5). Si hace falta texto («por lado», «poner lastre»), va en Observaciones.',
-        'Aeróbico (al final de la sesión): Bloque «Aeróbico», Ejercicio = Carrera, Bicicleta…, y Minutos + Zona o Intervalos («10 Z2, 3 Z4, 10 Z2»). Una fila por sesión.',
+        'Aeróbico (al final de la sesión): Bloque «Aeróbico», Ejercicio = Carrera, Bicicleta…, y en Observaciones el tiempo y la zona: «20 min Z2» o, por intervalos, «10 Z2, 3 Z4, 10 Z2». Una fila por sesión.',
         'No cambies los títulos de las tablas ni la celda «SEMANA DEL». Puedes añadir más pestañas (ANUAL, RM…): se ignoran.',
         'Para el mes siguiente: Archivo > Guardar una copia, cambia la fecha verde y borra el contenido de las tablas.',
     ]
@@ -69,7 +69,7 @@ def build(path, pareja):
         {'Ejercicio': 'Zancada atrás', 'Series': 3, 'Reps': 8, 'Nota reps': 'por lado', 'Unilateral': 'Sí',
          **({'Peso O': 10, 'Peso S': 6} if pareja else {'Peso (kg)': 10})},
         {'Ejercicio': 'Drop jump', 'Series': 3, 'Reps': 6, 'Pliometría': 'Sí'},
-        {'Bloque': 'Aeróbico', 'Ejercicio': 'Bicicleta', 'Minutos': 15, 'Zona': 'Z2'},
+        {'Bloque': 'Aeróbico', 'Ejercicio': 'Bicicleta', 'Observaciones': '15 min Z2'},
     ]
     tabla(ins, r0 + 1, 1, cols, idx, centro, pesos, len(ej), titulo=False, ejemplo=ej)
 
@@ -78,7 +78,7 @@ def build(path, pareja):
         ws = wb.create_sheet(f'Semana {w}')
         ws.sheet_properties.tabColor = '2E8B6E' if w % 2 else '2F6F9F'
         ws.sheet_view.showGridLines = False
-        ws['A1'] = 'SEMANA DEL'; ws['A1'].font = Font(name=F, bold=True, color=AZUL, size=13)
+        ws['A1'] = 'SEMANA DEL'; ws['A1'].font = Font(name=F, bold=True, color=AZUL, size=12)
         if w == 1:
             ws['B1'] = datetime.date(2026, 11, 2)
             ws['B1'].comment = Comment('Escribe aquí el LUNES de la primera semana del mes (las demás semanas se calculan solas).', 'IMDTraining')
@@ -110,18 +110,20 @@ def tabla(ws, r, k, cols, idx, centro, pesos, nfilas, titulo=True, ejemplo=None)
         for c in range(1, last + 1):
             ws.cell(r, c).fill = fill(AZUL)
         t = ws.cell(r, 1, f'SESIÓN {k}'); t.font = Font(name=F, bold=True, size=12, color='FFFFFF')
-        meta = [(2, 'Día:', 3), (5, 'Nombre:', 6), (last - 3, 'RPE pre:', last - 2), (last - 1, 'RPE post:', last)]
+        u, pl, ob = idx['Unilateral'], idx['Pliometría'], idx['Observaciones']
+        meta = [(2, 'Día:', 3), (5, 'Nombre:', 6), (u, 'RPE pre / post:', pl), (None, None, ob)]
         for lc, lab, vc in meta:
-            a = ws.cell(r, lc, lab); a.font = Font(name=F, bold=True, color='FFFFFF'); a.alignment = Alignment(horizontal='right', vertical='center')
+            if lc:
+                a = ws.cell(r, lc, lab); a.font = Font(name=F, bold=True, color='FFFFFF', size=9 if len(lab) > 8 else 10); a.alignment = Alignment(horizontal='right', vertical='center')
             v = ws.cell(r, vc); v.fill = fill(VERDE2); v.font = Font(name=F, bold=True, color=TXT); v.alignment = Alignment(horizontal='center', vertical='center')
             v.border = Border(left=line, right=line, top=line, bottom=line)
         ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=4)
-        ws.merge_cells(start_row=r, start_column=6, end_row=r, end_column=9)
+        if u - 1 > 6: ws.merge_cells(start_row=r, start_column=6, end_row=r, end_column=u - 1)
         ws.row_dimensions[r].height = 22
         dv = DataValidation(type='list', formula1=f'"{DIAS}"', allow_blank=True, showErrorMessage=True, errorTitle='Día', error='Elige un día del desplegable.')
         ws.add_data_validation(dv); dv.add(f'C{r}')
         dv = DataValidation(type='decimal', operator='between', formula1='0', formula2='10', allow_blank=True, showErrorMessage=True, error='Un número de 0 a 10.')
-        ws.add_data_validation(dv); dv.add(f'{L(last - 2)}{r}'); dv.add(f'{L(last)}{r}')
+        ws.add_data_validation(dv); dv.add(f'{L(pl)}{r}'); dv.add(f'{L(ob)}{r}')
         h = r + 1
     else:
         h = r
@@ -153,8 +155,6 @@ def tabla(ws, r, k, cols, idx, centro, pesos, nfilas, titulo=True, ejemplo=None)
     dv('RPE', type='decimal', operator='between', formula1='0', formula2='10', errorTitle='RPE', error='Un número de 0 a 10.')
     dv('Unilateral', type='list', formula1='"Sí"', errorTitle='Unilateral', error='Elige «Sí» o déjalo vacío.')
     dv('Pliometría', type='list', formula1='"Sí"', errorTitle='Pliometría', error='Elige «Sí» o déjalo vacío.')
-    dv('Minutos', type='decimal', operator='between', formula1='0', formula2='600', errorTitle='Minutos', error='Minutos del aeróbico (0,5 = 30 s).')
-    dv('Zona', type='list', formula1='"Z1,Z2,Z3,Z4,Z5"', errorTitle='Zona', error='Elige una zona del desplegable.')
     bc = L(idx['Bloque'])
     full = f'{bc}{a}:{bc}{b}'
     ws.conditional_formatting.add(full, FormulaRule(formula=[f'${bc}{a}="Activación"'], fill=fill(MENTA), font=Font(bold=True, color='1E6B45')))

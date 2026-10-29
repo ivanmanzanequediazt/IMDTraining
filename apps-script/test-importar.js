@@ -104,6 +104,23 @@ console.log('· Plantilla de 4 tablas');
   eq(res.sesiones.map(s => s.fecha + ' ' + s.sesion + ': ' + s.ejercicios.map(e => e.name || e.aer.type).join(',')), ['2026-11-02 Pierna: Puente,Sentadilla,Bici'], 'tabla con día; vacía e incompleta fuera');
   ok(res.avisos.some(a => /sesión 2: falta el día/.test(a)), 'aviso: tabla con ejercicios sin día');
 }
+console.log('· Aeróbico con tiempo y zona en Observaciones');
+{
+  const base = { A1: 'SEMANA DEL', B1: 46328, A4: 'Bloque', B4: 'Ejercicio', C4: 'Series', D4: 'Reps', J4: 'Observaciones' };
+  const mk = (obs) => Object.assign({}, base, { A3: 'SESIÓN 1', B3: 'Día:', C3: 'Lunes', E3: 'Nombre:', H3: 'RPE pre / post:',
+    A5: 'P. Principal', B5: 'Sentadilla', C5: 3, D5: 5, A6: 'Aeróbico', B6: 'Bicicleta', J6: obs });
+  const plan = (obs) => {
+    const res = X.parseWorkbook_([{ name: 'Semana 1', cells: mk(obs) }], null, null);
+    const rows = X.filasDeSesion_('P', res.sesiones[0], 'x');
+    const g = X.groupSessions_(X.parseRows_([Array(X.PROG_COLS).fill('h')].concat(rows), d => d));
+    const b = X.buildPlan_(g[0], 'i', 'd', null, 1);
+    return b.ok ? [res.sesiones[0].sesion, b.data.cardio, b.data.notes] : b.error;
+  };
+  eq(plan('20 min Z2 suave'), ['Entreno lunes', { type: 'Bicicleta', minutes: 20, zone: 2 }, 'Bicicleta: 20 min Z2 suave'], 'continuo (y nombre vacío no coge la etiqueta de RPE)');
+  eq(plan('10 Z2, 4x(3 Z4, 2 Z1)')[1].blocks.length, 9, 'intervalos');
+  eq(plan('25 minutos en Z3')[1], { type: 'Bicicleta', minutes: 25, zone: 3 }, 'texto libre con minutos y zona');
+  ok(/Minutos y Zona/.test(plan('a tope')), 'sin tiempo: error en Estado');
+}
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
 {
   const s1 = { fecha: '2026-10-06', sesion: 'Tracc', ejercicios: [{ name: 'Remo', series: 3, repsTxt: '8', pesoTxt: '', rpe: '', obs: '' }] };
