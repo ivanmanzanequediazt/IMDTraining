@@ -1,7 +1,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>IMDTraining</title>
-<meta name="theme-color" content="#0E150F">
+<meta name="theme-color" content="#0B0F1A">
 <script>try{var t=localStorage.getItem('theme')||'dark';if(t==='auto')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;if(t==='light')document.querySelector('meta[name=theme-color]').content='#F4F1EA'}catch(e){}</script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
@@ -12,14 +12,14 @@
 <style>
 /* Layout: una columna tipo instrumento de campo; la FC en grande manda, todo lo demás se lee de un vistazo */
 :root{
-  /* Identidad IMDTraining: morado de marca, blanco hueso y fondo verde muy oscuro (complementario del morado). Tema oscuro fijo */
-  --bg:#0E150F; --surface:#162019; --ink:#EDE6D6; --muted:#A3AE9F; --line:#2B392E; --soft:#1F2B22;
+  /* Identidad IMDTraining: morado de marca, blanco hueso y fondo azul medianoche. Tema oscuro fijo */
+  --bg:#0B0F1A; --surface:#121828; --ink:#EDE6D6; --muted:#9EA8BC; --line:#262F45; --soft:#1A2236;
   --accent:#A866DB; --accent-ink:#170B20; --bone:#EDE6D6; --warn:#F0955A; --ok:#7BCB86;
-  --z0:#56635A; --z1:#93A6BE; --z2:#4F9BE0; --z3:#5CC46D; --z4:#F59A3A; --z5:#EF5058;
+  --z0:#5A6379; --z1:#93A6BE; --z2:#4F9BE0; --z3:#5CC46D; --z4:#F59A3A; --z5:#EF5058;
   --display:'Barlow Condensed','Arial Narrow',system-ui,sans-serif;
   --body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
-  --scrim:rgba(4,8,5,.7);
+  --scrim:rgba(3,5,12,.72);
   color-scheme:dark;
 }
 /* Tema claro: fondo hueso cálido, tarjetas blancas y morado más oscuro para que contraste */
@@ -58,7 +58,7 @@ h3{font-size:19px}
 .sec{display:flex;flex-direction:column;gap:10px}
 .sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .note{border-left:3px solid var(--warn);background:var(--surface);padding:12px 14px;border-radius:4px 10px 10px 4px;display:flex;flex-direction:column;gap:8px}
-.note.info{border-left-color:var(--z2)}
+.note.info{border-left-color:var(--z2)}.note.ok{border-left-color:var(--ok)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
 .btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 16px var(--body);padding:11px 16px;border-radius:10px;cursor:pointer;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
@@ -470,6 +470,11 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
 /* Activación (lista para marcar) y aeróbico post-sesión */
 .act-list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
 .pl-part{display:flex;flex-direction:column;gap:10px;margin:14px 0 6px}
+.perio-ch{display:block;width:100%;margin-top:6px}
+.pr-list{display:flex;flex-direction:column;gap:6px}
+.pr-row{display:grid;grid-template-columns:42px minmax(0,1fr) 82px 58px;gap:6px;align-items:center;font-size:14px}.pr-d,.pr-ua{white-space:nowrap;font-size:12.5px}
+.pr-pct{display:flex;align-items:center;gap:3px}.pr-pct input{width:58px;min-width:0;padding-left:4px;padding-right:6px;text-align:right}.pr-row select{padding-left:8px;padding-right:4px}
+.pr-ua{text-align:right}
 .lib-f{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;margin:0 0 4px;scrollbar-width:none;flex-wrap:nowrap}
 .lib-f .fchip{flex:none;white-space:nowrap}
 .lib-q input{width:100%}
@@ -892,7 +897,7 @@ const BASE_EX=[
 function libAll(){const own=new Map((S.exercises||[]).map(x=>[x.id,x]));
   const fx=x=>x.muscles?{...x,muscles:fixLegacyM(x.muscles,x.name)}:x;
   const out=BASE_EX.map(b=>own.has(b.id)?fx({...b,...own.get(b.id),base:true,edited:true}):b);
-  for(const x of own.values())if(!x.id.startsWith('b-'))out.push(fx(x));
+  for(const x of own.values())if(!x.id.startsWith('b-')&&!x.kind)out.push(fx(x));
   return out.filter(x=>!x.hidden&&x.name).sort((a,b)=>a.name.localeCompare(b.name,'es'))}
 function libFind(name){const n=normTxt(name);if(!n)return null;return libAll().find(x=>normTxt(x.name)===n)||null}
 const libById=id=>libAll().find(x=>x.id===id)||null;
@@ -1003,7 +1008,7 @@ const DB={db:null,mem:null,
     await this.putRaw(s,s==='tracks'?{id,deleted:true,dirty:1,synced:1,updatedAt:Date.now()}:{...v,deleted:true,dirty:1,updatedAt:Date.now()});Sync.schedule()}
 };
 const SYNC_STORES=['profiles','sessions','tracks','strength','tests','plans','wellness','exercises'];
-const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','uni','cues','hidden'];
+const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','uni','cues','hidden','kind','start','base','model','weeks'];
 
 /* ================= Estado ================= */
 const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],wellness:[],exercises:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
@@ -1291,6 +1296,64 @@ function methodName(p){return p.method==='karvonen'?'Karvonen':p.method==='pct'?
 
 /* ================= Vistas ================= */
 const V={};
+/* ===== Periodización de la carga ===== */
+// Plan por deportista: semana de inicio, carga de referencia (UA/semana) y un % para cada semana.
+// Se guarda en «exercises» (id perio:<código del deportista>) para que se sincronice entre los aparatos del entrenador.
+const PERIO_TYPES=[['load','Carga ↑'],['maint','Mantenimiento'],['deload','Descarga ↓'],['comp','Competición']];
+const PERIO_MODELS=[['31','3:1 carga–descarga',[100,110,120,60]],['21','2:1 carga–descarga',[100,115,65]],['lin','Lineal progresivo',[100,105,110,115,70]],
+  ['ond','Ondulante',[115,90,120,70]],['blq','Bloques (acumulación, transformación, realización)',[115,115,115,100,100,70]],['mant','Mantenimiento',[100]],['taper','Puesta a punto (taper)',[100,80,65,50]]];
+const perioType=(f,model)=>model==='mant'?'maint':f<=75?'deload':f>=100&&model?'load':f>=105?'load':'maint';
+const perioKey=p=>'perio:'+(p.cloudId||'local-'+p.id);
+const perioOf=p=>p&&(S.exercises||[]).find(x=>x.id===perioKey(p)&&!x.deleted)||null;
+const dsOfMs=t=>dsOf(t);
+// UA por semana (lunes en ms -> suma)
+function weekLoads(uid){const m=new Map();for(const it of loadItems(uid)){if(!it.load)continue;const w=weekStart(it.t);m.set(w,(m.get(w)||0)+it.load)}return m}
+function perioBaseSuggest(uid,startMs){const wl=weekLoads(uid),vals=[1,2,3,4].map(i=>{const d=new Date(startMs);d.setDate(d.getDate()-7*i);return wl.get(weekStart(d.getTime()))||0}).filter(v=>v>0);
+  return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):null}
+function perioWeeks(pr,uid){if(!pr)return[];const wl=weekLoads(uid),now=weekStart(Date.now());
+  return (pr.weeks||[]).map((w,i)=>{const d=new Date(pr.start+'T12:00:00');d.setDate(d.getDate()+7*i);const ms=weekStart(d.getTime()),target=pr.base?Math.round(pr.base*w.f/100):null;
+    return {i,ms,k:w.k,f:w.f,target,real:wl.get(ms)||0,past:ms<now,cur:ms===now}})}
+// Aviso de la semana: compara la pasada (cerrada) y lo que lleva esta
+function perioAdvice(ws){const cur=ws.find(w=>w.cur),last=[...ws].reverse().find(w=>w.past),next=ws.find(w=>w.ms>(cur?cur.ms:weekStart(Date.now())));const out=[];
+  const pct=(a,b)=>Math.round((a-b)/b*100);
+  if(cur&&cur.target){if(cur.real>cur.target*1.1)out.push(['down',`Esta semana ya lleva ${cur.real} UA de ${cur.target} previstas (+${pct(cur.real,cur.target)} %): baja la carga lo que queda de semana.`]);
+    else if(last&&last.target&&last.real>last.target*1.15)out.push(['down',`La semana pasada se pasó (+${pct(last.real,last.target)} %). Conviene bajar un poco esta semana.`]);
+    else if(last&&last.target&&last.real<last.target*0.85)out.push(['up',`La semana pasada se quedó corta (${pct(last.real,last.target)} %). Si lo ha tolerado bien, puedes subir esta semana.`]);
+    else out.push(['ok',`Esta semana toca ${PERIO_TYPES.find(t=>t[0]===cur.k)?.[1].toLowerCase()||''}: unas ${cur.target} UA (lleva ${cur.real}).`])}
+  if(next&&next.target&&cur)out.push(['info',`La semana que viene: ${PERIO_TYPES.find(t=>t[0]===next.k)?.[1].toLowerCase()} (${next.f>=cur.f?'+':''}${next.f-cur.f} % respecto a esta), unas ${next.target} UA.`]);
+  return out}
+function perioChart(ws){const vis=ws.slice(0,24);if(!vis.length)return'';const W=320,H=150,pad=22,n=vis.length,bw=Math.max(6,(W-pad*2)/n*0.6),max=Math.max(1,...vis.map(w=>Math.max(w.real,w.target||0)))*1.1;
+  const x=i=>pad+(i+0.5)*(W-pad*2)/n,y=v=>H-18-(v/max)*(H-34);
+  const bars=vis.map((w,i)=>{const over=w.target&&w.real>w.target*1.1,under=w.target&&w.past&&w.real<w.target*0.85;
+    return `<rect x="${(x(i)-bw/2).toFixed(1)}" y="${y(w.real).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H-18-y(w.real)).toFixed(1)}" rx="2" fill="${over?'var(--z5)':under?'var(--warn)':'var(--accent)'}" opacity="${w.past||w.cur?1:.35}"/>`}).join('');
+  const pts=vis.filter(w=>w.target!=null).map(w=>`${x(w.i).toFixed(1)},${y(w.target).toFixed(1)}`).join(' ');
+  const cur=vis.find(w=>w.cur),lab=vis.map((w,i)=>i%Math.ceil(n/8)===0||w.cur?`<text x="${x(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--muted)">${new Date(w.ms).getDate()}/${new Date(w.ms).getMonth()+1}</text>`:'').join('');
+  return `<svg class="perio-ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="Carga real y objetivo por semana">${cur?`<rect x="${(x(cur.i)-(W-pad*2)/n/2).toFixed(1)}" y="4" width="${((W-pad*2)/n).toFixed(1)}" height="${H-22}" fill="var(--soft)"/>`:''}${bars}<polyline points="${pts}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="5 3"/>${vis.filter(w=>w.target!=null).map(w=>`<circle cx="${x(w.i).toFixed(1)}" cy="${y(w.target).toFixed(1)}" r="2.5" fill="var(--ink)"/>`).join('')}${lab}</svg>
+    <div class="acwr-key"><span><i style="background:var(--accent)"></i>Carga real</span><span><i style="background:transparent;border-top:2px dashed var(--ink);height:0;border-radius:0"></i>Objetivo</span><span><i style="background:var(--z5)"></i>Se pasa</span><span><i style="background:var(--warn)"></i>Se queda corta</span></div>`}
+function perioCard(p){const pr=perioOf(p);
+  if(!pr)return `<div class="card"><div class="sec-h"><span class="lbl">Periodización</span></div><span class="hint">Marca el plan de carga de las próximas semanas (por ejemplo 3:1 carga–descarga) y la app te dirá cada semana si conviene subir o bajar.</span><button class="btn wide" data-act="perioEdit">${ic('chart')}Planificar la carga</button></div>`;
+  const ws=perioWeeks(pr,p.id),adv=perioAdvice(ws),cur=ws.find(w=>w.cur),end=ws.length?new Date(ws[ws.length-1].ms+6*864e5):null;
+  return `<div class="card"><div class="sec-h"><span class="lbl">Periodización</span><button class="link" data-act="perioEdit">Editar ${ic('chev','sm')}</button></div>
+    <span class="hint num">${esc(PERIO_MODELS.find(m=>m[0]===pr.model)?.[1]||'Plan propio')} · ${ws.length} semanas${end?' · hasta el '+end.toLocaleDateString('es-ES',{day:'numeric',month:'short'}):''}${pr.base?` · referencia ${pr.base} UA/semana`:''}</span>
+    ${!pr.base?'<span class="hint warnTxt">Pon la carga de referencia (UA por semana) en «Editar» para ver los objetivos.</span>':''}
+    ${adv.map(([k,t])=>`<div class="note ${k==='down'?'warn':k==='up'?'ok':'info'} slim">${ic(k==='down'?'down':k==='up'?'up':'info')}<span class="hint">${t}</span></div>`).join('')}
+    ${!cur&&ws.length&&ws[0].ms>Date.now()?`<span class="hint">El plan empieza la semana del ${new Date(ws[0].ms).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}.</span>`:''}
+    ${perioChart(ws)}</div>`}
+V.perio=()=>{const p=prof(S.arg);if(!p)return'';const d=S.perioDraft;if(!d)return'';const ws=d.weeks||[],sug=perioBaseSuggest(p.id,new Date(d.start+'T12:00:00').getTime());
+  return `<div class="card"><div class="g2"><div class="field"><label for="prStart">Empieza la semana del</label><input id="prStart" type="date" data-prf="start" value="${d.start}"></div>
+    <div class="field"><label for="prBase">Referencia (UA/semana)</label><input id="prBase" type="number" inputmode="numeric" min="0" data-prf="base" value="${d.base??''}" placeholder="${sug??''}"></div></div>
+    <span class="hint">${sug!=null?`Media de las 4 semanas anteriores: <b>${sug} UA</b>. `:''}Los objetivos de cada semana son un % de esta referencia.</span>
+    <div class="g2"><div class="field"><label for="prModel">Modelo</label><select id="prModel" data-prf="model">${PERIO_MODELS.map(([k,l])=>`<option value="${k}"${d.model===k?' selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="field"><label for="prN">Semanas</label><select id="prN" data-prf="n">${[4,6,8,12,16,20,24].map(n=>`<option value="${n}"${(d.n||8)===n?' selected':''}>${n}</option>`).join('')}</select></div></div>
+    <button class="btn wide" data-act="perioApply">Rellenar las semanas con el modelo</button></div>
+  ${ws.length?`<section class="sec"><h3>Semanas</h3><div class="pr-list">${ws.map((w,i)=>{const dd=new Date(d.start+'T12:00:00');dd.setDate(dd.getDate()+7*i);
+    return `<div class="pr-row"><span class="pr-d num">${dd.getDate()}/${dd.getMonth()+1}</span>
+      <select data-prw="${i}" data-prk="k" aria-label="Tipo de la semana ${i+1}">${PERIO_TYPES.map(([k,l])=>`<option value="${k}"${w.k===k?' selected':''}>${l}</option>`).join('')}</select>
+      <span class="pr-pct"><input type="number" inputmode="numeric" min="0" max="200" step="5" data-prw="${i}" data-prk="f" value="${w.f}" aria-label="% de la semana ${i+1}"><span class="muted">%</span></span>
+      <span class="hint num pr-ua" id="prua${i}">${d.base?Math.round(d.base*w.f/100)+' UA':''}</span></div>`}).join('')}</div></section>`:''}
+  <button class="btn primary wide" data-act="perioSave">Guardar plan</button>
+  ${perioOf(p)?`<button class="btn danger wide" data-act="perioDel">Quitar la periodización</button>`:''}
+  ${info('UA = RPE de la sesión × minutos (sRPE), sumando fuerza y aeróbico. El aviso salta cuando la semana se aleja más de un 10–15 % del objetivo. Descarga: 50–70 % de la referencia; carga: 105–120 %.','Cómo funciona')}`};
 /* ===== Batería de ejercicios: pantallas ===== */
 function libChips(){const mv=S.exmov||'',mg=S.exmg||'';
   return `<div class="chips-f lib-f" role="radiogroup" aria-label="Movimiento"><button type="button" role="radio" aria-checked="${!mv}" class="fchip ${mv?'':'on'}" data-act="exMov" data-v="">Todos</button>${MOV.map(([k,l])=>`<button type="button" role="radio" aria-checked="${mv===k}" class="fchip ${mv===k?'on':''}" data-act="exMov" data-v="${k}">${l}</button>`).join('')}</div>
@@ -1522,6 +1585,7 @@ V.profile=()=>{
         h+=sessItem(s)}
       h+='</div>'}}
   else if(tab==='load'){
+    h+=perioCard(p);
     const view=lsGet('loadView')==='month'?'month':'week',nDays=ser.length;
     h+=`<div class="card">
       <div class="acwr-head"><div><span class="lbl">ACWR</span><b class="big-num num">${cur?.ratio!=null?dec(cur.ratio,2):'—'}</b></div><span class="acwr-pill" style="background:${zc(st.z)}">${st.txt}</span></div>
@@ -2146,7 +2210,7 @@ function monthData(p,off){const now=new Date(),a=new Date(now.getFullYear(),now.
   const hrr=hr.filter(x=>x.hrr).map(x=>x.hrr.drop);
   return {a,b,ses,hr,st,load,mins,acwr,weeks,zones,mg,kg,sets,ws,well,recs,cmj,vo2,hrr:hrr.length?hrr.reduce((q,r)=>q+r,0)/hrr.length:null}}
 async function buildReport(p,off){try{await document.fonts.ready}catch(e){}
-  const d=monthData(p,off),W=1080,C={bg:'#0E150F',card:'#162019',line:'#2B392E',ink:'#EDE6D6',muted:'#A3AE9F',acc:'#A866DB'},ZC=['#56635A','#93A6BE','#4F9BE0','#5CC46D','#F59A3A','#EF5058'];
+  const d=monthData(p,off),W=1080,C={bg:'#0B0F1A',card:'#121828',line:'#262F45',ink:'#EDE6D6',muted:'#9EA8BC',acc:'#A866DB'},ZC=['#5A6379','#93A6BE','#4F9BE0','#5CC46D','#F59A3A','#EF5058'];
   const disp="'Barlow Condensed','Arial Narrow',sans-serif",body="'Source Sans 3',system-ui,sans-serif";
   const cvs=document.createElement('canvas'),H=2000;cvs.width=W;cvs.height=H;const c=cvs.getContext('2d');
   const rr=(x,y,w,h,r)=>{c.beginPath();c.roundRect?c.roundRect(x,y,w,h,r):c.rect(x,y,w,h)};
@@ -2298,7 +2362,8 @@ function monthCalendar(p){const off=S.mOff||0,now=new Date(),m0=new Date(now.get
   let day='';
   if(sel){const o=on(sel),dn=new Date(sel+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
     const tItem=t=>`<button class="item" data-act="openTest" data-id="${t.id}"><span class="grow"><span class="t num">${testHeadline(t)}</span><span class="s">Test · ${fmtDT(t.date)}</span></span></button>`;
-    day=`<div class="wk-sel"><div class="sec-h"><h4>${dn.charAt(0).toUpperCase()+dn.slice(1)}</h4></div>${o.s.length||o.t.length||o.p.length?`<div class="list">${o.s.map(sessItem).join('')}${o.t.map(tItem).join('')}${o.p.map(planItem).join('')}</div>`:`<div class="empty small">Nada este día.</div>`}</div>`}
+    day=`<div class="wk-sel"><div class="sec-h"><h4>${dn.charAt(0).toUpperCase()+dn.slice(1)}</h4></div>${o.s.length||o.t.length||o.p.length?`<div class="list">${o.s.map(sessItem).join('')}${o.t.map(tItem).join('')}${o.p.map(planItem).join('')}</div>`:`<div class="empty small">Nada este día.</div>`}
+      ${isClient()?'':`<button class="btn wide" data-act="newPlanDay" data-d="${sel}">${ic('plus')}Programar para el ${new Date(sel+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric'})}</button>`}</div>`}
   return `<section class="sec"><div class="wk-nav"><button class="icon-btn" data-act="mNav" data-v="-1" aria-label="Mes anterior">‹</button><div class="wk-lab"><b>${label.charAt(0).toUpperCase()+label.slice(1)}</b><span class="muted num">${nS} sesi${nS===1?'ón':'ones'}${nT?` · ${nT} test`:''}${nP?` · ${nP} programada${nP===1?'':'s'} sin hacer`:''}</span></div><button class="icon-btn" data-act="mNav" data-v="1" aria-label="Mes siguiente">›</button></div>
     <div class="mcal">${['L','M','X','J','V','S','D'].map(d=>`<span class="wd">${d}</span>`).join('')}${cells}</div>
     <div class="mc-key"><span><i class="c-st"></i>Fuerza</span><span><i class="c-hr"></i>Aeróbico</span><span><i class="c-ts"></i>Test</span><span><i class="c-pl"></i>Programada sin hacer</span>${off!==0?`<button class="link" data-act="mNav" data-v="0">Volver a hoy</button>`:''}</div>
@@ -2592,7 +2657,7 @@ const testsOf=uid=>S.tests.filter(t=>t.userId===uid).sort((a,b)=>b.date-a.date);
 const borgOpts=v=>`<option value=""${v==null||v===''?' selected':''}>—</option>`+Array.from({length:15},(_,i)=>i+6).map(i=>`<option value="${i}"${+v===i&&v!==''&&v!=null?' selected':''}>${i}</option>`).join('');
 const BORG_HINT='RPE en escala de Borg 6–20, la usada por los métodos de extrapolación: 9 muy ligero · 11 ligero · 13 algo duro · 15 duro · 17 muy duro · 19 extremadamente duro · 20 máximo.';
 // Iconos de trazo (24×24)
-const ICONS={pulse:'M22 12h-4l-3 9L9 3l-3 9H2',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z',
+const ICONS={up:'M12 19V5M5 12l7-7 7 7',down:'M12 5v14M19 12l-7 7-7-7',pulse:'M22 12h-4l-3 9L9 3l-3 9H2',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z',
   dumbbell:'M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11',chart:'M3 3v18h18M8 17v-5M13 17V8M18 17v-9',list:'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
   test:'M9 3h6v4H9zM16 5h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2M9 14l2 2 4-4',user:'M20 21a8 8 0 0 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   plus:'M12 5v14M5 12h14',copy:'M9 9h11v11H9zM5 15H4V4h11v1',download:'M12 3v12M7 10l5 5 5-5M5 21h14',send:'M22 2 11 13M22 2l-7 20-4-9-9-4z',userPlus:'M15 21a6 6 0 0 0-12 0M9 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M16 11h6',
@@ -2758,7 +2823,7 @@ $('#app').addEventListener('input',e=>{
 $('#app').addEventListener('change',e=>{if(e.target.id==='tUser')go('tests',e.target.value,{push:false})});
 
 /* ================= Navegación ================= */
-const TITLES={exlib:()=>'Ejercicios',exedit:()=>S.arg?'Editar ejercicio':'Nuevo ejercicio',home:()=> 'IMDTraining',welcome:()=>'IMDTraining',edit:()=>S.arg?'Editar perfil':isClient()?'Tu perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Aeróbico',exprog:()=>exerciseRecords(S.arg).find(r=>r.key===S.progKey)?.name||'Progresión',recov:()=>'Recuperación',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',plan:()=>planById(S.arg)?.title||'Entrenamiento',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
+const TITLES={perio:()=>'Periodización · '+(prof(S.arg)?.name||''),exlib:()=>'Ejercicios',exedit:()=>S.arg?'Editar ejercicio':'Nuevo ejercicio',home:()=> 'IMDTraining',welcome:()=>'IMDTraining',edit:()=>S.arg?'Editar perfil':isClient()?'Tu perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Aeróbico',exprog:()=>exerciseRecords(S.arg).find(r=>r.key===S.progKey)?.name||'Progresión',recov:()=>'Recuperación',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',plan:()=>planById(S.arg)?.title||'Entrenamiento',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
 function go(view,arg,{push=true,keepForm=false}={}){
   if(S.view==='strength'&&!(view==='strength'&&arg===S.arg))dropDraft(S.arg);
   if(push)S.stack.push([S.view,S.arg]);
@@ -2797,7 +2862,7 @@ function activeProfileId(){
 // Tema: oscuro (por defecto), claro o automático según el móvil
 const themePref=()=>{const t=lsGet('theme');return t==='light'||t==='auto'?t:'dark'};
 function applyTheme(){const pref=themePref(),t=pref==='auto'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):pref;
-  document.documentElement.dataset.theme=t;const m=document.querySelector('meta[name=theme-color]');if(m)m.content=t==='light'?'#F4F1EA':'#0E150F'}
+  document.documentElement.dataset.theme=t;const m=document.querySelector('meta[name=theme-color]');if(m)m.content=t==='light'?'#F4F1EA':'#0B0F1A'}
 try{matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{if(themePref()==='auto'){applyTheme();render()}})}catch(e){}
 function renderDrawer(){
   {const tp=themePref(),dt=$('#dTheme');if(dt)dt.innerHTML=[['dark','Oscuro'],['light','Claro'],['auto','Auto']].map(([k,l])=>`<button type="button" role="radio" aria-checked="${tp===k}" class="${tp===k?'on':''}" data-d="theme" data-v="${k}">${l}</button>`).join('')}
@@ -2918,6 +2983,16 @@ const A={
   async plBlkRep(){const pl=planById(S.arg),bs=pl.hr.blocks;bs.push(...bs.slice(-2).map(x=>({...x})));await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plKind(_,b){const pl=planById(S.arg);pl.kind=b.dataset.v;if(pl.kind==='hr'&&(!pl.title||pl.title==='Entrenamiento de fuerza'))pl.title='Sesión aeróbica';if(pl.kind==='strength'&&pl.title==='Sesión aeróbica')pl.title='Entrenamiento de fuerza';await savePlan(pl);render()},
   async plAddEx(_,b){const pl=planById(S.arg),act=b?.dataset?.v==='act';pl.exercises.push(act?{name:'',variant:'',act:true,sets:[]}:{name:'',variant:'',unilateral:false,sets:[defSet(pl.userId)]});await savePlan(pl);render();const n=document.querySelectorAll(`.pl-part[data-part="${act?'act':'main'}"] .ex-name`);n[n.length-1]?.focus();n[n.length-1]?.scrollIntoView({block:'center'})},
+  perioEdit(){const p=prof(S.arg),pr=perioOf(p),mon=dsOf(weekStart(Date.now()));
+    S.perioDraft=pr?{start:pr.start,base:pr.base??null,model:pr.model||'31',n:(pr.weeks||[]).length||8,weeks:JSON.parse(JSON.stringify(pr.weeks||[]))}:{start:mon,base:perioBaseSuggest(p.id,weekStart(Date.now())),model:'31',n:8,weeks:[]};
+    if(!pr){const d=S.perioDraft,m=PERIO_MODELS.find(x=>x[0]===d.model);d.weeks=[...Array(d.n)].map((_,i)=>{const f=m[2][i%m[2].length];return {k:perioType(f,d.model),f}})}
+    go('perio',p.id)},
+  perioApply(){const d=S.perioDraft,m=PERIO_MODELS.find(x=>x[0]===d.model);d.weeks=[...Array(+d.n||8)].map((_,i)=>{const f=m[2][i%m[2].length];return {k:perioType(f,d.model),f}});const y=scrollY;render();scrollTo(0,y)},
+  async perioSave(){const p=prof(S.arg),d=S.perioDraft;if(!d.weeks.length){toast('Rellena las semanas con un modelo');return}
+    const rec={id:perioKey(p),kind:'perio',start:dsOf(weekStart(new Date(d.start+'T12:00:00').getTime())),base:d.base>0?Math.round(+d.base):null,model:d.model,weeks:d.weeks.map(w=>({k:w.k,f:Math.max(0,Math.round(+w.f||0))}))};
+    await DB.put('exercises',rec);S.exercises=await DB.all('exercises');S.ptab='load';back();toast('Periodización guardada')},
+  async perioDel(_,b){if(!S.perioDelArm){S.perioDelArm=true;b.textContent='Pulsa otra vez para quitarla';return}S.perioDelArm=false;
+    await DB.del('exercises',perioKey(prof(S.arg)));S.exercises=await DB.all('exercises');S.ptab='load';back();toast('Periodización quitada')},
   exMov(_,b){S.exmov=b.dataset.v;refreshLibList()},
   exMg(_,b){S.exmg=b.dataset.v;refreshLibList()},
   exOpen(id){const x=libById(id);if(!x)return;S.exDraft=JSON.parse(JSON.stringify(x));S.exDelArm=false;go('exedit',id)},
@@ -3160,6 +3235,9 @@ async function saveProfile(){
 }
 function actClick(e){const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)}
 document.addEventListener('input',e=>{const el=e.target;if(el.id==='libSearch'){S.exq=el.value;refreshLibList();return}
+  if(S.view==='perio'&&S.perioDraft){const d=S.perioDraft;
+    if(el.dataset.prf){const k=el.dataset.prf;d[k]=k==='base'?(el.value===''?null:+el.value):k==='n'?+el.value:el.value;if(k==='base')d.weeks.forEach((w,i)=>{const u=$('#prua'+i);if(u)u.textContent=d.base?Math.round(d.base*w.f/100)+' UA':''});return}
+    if(el.dataset.prw!=null){const w=d.weeks[+el.dataset.prw];if(el.dataset.prk==='f'){w.f=+el.value||0;w.k=w.k==='comp'?'comp':perioType(w.f);const sel=document.querySelector('select[data-prw="'+el.dataset.prw+'"]');if(sel)sel.value=w.k;const u=$('#prua'+el.dataset.prw);if(u)u.textContent=d.base?Math.round(d.base*w.f/100)+' UA':''}else w.k=el.value;return}}
   if(el.dataset?.xf&&S.view==='exedit'&&S.exDraft){const k=el.dataset.xf,x=S.exDraft;
     if(k==='cues')x.cues=el.value.split('\n');else x[k]=el.value}});
 document.addEventListener('change',e=>{const el=e.target;if(el.dataset?.xf&&S.view==='exedit'&&S.exDraft&&el.tagName==='SELECT')S.exDraft[el.dataset.xf]=el.value});
