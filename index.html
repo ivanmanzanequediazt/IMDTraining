@@ -179,6 +179,7 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 .mg-nav b{font:600 17px var(--display)}
 .icon-btn:disabled{opacity:.3;cursor:default}
 .mg-list{display:flex;flex-direction:column;gap:10px}
+.mg-radar{display:block;width:100%;max-width:380px;margin:6px auto 0;overflow:visible}
 .mgr{display:flex;flex-direction:column;gap:4px}
 .mgr-h{display:flex;justify-content:space-between;gap:10px;font-size:14px}
 .mgr-h .muted{font-size:13px}
@@ -1527,6 +1528,20 @@ function mgPeriod(per,off){const now=new Date(),mo=d=>d.toLocaleDateString('es-E
     return {a:a.getTime(),b:b.getTime(),label:a.toLocaleDateString('es-ES',{month:'long',year:'numeric'})}}
   const ws=new Date(weekStart(Date.now()));ws.setDate(ws.getDate()+7*off);const we=new Date(ws);we.setDate(we.getDate()+7);const l=new Date(we);l.setDate(l.getDate()-1);
   return {a:ws.getTime(),b:we.getTime(),label:`${ws.getDate()} ${mo(ws)} – ${l.getDate()} ${mo(l)}`}}
+// Tela de araña del volumen por grupo: periodo actual (relleno) y anterior (discontinuo), a la misma escala
+function mgRadar(cur,prv,K,label){const n=MG.length,cx=160,cy=125,R=82,vals=MG.map(([g])=>cur.groups[g][K]),pvs=MG.map(([g])=>prv.groups[g][K]);
+  const max=Math.max(1e-9,...vals,...pvs);if(!vals.some(v=>v>0)&&!pvs.some(v=>v>0))return '';
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/n;return [cx+r*Math.cos(a),cy+r*Math.sin(a)]};
+  const poly=vs=>vs.map((v,i)=>pt(i,R*v/max).map(x=>x.toFixed(1)).join(',')).join(' ');
+  const rings=[.25,.5,.75,1].map(f=>`<polygon points="${MG.map((_,i)=>pt(i,R*f).map(x=>x.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join('');
+  const axes=MG.map((_,i)=>{const [x,y]=pt(i,R);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`}).join('');
+  const labs=MG.map(([g,,sh],i)=>{const [x,y]=pt(i,R+14),c=Math.cos(-Math.PI/2+i*2*Math.PI/n),anc=Math.abs(c)<.2?'middle':c>0?'start':'end';
+    return `<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="${anc}" font-size="11" fill="var(--muted)">${esc(sh)}</text>`}).join('');
+  const dots=vals.map((v,i)=>{const [x,y]=pt(i,R*v/max);return v>0?`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--accent)"/>`:''}).join('');
+  return `<svg class="mg-radar" viewBox="0 0 320 250" role="img" aria-label="Tela de araña del volumen por grupo muscular">${rings}${axes}
+    ${pvs.some(v=>v>0)?`<polygon points="${poly(pvs)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/>`:''}
+    <polygon points="${poly(vals)}" fill="var(--accent)" fill-opacity=".22" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>${dots}${labs}</svg>
+    <div class="acwr-key"><span><i style="background:var(--accent)"></i>${esc(label)}</span><span><i style="background:transparent;border:1.5px dashed var(--muted)"></i>Periodo anterior</span></div>`}
 function mgCard(uid){
   const per=lsGet('mgPer')==='month'?'month':'week',met=lsGet('mgMetric')==='kg'?'kg':'sets',off=S.mgOff||0;
   const P=mgPeriod(per,off),Pp=mgPeriod(per,off-1),sts=stOf(uid),inP=sts.filter(s=>s.startTime>=P.a&&s.startTime<P.b);
@@ -1546,6 +1561,7 @@ function mgCard(uid){
       <button type="button" role="radio" aria-checked="${met==='kg'}" class="${met==='kg'?'on':''}" data-act="mgMetric" data-v="kg">Kg</button></div></div>
     <div class="mg-nav"><button class="icon-btn" data-act="mgMove" data-v="-1" aria-label="Periodo anterior">‹</button><b>${P.label.charAt(0).toUpperCase()+P.label.slice(1)}</b><button class="icon-btn" data-act="mgMove" data-v="1" aria-label="Periodo siguiente" ${off>=0?'disabled':''}>›</button></div>
     <span class="hint num">${inP.length} sesi${inP.length===1?'ón':'ones'} de fuerza · total ${fmt(tot)} ${met==='kg'?'kg':'series'}</span>
+    ${mgRadar(cur,prv,K,P.label.charAt(0).toUpperCase()+P.label.slice(1))}
     <div class="mg-list">${rows}</div>
     ${cur.unassigned.sets?`<span class="hint">${fmt(met==='kg'?cur.unassigned.kg:cur.unassigned.sets)} ${met==='kg'?'kg':'series'} sin grupo asignado. Asígnalo en la sesión para que cuente.</span>`:''}
     <div class="acwr-key"><span><i style="background:var(--accent)"></i>Principal</span><span><i style="background:var(--accent);opacity:.4"></i>Secundario (½)</span></div>
