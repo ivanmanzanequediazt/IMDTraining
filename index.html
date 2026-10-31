@@ -395,6 +395,21 @@ body.has-rest .wrap{padding-bottom:90px}
 .wk-d .dots i{width:6px;height:6px;border-radius:50%;background:var(--warn)}
 .wk-d .dots i.done{background:var(--ok)}.wk-d .dots i.prog{background:var(--accent)}.wk-d .dots i.ses{background:var(--muted)}
 .wk-d.sel .dots i{box-shadow:0 0 0 1.5px var(--accent-ink)}
+.mcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin:8px 0 6px}
+.mcal .wd{font:600 10px var(--body);color:var(--muted);text-align:center;text-transform:uppercase;padding:2px 0}
+.mc-d{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:4px 0 5px;min-height:46px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink);cursor:pointer;min-width:0;font:inherit}
+.mc-d b{font:600 13px var(--mono)}
+.mc-d.out{visibility:hidden}
+.mc-d.fut b{color:var(--muted)}
+.mc-d.today{border-color:var(--accent);border-width:2px}
+.mc-d.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.mc-d.sel b{color:var(--accent-ink)}
+.mc-d .dots,.mc-key .dots{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;max-width:30px;min-height:6px}
+.mc-d .dots i,.mc-key i{width:6px;height:6px;border-radius:50%;display:inline-block}
+.mc-d.sel .dots i{box-shadow:0 0 0 1.5px var(--accent-ink)}
+i.c-st{background:var(--accent)} i.c-hr{background:var(--z5)} i.c-ts{background:var(--z2)} i.c-pl{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
+.mc-key{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted);margin:2px 0 10px}
+.mc-key span{display:inline-flex;align-items:center;gap:5px}
 .wk-sel h4{margin:0 0 8px;font:600 15px var(--body)}
 .wk-sel .btn.wide{width:100%;margin-top:10px}
 .empty.small{padding:14px;font-size:14px}
@@ -1241,6 +1256,7 @@ V.profile=()=>{
     ${all.length?`<div class="list">${all.slice(0,3).map(sessItem).join('')}</div>`:`<div class="empty">Todavía no hay sesiones. Empieza una con los botones de arriba.</div>`}</section>`}
   else if(tab==='ses'){
     const f=S.sfilter||'all',list=all.filter(s=>f==='all'||(f==='hr'?s.kind==='hr':s.kind==='st'));
+    h+=monthCalendar(p);
     h+=`<div class="sec-h"><div class="chips-f" role="radiogroup" aria-label="Filtrar sesiones">${[['all','Todas'],['hr','Aeróbico'],['st','Fuerza']].map(([k,l])=>`<button type="button" role="radio" aria-checked="${f===k}" class="fchip ${f===k?'on':''}" data-act="sfilter" data-v="${k}">${l}</button>`).join('')}</div>${all.length?`<button class="btn small" data-act="exportSummary">${ic('download')}CSV</button>`:''}</div>`;
     if(!list.length)h+=`<div class="empty">No hay sesiones${f==='all'?'':' de este tipo'}.</div>`;
     else{let wk=null;h+='<div class="list">';
@@ -1993,6 +2009,26 @@ function planCalendar(p){const off=S.calOff||0,mon=new Date(weekStart(Date.now()
     ${nP?`<div class="wk-acts"><button class="btn" data-act="calCopy">${ic('copy')}Copiar semana</button><button class="btn" data-act="calSend">${ic('send')}Enviar semana</button></div>`:''}
     ${late.length?`<details class="rec-grp"><summary><span>Atrasados sin hacer</span><span class="muted num">${late.length}</span></summary><div class="list">${late.map(planItem).join('')}</div></details>`:''}
     ${info('Muévete de semana con ‹ ›, toca un día para ver lo que tiene y programa ahí. Puntos: naranja pendiente, morado en curso, verde hecho, gris sesión registrada sin programar. «Copiar semana» repite los entrenamientos de la semana en las siguientes (útil si el microciclo se repite) y «Enviar semana» manda todos los pendientes en un solo archivo.','Cómo funciona')}</section>`}
+// Calendario del mes de un deportista: sesiones hechas (fuerza, aeróbico, test) y programadas sin hacer
+function monthCalendar(p){const off=S.mOff||0,now=new Date(),m0=new Date(now.getFullYear(),now.getMonth()+off,1),today=todayStr();
+  const y=m0.getFullYear(),mo=m0.getMonth(),nDays=new Date(y,mo+1,0).getDate(),lead=(m0.getDay()+6)%7;
+  const dss=[...Array(nDays)].map((_,i)=>dsOf(new Date(y,mo,i+1)));
+  const ses=allOf(p.id),ts=testsOf(p.id),pls=plansOf(p.id).filter(x=>x.status!=='done'&&x.date);
+  const on=ds=>({s:ses.filter(x=>dsOf(x.startTime)===ds),t:ts.filter(x=>dsOf(x.date)===ds),p:pls.filter(x=>x.date===ds)});
+  let sel=S.mDay;if(sel==='none')sel=null;else if(!dss.includes(sel))sel=dss.includes(today)?today:null;
+  let nS=0,nT=0,nP=0;
+  const cells=[...Array(lead)].map(()=>'<span class="mc-d out" aria-hidden="true"></span>').join('')+dss.map((ds,i)=>{const o=on(ds);nS+=o.s.length;nT+=o.t.length;nP+=o.p.length;
+    const dots=o.s.map(x=>`<i class="c-${x.kind}"></i>`).join('')+o.t.map(()=>'<i class="c-ts"></i>').join('')+o.p.map(()=>'<i class="c-pl"></i>').join('');
+    return `<button class="mc-d${ds===today?' today':''}${ds===sel?' sel':''}${ds>today?' fut':''}" data-act="mDay" data-d="${ds}" aria-label="${i+1}"><b>${i+1}</b><span class="dots">${dots}</span></button>`}).join('');
+  const label=m0.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  let day='';
+  if(sel){const o=on(sel),dn=new Date(sel+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+    const tItem=t=>`<button class="item" data-act="openTest" data-id="${t.id}"><span class="grow"><span class="t num">${testHeadline(t)}</span><span class="s">Test · ${fmtDT(t.date)}</span></span></button>`;
+    day=`<div class="wk-sel"><div class="sec-h"><h4>${dn.charAt(0).toUpperCase()+dn.slice(1)}</h4></div>${o.s.length||o.t.length||o.p.length?`<div class="list">${o.s.map(sessItem).join('')}${o.t.map(tItem).join('')}${o.p.map(planItem).join('')}</div>`:`<div class="empty small">Nada este día.</div>`}</div>`}
+  return `<section class="sec"><div class="wk-nav"><button class="icon-btn" data-act="mNav" data-v="-1" aria-label="Mes anterior">‹</button><div class="wk-lab"><b>${label.charAt(0).toUpperCase()+label.slice(1)}</b><span class="muted num">${nS} sesi${nS===1?'ón':'ones'}${nT?` · ${nT} test`:''}${nP?` · ${nP} programada${nP===1?'':'s'} sin hacer`:''}</span></div><button class="icon-btn" data-act="mNav" data-v="1" aria-label="Mes siguiente">›</button></div>
+    <div class="mcal">${['L','M','X','J','V','S','D'].map(d=>`<span class="wd">${d}</span>`).join('')}${cells}</div>
+    <div class="mc-key"><span><i class="c-st"></i>Fuerza</span><span><i class="c-hr"></i>Aeróbico</span><span><i class="c-ts"></i>Test</span><span><i class="c-pl"></i>Programada sin hacer</span>${off!==0?`<button class="link" data-act="mNav" data-v="0">Volver a hoy</button>`:''}</div>
+    ${day}</section>`}
 // Copiar la semana mostrada a las N semanas siguientes
 function openCopyWeek(){const pid=S.arg,off=S.calOff||0,w=weekInfo(off),src=plansOf(pid).filter(x=>w.dss.includes(x.date));
   if(!src.length){toast('No hay nada programado esta semana');return}
@@ -2558,7 +2594,7 @@ let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>
 /* ================= Acciones ================= */
 function arm(btn,label,fn){if(btn.classList.contains('armed')){fn();return}const o=btn.textContent;btn.classList.add('armed');btn.textContent=label;setTimeout(()=>{if(btn.isConnected){btn.classList.remove('armed');btn.textContent=o}},4000)}
 const A={
-  openProfile:id=>{S.ptab='res';S.sfilter='all';go('profile',id)},
+  openProfile:id=>{S.ptab='res';S.sfilter='all';S.mOff=0;S.mDay=null;go('profile',id)},
   newProfile:()=>go('edit',null),
   invite:()=>inviteClient(),
   report(){openReport(S.arg,0)},
@@ -2587,6 +2623,8 @@ const A={
   copyGo(){copyWeek()},
   calSend(){sendWeek()},
   calDay(_,b){S.calDay=b.dataset.d;const y=scrollY;render();scrollTo(0,y)},
+  mDay(_,b){S.mDay=S.mDay===b.dataset.d?'none':b.dataset.d;const y=scrollY;render();scrollTo(0,y)},
+  mNav(_,b){const v=+b.dataset.v;S.mOff=v===0?0:(S.mOff||0)+v;S.mDay=null;const y=scrollY;render();scrollTo(0,y)},
   calNav(_,b){const v=+b.dataset.v;S.calOff=v===0?0:(S.calOff||0)+v;S.calDay=null;const y=scrollY;render();scrollTo(0,y)},
   openPlan:id=>go('plan',id),
   async plHrMode(_,b){const pl=planById(S.arg);pl.hr=pl.hr||{type:'Carrera',minutes:40,zone:2};pl.hr.mode=b.dataset.v;
