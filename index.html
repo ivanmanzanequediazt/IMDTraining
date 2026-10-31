@@ -711,7 +711,7 @@ function muscleVolume(sessions){
 // Patrones de movimiento. La batería base viene con la app; lo que añade o cambia el entrenador se guarda en «exercises»
 // (se sincroniza con la hoja entre sus aparatos). Al cliente le llegan las indicaciones dentro de cada entrenamiento.
 const MOV=[['squat','Sentadilla'],['hinge','Bisagra de cadera'],['lunge','Unilateral pierna'],['hpush','Empuje horizontal'],['vpush','Empuje vertical'],
-  ['hpull','Tracción horizontal'],['vpull','Tracción vertical'],['core-s','Core sagital'],['core-f','Core frontal'],['core-t','Core transversal'],['add','Aductores'],['arms','Brazos'],['calves','Pantorrillas'],['plyo','Pliometría'],['decel','Deceleración'],['mb','Balón medicinal'],['scap','Escápula y hombro'],['mob','Movilidad / activación']];
+  ['hpull','Tracción horizontal'],['vpull','Tracción vertical'],['core-s','Core sagital'],['core-f','Core frontal'],['core-t','Core transversal'],['add','Aductores'],['arms','Brazos'],['calves','Pantorrillas'],['sled','Trineo'],['plyo','Pliometría'],['decel','Deceleración'],['mb','Balón medicinal'],['scap','Escápula y hombro'],['mob','Movilidad / activación']];
 const movLabel=k=>(MOV.find(m=>m[0]===k)||[,''])[1];
 // [id, nombre, movimiento, grupos (g:p principal / g:s secundario), u = unilateral, indicaciones separadas por |]
 const BASE_EX=[
@@ -859,6 +859,12 @@ const BASE_EX=[
  ['retraccion-polea-alta','Retracción escapular en polea alta','scap','back:p,shoulders:s','','Agarre en la polea alta con los brazos estirados|Lleva los codos hacia los costados|Escápulas abajo y juntas'],
  ['dislocaciones-pica','Pasadas por encima de la cabeza con pica','mob','shoulders:p','','Agarre amplio con la pica o la goma|Pasa por encima de la cabeza hasta la espalda|Brazos estirados, sin forzar'],
  ['extension-toracica-rodillo','Extensión torácica en rodillo','mob','','','Rodillo bajo la zona media de la espalda|Extiende sobre el rodillo con las manos detrás de la cabeza|Muévelo por la espalda alta, no por la lumbar'],
+ ['trineo-empuje','Empuje de trineo','sled','quads:p,glutes:s,calves:s','','Brazos estirados o manos a la altura del pecho, tronco inclinado|Pasos cortos y potentes empujando el suelo hacia atrás|Cuerpo en línea de la cabeza al talón de atrás'],
+ ['trineo-arrastre-atras','Arrastre de trineo hacia atrás','sled','quads:p,calves:s','','Agarra las asas o la cuerda con los brazos estirados|Camina hacia atrás apoyando primero la punta del pie|Rodillas algo flexionadas todo el recorrido'],
+ ['trineo-traccion-adelante','Tracción de trineo hacia delante','sled','glutes:p,hams:s,quads:s','','Arnés o cuerda a la cintura|Tronco inclinado hacia delante y pasos largos|Empuja con toda la pierna de atrás'],
+ ['trineo-lateral','Arrastre lateral de trineo','sled','glutes:p,add:s,quads:s','','De lado al trineo, con la cuerda a la cintura|Pasos laterales sin juntar los pies|Cadera baja y tronco erguido'],
+ ['trineo-cuerda','Tracción de trineo con cuerda (mano a mano)','sled','back:p,biceps:s,core:s','','De pie o en posición atlética frente al trineo|Tira de la cuerda alternando las manos|Tronco quieto, que no te arrastre el trineo'],
+ ['trineo-remo','Remo con trineo','sled','back:p,biceps:s,glutes:s','','Cuerda o asas con los brazos estirados|Tira llevando los codos atrás y da un paso atrás|Junta las escápulas al final de cada remo'],
  ['pogos','Saltos de tobillo (pogos)','plyo','calves:p','','Saltos seguidos con las rodillas casi estiradas|Rebota rápido sobre la parte delantera del pie|Contacto con el suelo lo más corto posible'],
  ['tuck-jump','Saltos con rodillas al pecho','plyo','quads:p,core:s','','Salta y lleva las rodillas al pecho|Cae sobre la parte delantera del pie|Vuelve a saltar sin pausa'],
  ['salto-sentadilla','Salto desde sentadilla','plyo','quads:p,glutes:s','','Baja a sentadilla y salta con impulso de brazos|Cae con los dos pies y rodillas flexionadas|Pausa mínima entre saltos'],
