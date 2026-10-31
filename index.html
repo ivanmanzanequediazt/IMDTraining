@@ -2778,7 +2778,7 @@ const A={
       else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Aeróbico',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','','','',trimp(s)??'',''];
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
-  async backup(){const data={app:'imdtraining',version:4,strength:await DB.all('strength'),tests:await DB.all('tests'),plans:await DB.all('plans'),wellness:await DB.all('wellness'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
+  async backup(){const data={app:'imdtraining',version:4,kind:'backup',role:isClient()?'client':'coach',syncIgnore:Sync.ignored(),strength:await DB.all('strength'),tests:await DB.all('tests'),plans:await DB.all('plans'),wellness:await DB.all('wellness'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
     const r=await shareFile(data,`imdtraining_copia_${fileDate(Date.now())}`,'Copia de seguridad IMDTraining','Copia de seguridad de IMDTraining. Guárdala en Drive o en tu correo.');
     if(r==='cancel')return;lsSet('lastBackup',Date.now());render();toast(r==='shared'?'Copia guardada':'Copia guardada en Descargas: súbela a Drive para no perderla')},
   import(){$('#importFile').click()},
@@ -2869,7 +2869,10 @@ async function importFiles(files){
     const profiles=(d.profiles||[]).filter(p=>!p.example),sessions=(d.sessions||[]).filter(keep),strength=(d.strength||[]).filter(keep),tests=(d.tests||[]).filter(keep);
     const sesIds=new Set(sessions.map(x=>x.id)),tracks=(d.tracks||[]).filter(t=>sesIds.has(t.id));
     const had=new Set([...S.sessions,...S.strength,...S.tests].map(x=>x.id)),hadP=new Set(S.profiles.map(x=>x.id));
-    const fromOther=d.kind==='client'||profiles.some(p=>p.owner==='client');
+    // Copia completa de un móvil de entrenador: se restaura tal cual (con sus vínculos y la lista de códigos que no se descargan)
+    const coachCopy=d.kind==='backup'&&d.role==='coach';
+    if(coachCopy&&Array.isArray(d.syncIgnore))for(const c of d.syncIgnore)if(typeof c==='string'&&!S.profiles.some(p=>p.cloudId===c&&!p.example))Sync.ignore(c,true);
+    const fromOther=!coachCopy&&(d.kind==='client'||profiles.some(p=>p.owner==='client'));
     // Si el deportista abrió algo que le enviaste desde un perfil creado por ti, sus datos se guardan en ese mismo perfil
     const idMap={};
     for(const p of profiles){let q={...p};delete q.cloudToken;delete q.synced; // el código de deportista nunca se importa
