@@ -17,9 +17,10 @@
  * Especificación: PLAN_SINCRONIZACION_GOOGLE_SHEETS.md, sección 4.
  */
 
-const STORES = ['profiles', 'sessions', 'strength', 'tests', 'plans', 'wellness']; // 'tracks' va aparte
+const STORES = ['profiles', 'sessions', 'strength', 'tests', 'plans', 'wellness', 'exercises']; // 'tracks' va aparte
+const LIB_UID = 'lib';      // dueño de la batería de ejercicios: solo la ve y la cambia el entrenador
 const ALL_STORES = STORES.concat(['tracks']);
-const TABS = ['config', 'athletes', 'profiles', 'sessions', 'tracks', 'strength', 'tests', 'plans', 'wellness'];
+const TABS = ['config', 'athletes', 'profiles', 'sessions', 'tracks', 'strength', 'tests', 'plans', 'wellness', 'exercises'];
 const PROFILE_FIELDS = ['hrMax', 'hrMaxEstimated', 'hrRest', 'weight', 'method', 'percents', 'manual'];
 
 const PART = 45000;         // caracteres de data por celda (límite de Sheets: 50 000)
@@ -100,7 +101,7 @@ function doPost(e) {
     switch (body.action) {
       case 'ping': return json_(ping_(who));
       case 'push': return json_(withLock_(function () { return push_(who, body.records); }));
-      case 'pull': return json_(withLock_(function () { return pull_(who, Number(body.since) || 0); }));
+      case 'pull': return json_(withLock_(function () { return pull_(who, Number(body.since) || 0, !!body.lib); }));
       case 'invite':
       case 'revoke':
       case 'rotateCoachToken':
@@ -144,6 +145,7 @@ function identify_(token) {
 
 function canAccess_(who, userId, athletes) {
   if (who.role === 'athlete') return userId === who.id;
+  if (userId === LIB_UID) return true;
   const a = athletes.byId[userId];
   return !!a && !a.revoked;
 }
@@ -264,11 +266,13 @@ function writeTrack_(writer, old, rec, serverAt, data) {
 
 /* ================= pull ================= */
 
-function pull_(who, since) {
+// lib: la app ya sabe guardar la batería de ejercicios (las versiones antiguas no la piden)
+function pull_(who, since, lib) {
   const athletes = readAthletes_();
   const meta = readAllMeta_();
   const candidates = [];
   ALL_STORES.forEach(function (s) {
+    if (s === 'exercises' && !lib) return;
     Object.keys(meta[s]).forEach(function (id) {
       const m = meta[s][id];
       if (m.serverAt > since && canAccess_(who, m.userId, athletes)) candidates.push(m);
@@ -290,6 +294,7 @@ function pull_(who, since) {
   }
   return {
     ok: true,
+    lib: true,
     cursor: out.length ? out[out.length - 1].serverAt : since,
     more: out.length < candidates.length,
     records: out,
@@ -339,7 +344,13 @@ function sheet_(name) {
     if (!id) throw new Error('Falta ejecutar setup');
     SS = SpreadsheetApp.openById(id);
   }
-  const sheet = SS.getSheetByName(name);
+  let sheet = SS.getSheetByName(name);
+  if (!sheet && name === 'exercises') {                // pestaña nueva: se crea sola la primera vez
+    sheet = SS.insertSheet(name);
+    sheet.getRange(1, 1, 1, HEADERS[name].length).setValues([HEADERS[name]]);
+    sheet.setFrozenRows(1);
+    FORMATS[name].forEach(function (f, i) { sheet.getRange(1, i + 1, sheet.getMaxRows(), 1).setNumberFormat(f); });
+  }
   if (!sheet) throw new Error('Falta la pestaña ' + name + ': ejecuta setup');
   return sheet;
 }

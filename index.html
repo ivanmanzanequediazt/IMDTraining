@@ -470,6 +470,15 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
 /* Activación (lista para marcar) y aeróbico post-sesión */
 .act-list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
 .pl-part{display:flex;flex-direction:column;gap:10px;margin:14px 0 6px}
+.lib-f{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;margin:0 0 4px;scrollbar-width:none;flex-wrap:nowrap}
+.lib-f .fchip{flex:none;white-space:nowrap}
+.lib-q input{width:100%}
+.lib-scroll{max-height:52vh;overflow-y:auto;margin-top:6px}
+.lib-pick{max-height:90vh;display:flex;flex-direction:column}
+.cues{margin:4px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.how-btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:transparent;color:var(--accent);border-radius:999px;padding:4px 10px;font:600 12px var(--body);cursor:pointer;margin:6px 0 0}
+.rec-h .how-btn{margin:0 0 0 8px;vertical-align:middle;padding:2px 9px}
+.act-line{display:flex;align-items:center;gap:6px}.act-line .act-row{flex:1}.act-line .how-btn span,.act-row .how-btn span{display:none}.act-line .how-btn,.act-row .how-btn{margin:0;padding:6px}
 .pl-part .sec-h{align-items:baseline}
 .act-ex .ex-var input{flex:1}
 .act-row{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:10px;border-radius:12px;border:1px solid var(--line,rgba(127,127,127,.3));background:transparent;color:inherit;cursor:pointer;font:inherit}
@@ -484,6 +493,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
   <div class="d-switch" id="dSwitch" hidden></div>
   <button class="d-item d-plain" data-d="home" id="dHome">Inicio</button>
   <button class="d-item d-plain" data-d="tests" id="dTests">Test</button>
+  <button class="d-item d-plain" data-d="exlib" id="dExlib">Ejercicios</button>
   <div class="d-sec" id="dSecProfiles"><span class="lbl">Perfiles</span><div id="dList"></div></div>
   <button class="btn small" data-d="new" id="dNew">Nuevo perfil</button>
   <button class="d-item d-plain" data-d="send" id="dSend">Enviar mis datos al entrenador</button>
@@ -678,7 +688,7 @@ const MG_RULES=[
   [['plancha','crunch','rueda','pallof','dead bug','abdominal','core','rotacion','lenador','hollow','rueda abdominal','farmer','paseo del granjero'],{core:'p'}]];
 function suggestMuscles(name){const n=normTxt(name);if(!n)return null;
   for(const [keys,m] of MG_RULES)if(keys.some(k=>n.includes(k)))return {...m};return {}}
-const musclesOf=e=>e.muscles||suggestMuscles(e.name)||{};
+const musclesOf=e=>e.muscles||(l=>l&&Object.keys(l.muscles||{}).length?{...l.muscles}:null)(libFind(e.name))||suggestMuscles(e.name)||{};
 // Series y kg por grupo: principal cuenta 1 y secundario 0,5 (recuento fraccional)
 function muscleVolume(sessions){
   const out={},un={sets:0,kg:0};for(const [g] of MG)out[g]={sets:0,setsD:0,kg:0,kgD:0};
@@ -687,6 +697,103 @@ function muscleVolume(sessions){
       if(!gs.length){un.sets+=x.sets;un.kg+=x.vol;return}
       for(const g of gs){const f=m[g]==='p'?1:0.5;out[g].sets+=x.sets*f;out[g].kg+=x.vol*f;if(m[g]==='p'){out[g].setsD+=x.sets;out[g].kgD+=x.vol}}})}
   return {groups:out,unassigned:un}}
+/* ================= Batería de ejercicios ================= */
+// Patrones de movimiento. La batería base viene con la app; lo que añade o cambia el entrenador se guarda en «exercises»
+// (se sincroniza con la hoja entre sus aparatos). Al cliente le llegan las indicaciones dentro de cada entrenamiento.
+const MOV=[['squat','Sentadilla'],['hinge','Bisagra de cadera'],['lunge','Unilateral pierna'],['hpush','Empuje horizontal'],['vpush','Empuje vertical'],
+  ['hpull','Tracción horizontal'],['vpull','Tracción vertical'],['core','Core'],['arms','Brazos'],['calves','Pantorrillas'],['plyo','Pliometría'],['mob','Movilidad / activación']];
+const movLabel=k=>(MOV.find(m=>m[0]===k)||[,''])[1];
+// [id, nombre, movimiento, grupos (g:p principal / g:s secundario), (libre), indicaciones separadas por |]
+const BASE_EX=[
+ ['sentadilla','Sentadilla con barra','squat','quads:p,post:s,core:s','','Pies a la anchura de los hombros, puntas algo abiertas|Baja llevando la cadera atrás y abajo, rodillas en la línea de los pies|Pecho alto y talones apoyados; sube empujando el suelo'],
+ ['sentadilla-goblet','Sentadilla goblet','squat','quads:p,post:s,core:s','','Sujeta la pesa pegada al pecho, codos hacia abajo|Baja entre las piernas con la espalda recta|Sube empujando con todo el pie'],
+ ['sentadilla-frontal','Sentadilla frontal','squat','quads:p,core:s,post:s','','Barra apoyada sobre la parte delantera de los hombros, codos altos|Tronco lo más vertical posible|Baja controlando y sube sin dejar caer los codos'],
+ ['sentadilla-cajon','Sentadilla a cajón','squat','quads:p,post:s','','Siéntate atrás hasta rozar el cajón, sin dejarte caer|No descanses sobre el cajón: mantén la tensión|Sube empujando con los talones'],
+ ['prensa','Prensa de piernas','squat','quads:p,post:s','','Espalda y cadera pegadas al respaldo|Baja hasta unos 90° de rodilla sin despegar la cadera|No bloquees las rodillas arriba'],
+ ['extension-cuadriceps','Extensión de cuádriceps','squat','quads:p','','Rodilla alineada con el eje de la máquina|Estira del todo y aguanta un segundo arriba|Baja lento, sin soltar el peso de golpe'],
+ ['sentadilla-pared','Sentadilla isométrica en pared','squat','quads:p','','Espalda pegada a la pared y rodillas a 90°|Peso repartido en todo el pie|Respira con normalidad mientras aguantas'],
+ ['peso-muerto','Peso muerto','hinge','post:p,back:s,quads:s','','Barra pegada a las espinillas, pies a la anchura de la cadera|Espalda neutra y pecho alto antes de tirar|Empuja el suelo y sube la barra pegada al cuerpo'],
+ ['peso-muerto-rumano','Peso muerto rumano','hinge','post:p,back:s','','Rodillas un poco flexionadas y fijas|Lleva la cadera atrás deslizando la barra por los muslos|Baja hasta notar tensión en los isquios, sin redondear la espalda'],
+ ['peso-muerto-hexagonal','Peso muerto con barra hexagonal','hinge','post:p,quads:s,back:s','','Colócate en el centro de la barra|Cadera algo más baja que en el peso muerto con barra|Sube estirando cadera y rodillas a la vez'],
+ ['swing-kettlebell','Swing con kettlebell','hinge','post:p,core:s','','Empuja con la cadera: los brazos solo acompañan|La pesa sube hasta el pecho por la inercia|Glúteos y abdomen apretados arriba'],
+ ['buenos-dias','Buenos días','hinge','post:p,back:s','','Barra en la espalda alta, rodillas algo flexionadas|Inclina el tronco llevando la cadera atrás|Espalda neutra todo el recorrido'],
+ ['hip-thrust','Hip thrust','hinge','post:p,quads:s','','Escápulas apoyadas en el banco y barra sobre la cadera|Sube hasta alinear rodillas, cadera y hombros|Aprieta los glúteos arriba y mira al frente'],
+ ['puente-gluteo','Puente de glúteo','hinge','post:p,core:s','','Tumbado boca arriba, pies cerca de los glúteos|Sube la cadera apretando los glúteos|Sin arquear la zona lumbar'],
+ ['curl-femoral','Curl femoral','hinge','post:p','','Rodilla alineada con el eje de la máquina|Flexiona hasta el final sin levantar la cadera|Baja controlando'],
+ ['curl-nordico','Curl nórdico','hinge','post:p','','Tobillos bien sujetos y cuerpo recto de rodillas a cabeza|Baja lo más lento que puedas|Ayúdate con las manos al final y vuelve'],
+ ['hiperextension','Hiperextensión lumbar','hinge','post:p,back:s','','Cadera apoyada en el borde del soporte|Baja con la espalda neutra|Sube hasta alinear el cuerpo, sin pasarte'],
+ ['zancada','Zancada','lunge','quads:p,post:s','','Paso largo y tronco erguido|Baja hasta casi tocar el suelo con la rodilla de atrás|Vuelve empujando con el pie de delante'],
+ ['zancada-atras','Zancada atrás','lunge','quads:p,post:s','','Da el paso hacia atrás con el peso en la pierna de delante|Rodilla de delante en la línea del pie|Vuelve empujando con el talón de delante'],
+ ['sentadilla-bulgara','Sentadilla búlgara','lunge','quads:p,post:s','','Empeine de atrás apoyado en el banco|Baja en vertical con el peso en la pierna de delante|Rodilla de delante alineada con el pie'],
+ ['sentadilla-split','Sentadilla split','lunge','quads:p,post:s','','Pies separados en paso largo, sin moverlos|Baja y sube en vertical|Tronco erguido y abdomen activo'],
+ ['subida-cajon','Subida al cajón','lunge','quads:p,post:s','','Apoya todo el pie en el cajón|Sube con la pierna de arriba, sin impulsarte con la de abajo|Baja controlando'],
+ ['zancada-lateral','Zancada lateral','lunge','quads:p,post:s','','Paso lateral amplio con el otro pie fijo|Lleva la cadera atrás sobre la pierna que flexiona|La otra pierna estirada y los pies mirando al frente'],
+ ['elevacion-talones','Elevación de talones','calves','calves:p','','Puntas en el borde de un escalón|Sube lo más alto posible y aguanta un segundo|Baja hasta estirar el gemelo'],
+ ['elevacion-talones-sentado','Elevación de talones sentado','calves','calves:p','','Rodillas a 90° con el peso sobre ellas|Sube lo más alto posible|Baja lento hasta estirar'],
+ ['press-banca','Press banca','hpush','chest:p,arms:s,shoulders:s','','Escápulas juntas y hacia abajo, pies firmes en el suelo|Baja la barra a la parte baja del pecho|Codos a unos 45° del cuerpo, no abiertos del todo'],
+ ['press-banca-mancuernas','Press banca con mancuernas','hpush','chest:p,arms:s,shoulders:s','','Escápulas juntas y mancuernas a la altura del pecho|Sube juntándolas arriba sin chocarlas|Baja controlando hasta notar estiramiento'],
+ ['press-inclinado','Press inclinado','hpush','chest:p,shoulders:s,arms:s','','Banco a 30–45°|Baja hacia la parte alta del pecho|Escápulas pegadas al banco'],
+ ['flexiones','Flexiones','hpush','chest:p,arms:s,core:s','','Manos algo más abiertas que los hombros|Cuerpo recto de la cabeza a los talones|Baja hasta casi tocar el suelo con el pecho'],
+ ['flexiones-inclinadas','Flexiones inclinadas','hpush','chest:p,arms:s','','Manos en un banco o en la pared, cuerpo recto|Cuanto más alto el apoyo, más fácil|Baja el pecho hasta el apoyo'],
+ ['fondos','Fondos','hpush','chest:p,arms:s,shoulders:s','','Hombros lejos de las orejas|Baja hasta unos 90° de codo|Sube sin bloquear del todo los codos'],
+ ['aperturas','Aperturas con mancuernas','hpush','chest:p','','Codos ligeramente flexionados y fijos|Abre hasta notar estiramiento en el pecho|Cierra como si abrazaras un árbol'],
+ ['cruce-poleas','Cruce de poleas','hpush','chest:p','','Un pie adelantado y tronco algo inclinado|Junta las manos delante del pecho|Vuelve despacio sin perder la postura'],
+ ['press-landmine','Press landmine','vpush','shoulders:p,chest:s,arms:s','','Extremo de la barra a la altura del hombro|Empuja hacia arriba y adelante|Abdomen firme, sin arquear la espalda'],
+ ['press-militar','Press militar','vpush','shoulders:p,arms:s,core:s','','De pie, glúteos y abdomen apretados|Sube la barra en línea recta por delante de la cara|Arriba, la cabeza pasa entre los brazos'],
+ ['press-hombro-mancuernas','Press de hombro con mancuernas','vpush','shoulders:p,arms:s','','Mancuernas a la altura de las orejas|Sube sin arquear la espalda|Baja controlando hasta la altura de los hombros'],
+ ['push-press','Push press','vpush','shoulders:p,quads:s,arms:s','','Pequeña flexión de rodillas e impulso con las piernas|Termina el movimiento con los brazos|Recibe la barra con las rodillas algo flexionadas'],
+ ['elevaciones-laterales','Elevaciones laterales','vpush','shoulders:p','','Codos ligeramente flexionados|Sube hasta la altura de los hombros, no más|Baja lento'],
+ ['elevaciones-frontales','Elevaciones frontales','vpush','shoulders:p','','Brazos casi estirados|Sube hasta la altura de los ojos|Sin balancear el cuerpo'],
+ ['pajaro','Pájaro (deltoides posterior)','hpull','shoulders:p,back:s','','Tronco inclinado y espalda recta|Abre los brazos llevando los codos hacia atrás|Sin balancear el cuerpo'],
+ ['face-pull','Face pull','hpull','shoulders:p,back:s','','Polea a la altura de la cara|Tira hacia la frente separando las manos|Codos altos y escápulas juntas al final'],
+ ['remo-barra','Remo con barra','hpull','back:p,arms:s','','Tronco inclinado y espalda neutra|Tira de la barra hacia el ombligo|Junta las escápulas arriba'],
+ ['remo-mancuerna','Remo con mancuerna','hpull','back:p,arms:s','','Mano y rodilla apoyadas en el banco|Lleva el codo hacia la cadera|Sin girar el tronco'],
+ ['remo-polea','Remo en polea baja','hpull','back:p,arms:s','','Espalda recta, sin balancearte|Tira hacia el abdomen|Escápulas juntas y hombros abajo'],
+ ['remo-invertido','Remo invertido','hpull','back:p,arms:s,core:s','','Cuerpo recto bajo la barra|Lleva el pecho hacia la barra|Cuanto más horizontal, más difícil'],
+ ['remo-trx','Remo con TRX','hpull','back:p,arms:s','','Cuerpo recto inclinado hacia atrás|Tira llevando los codos atrás|Junta las escápulas al final'],
+ ['dominadas','Dominadas','vpull','back:p,arms:s','','Agarre algo más abierto que los hombros|Sube hasta que la barbilla pase la barra|Baja hasta estirar los brazos, sin balanceo'],
+ ['dominadas-asistidas','Dominadas asistidas','vpull','back:p,arms:s','','Usa una goma o la máquina para quitar peso|Mismo recorrido que la dominada completa|Baja controlando'],
+ ['jalon-pecho','Jalón al pecho','vpull','back:p,arms:s','','Muslos bien sujetos bajo el soporte|Tira de la barra hacia la parte alta del pecho|Codos hacia abajo y atrás'],
+ ['pull-over-polea','Pull over en polea','vpull','back:p','','Brazos casi estirados|Lleva la barra hasta los muslos|Sube despacio sin doblar los codos'],
+ ['plancha','Plancha','core','core:p','','Codos bajo los hombros|Cuerpo recto: aprieta glúteos y abdomen|No dejes caer la cadera'],
+ ['plancha-lateral','Plancha lateral','core','core:p','','Codo bajo el hombro|Cadera alta, cuerpo en línea|Aguanta sin rotar'],
+ ['dead-bug','Dead bug','core','core:p','','Zona lumbar pegada al suelo|Estira despacio el brazo y la pierna contrarios|Vuelve y cambia de lado'],
+ ['bird-dog','Bird dog','core','core:p,post:s','','En cuadrupedia, espalda neutra|Estira el brazo y la pierna contrarios|Sin girar la cadera'],
+ ['press-pallof','Press Pallof','core','core:p','','De lado a la polea, pies a la anchura de los hombros|Lleva los brazos al frente y aguanta|Que la polea no te gire el tronco'],
+ ['rueda-abdominal','Rueda abdominal','core','core:p','','Empieza de rodillas con el abdomen apretado|Rueda hacia delante sin hundir la lumbar|Vuelve tirando desde el abdomen'],
+ ['crunch','Crunch abdominal','core','core:p','','Zona lumbar apoyada en el suelo|Sube los hombros sin tirar del cuello|Baja controlando'],
+ ['lenador','Leñador en polea','core','core:p','','Pies firmes y brazos casi estirados|El giro sale del tronco y la cadera|Vuelve despacio'],
+ ['hollow','Hollow hold','core','core:p','','Zona lumbar pegada al suelo|Brazos y piernas estirados y separados del suelo|Si cuesta, flexiona las rodillas'],
+ ['paseo-granjero','Paseo del granjero','core','core:p,shoulders:s,arms:s','','Pesas a los lados y hombros atrás|Camina con pasos cortos y tronco erguido|Sin inclinarte hacia ningún lado'],
+ ['curl-biceps','Curl de bíceps','arms','arms:p','','Codos pegados al cuerpo y fijos|Sube sin balancear el tronco|Baja lento hasta estirar'],
+ ['curl-martillo','Curl martillo','arms','arms:p','','Palmas mirándose entre sí|Codos fijos junto al cuerpo|Sube y baja controlando'],
+ ['extension-triceps-polea','Extensión de tríceps en polea','arms','arms:p','','Codos pegados al cuerpo|Estira del todo abajo|Sube controlando sin mover los codos'],
+ ['press-frances','Press francés','arms','arms:p','','Codos apuntando al techo y fijos|Baja la barra hacia la frente|Estira sin abrir los codos'],
+ ['fondos-banco','Fondos en banco','arms','arms:p,chest:s','','Manos en el borde del banco, cerca de la cadera|Baja hasta unos 90° de codo|Hombros lejos de las orejas'],
+ ['salto-cajon','Salto al cajón','plyo','quads:p,post:s','','Impulso con brazos y cadera|Cae suave con las rodillas flexionadas|Baja del cajón andando, no saltando'],
+ ['salto-vertical','Salto vertical','plyo','quads:p,post:s','','Contramovimiento rápido: baja y sube sin pausa|Brazos arriba en el despegue|Cae suave sobre la parte delantera del pie'],
+ ['saltos-comba','Saltos a la comba','plyo','calves:p','','Saltos bajos sobre la parte delantera del pie|Muñecas hacen girar la cuerda, no los brazos|Rodillas ligeramente flexionadas'],
+ ['saltos-laterales','Saltos laterales','plyo','quads:p,calves:s','','Pies juntos y saltos de lado a lado|Contacto corto con el suelo|Rodillas alineadas con los pies'],
+ ['movilidad-cadera-9090','Movilidad de cadera 90/90','mob','','','Sentado con las dos rodillas a 90°|Gira las piernas de un lado a otro sin usar las manos|Tronco erguido'],
+ ['gato-camello','Gato-camello','mob','','','En cuadrupedia|Redondea la espalda y luego ábrela despacio|Acompaña con la respiración'],
+ ['rotaciones-toracicas','Rotaciones torácicas','mob','','','De lado, rodillas flexionadas|Abre el brazo de arriba siguiendo la mano con la vista|Las rodillas no se mueven'],
+ ['monster-walk','Monster walk con goma','mob','post:p','','Goma en las rodillas o tobillos|Semiflexión y pasos laterales cortos|Que las rodillas no se junten'],
+ ['clamshell','Almeja con goma','mob','post:p','','Tumbado de lado, rodillas flexionadas|Abre la rodilla de arriba sin mover la cadera|Baja lento'],
+ ['band-pull-apart','Aperturas con goma','mob','shoulders:p,back:s','','Brazos estirados al frente con la goma|Abre hasta tocar el pecho con la goma|Junta las escápulas'],
+ ['movilidad-tobillo','Movilidad de tobillo en pared','mob','','','Pie a un palmo de la pared|Lleva la rodilla a la pared sin levantar el talón|Alterna los dos lados'],
+].map(([id,name,mov,mg,,cues])=>({id:'b-'+id,name,mov,muscles:Object.fromEntries(mg?mg.split(',').map(x=>x.split(':')):[]),cues:cues?cues.split('|'):[],base:true}));
+// Batería completa: la base con los cambios del entrenador (S.exercises) encima; los ocultos no salen
+function libAll(){const own=new Map((S.exercises||[]).map(x=>[x.id,x]));
+  const out=BASE_EX.map(b=>own.has(b.id)?{...b,...own.get(b.id),base:true,edited:true}:b);
+  for(const x of own.values())if(!x.id.startsWith('b-'))out.push(x);
+  return out.filter(x=>!x.hidden&&x.name).sort((a,b)=>a.name.localeCompare(b.name,'es'))}
+function libFind(name){const n=normTxt(name);if(!n)return null;return libAll().find(x=>normTxt(x.name)===n)||null}
+const libById=id=>libAll().find(x=>x.id===id)||null;
+// Cómo se hace un ejercicio: lo que trae el entrenamiento (el entrenador lo copia al programarlo) o la batería
+function exHow(e){const own=e&&e.how;if(own&&own.cues?.length)return own;const l=libFind(e?.name);return l&&l.cues.length?{cues:l.cues}:null}
+function libFilter(list){const q=normTxt(S.exq||''),mv=S.exmov||'',mg=S.exmg||'';
+  return list.filter(x=>(!q||normTxt(x.name).includes(q))&&(!mv||x.mov===mv)&&(!mg||x.muscles?.[mg]))}
+
 /* ===== Test: cálculos ===== */
 function linreg(xs,ys){const n=xs.length;if(n<2)return null;
   const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;let sxy=0,sxx=0,syy=0;
@@ -758,7 +865,7 @@ const DB={db:null,mem:null,
   async open(){
     if(this.db||this.mem)return;
     try{
-      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',5);
+      this.db=await new Promise((res,rej)=>{const r=indexedDB.open('pulsometro',6);
         r.onupgradeneeded=()=>{const d=r.result,has=n=>d.objectStoreNames.contains(n);
           if(!has('profiles'))d.createObjectStore('profiles',{keyPath:'id'});
           if(!has('sessions'))d.createObjectStore('sessions',{keyPath:'id'}).createIndex('userId','userId');
@@ -766,9 +873,10 @@ const DB={db:null,mem:null,
           if(!has('strength'))d.createObjectStore('strength',{keyPath:'id'}); // v2: sesiones de fuerza
           if(!has('tests'))d.createObjectStore('tests',{keyPath:'id'}); // v3: test
           if(!has('plans'))d.createObjectStore('plans',{keyPath:'id'}); // v4: entrenamientos programados
-          if(!has('wellness'))d.createObjectStore('wellness',{keyPath:'id'})}; // v5: bienestar diario
+          if(!has('wellness'))d.createObjectStore('wellness',{keyPath:'id'}); // v5: bienestar diario
+          if(!has('exercises'))d.createObjectStore('exercises',{keyPath:'id'})}; // v6: batería de ejercicios del entrenador
         r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))});
-    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map(),strength:new Map(),tests:new Map(),plans:new Map(),wellness:new Map()};S.memOnly=true}
+    }catch(e){this.mem={profiles:new Map(),sessions:new Map(),tracks:new Map(),strength:new Map(),tests:new Map(),plans:new Map(),wellness:new Map(),exercises:new Map()};S.memOnly=true}
   },
   tx(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);let out;const r=fn(t.objectStore(store));if(r)r.onsuccess=()=>{out=r.result};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error)})},
   // *Raw: sin filtrar los borrados (tombstones) ni marcar cambios. Los usa la sincronización
@@ -787,10 +895,11 @@ const DB={db:null,mem:null,
     if(!v.synced)return this.purge(s,id);
     await this.putRaw(s,s==='tracks'?{id,deleted:true,dirty:1,synced:1,updatedAt:Date.now()}:{...v,deleted:true,dirty:1,updatedAt:Date.now()});Sync.schedule()}
 };
-const SYNC_STORES=['profiles','sessions','tracks','strength','tests','plans','wellness'];
+const SYNC_STORES=['profiles','sessions','tracks','strength','tests','plans','wellness','exercises'];
+const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','cues','hidden'];
 
 /* ================= Estado ================= */
-const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],wellness:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
+const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],wellness:[],exercises:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
 let inFrame=false;try{inFrame=window.top!==window.self}catch(e){inFrame=true}
 const btOK=!!navigator.bluetooth&&!inFrame;
 const prof=id=>S.profiles.find(p=>p.id===id);
@@ -1075,6 +1184,40 @@ function methodName(p){return p.method==='karvonen'?'Karvonen':p.method==='pct'?
 
 /* ================= Vistas ================= */
 const V={};
+/* ===== Batería de ejercicios: pantallas ===== */
+function libChips(){const mv=S.exmov||'',mg=S.exmg||'';
+  return `<div class="chips-f lib-f" role="radiogroup" aria-label="Movimiento"><button type="button" role="radio" aria-checked="${!mv}" class="fchip ${mv?'':'on'}" data-act="exMov" data-v="">Todos</button>${MOV.map(([k,l])=>`<button type="button" role="radio" aria-checked="${mv===k}" class="fchip ${mv===k?'on':''}" data-act="exMov" data-v="${k}">${l}</button>`).join('')}</div>
+  <div class="chips-f lib-f" role="radiogroup" aria-label="Grupo muscular"><button type="button" role="radio" aria-checked="${!mg}" class="fchip ${mg?'':'on'}" data-act="exMg" data-v="">Todos los grupos</button>${MG.map(([k,,sh])=>`<button type="button" role="radio" aria-checked="${mg===k}" class="fchip ${mg===k?'on':''}" data-act="exMg" data-v="${k}">${sh}</button>`).join('')}</div>`}
+function libItem(x,act){const gs=MG.filter(([g])=>x.muscles?.[g]).map(([g,,sh])=>sh+(x.muscles[g]==='s'?' ½':''));
+  return `<button class="item" data-act="${act}" data-id="${x.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${esc(movLabel(x.mov)||'Sin movimiento')}${gs.length?' · '+gs.join(', '):''}</span></span>${x.edited||!x.base?`<span class="tag">${x.base?'Editado':'Tuyo'}</span>`:''}${ic('chev','sm')}</button>`}
+function libListHTML(act){const list=libFilter(libAll());
+  return list.length?`<div class="list">${list.map(x=>libItem(x,act)).join('')}</div>`:`<div class="empty small">No hay ejercicios con ese filtro.</div>`}
+V.exlib=()=>`<div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
+  <div class="sec-h"><span class="hint num" id="libCount">${libFilter(libAll()).length} ejercicios</span><button class="btn small primary" data-act="exNew">${ic('plus')}Nuevo ejercicio</button></div>
+  <div id="libList">${libListHTML('exOpen')}</div>
+  ${info('La batería base viene con la app. Lo que cambies o añadas se guarda en tu hoja de Google y sale igual en tu móvil y en tu ordenador. Al programar, elige los ejercicios de aquí: el cliente verá sus indicaciones al tocar «Cómo se hace».','Cómo funciona')}`;
+V.exedit=()=>{const x=S.exDraft;if(!x)return'<div class="empty">Ejercicio no encontrado.</div>';const m=x.muscles||{};
+  return `<div class="card"><div class="field"><label for="exName">Nombre</label><input id="exName" data-xf="name" value="${esc(x.name||'')}" placeholder="Nombre del ejercicio"></div>
+    <div class="field"><label for="exMovSel">Movimiento</label><select id="exMovSel" data-xf="mov"><option value="">—</option>${MOV.map(([k,l])=>`<option value="${k}"${x.mov===k?' selected':''}>${l}</option>`).join('')}</select></div>
+    <span class="lbl">Grupos musculares</span><span class="hint">Toca para cambiar: principal → secundario (½) → nada.</span>
+    <div class="mg" role="group" aria-label="Grupos musculares">${MG.map(([g,,sh])=>`<button type="button" class="mg-c ${m[g]||''}" data-act="exMgT" data-g="${g}" aria-pressed="${!!m[g]}">${sh}${m[g]==='s'?' ½':''}</button>`).join('')}</div></div>
+  <div class="card"><div class="field"><label for="exCues">Indicaciones para el cliente</label><textarea id="exCues" data-xf="cues" rows="4" placeholder="Una indicación por línea">${esc((x.cues||[]).join('\n'))}</textarea></div>
+</div>
+  <button class="btn primary wide" data-act="exSave">Guardar</button>
+  ${S.arg?`<div class="row">${x.base&&x.edited?`<button class="btn" data-act="exReset">Volver al original</button>`:''}<button class="btn danger" data-act="exDel">${x.base?'Quitar de la batería':'Borrar ejercicio'}</button></div>`:''}`};
+// Elegir de la batería al programar (part = act | main)
+function openExPicker(part){S.modalKind='expick';S.exPart=part;S.exq='';S.exmg='';S.exmov=part==='act'?'mob':'';
+  $('#modal').innerHTML=`<div class="modal-card lib-pick" role="dialog" aria-modal="true" aria-labelledby="exPickT"><div class="sec-h"><h2 id="exPickT">${part==='act'?'Añadir a activación':'Añadir a parte principal'}</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
+    <div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
+    <div id="libList" class="lib-scroll">${libListHTML('exPick')}</div></div>`;
+  $('#modal').hidden=false;document.body.classList.add('modal-open');setTimeout(()=>$('#modal .lib-f .fchip.on')?.scrollIntoView({inline:'center',block:'nearest'}),0)}
+function refreshLibList(){const l=$('#libList');if(!l)return;l.innerHTML=libListHTML(S.modalKind==='expick'?'exPick':'exOpen');const c=$('#libChips');if(c)c.innerHTML=libChips();const n=$('#libCount');if(n)n.textContent=libFilter(libAll()).length+' ejercicios'}
+// «Cómo se hace»: animación e indicaciones de un ejercicio
+function openExHow(name,how){if(!how)return;S.modalKind='exhow';
+  $('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exHowT"><div class="sec-h"><h2 id="exHowT">${esc(name)}</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
+    ${how.cues?.length?`<ul class="cues">${how.cues.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`:''}</div>`;
+  $('#modal').hidden=false;document.body.classList.add('modal-open')}
+const howBtn=(e,attrs)=>exHow(e)?`<button type="button" class="how-btn" data-act="exHowOpen" ${attrs} aria-label="Cómo se hace ${esc(e.name)}">${ic('info','sm')}<span>Cómo se hace</span></button>`:'';
 // Avisos (Bluetooth, sesiones sin terminar, RPE pendiente). uid = solo ese perfil; sin uid = todos menos los clientes importados
 // Recordatorio de copia de seguridad: si hay datos propios y la última copia tiene más de 7 días
 function backupNudge(){const real=[...S.sessions,...S.strength,...S.tests].filter(x=>!x.example).length;if(real<3)return'';
@@ -1434,7 +1577,7 @@ const setsText=(sets,uni,plyo)=>{if(plyo)return plyoSetsText(sets,uni);const v=(
   const out=[];for(let i=0;i<v.length;i++){const a=v[i],b=v[i+1];
     if(a.side==='I'&&b&&b.side==='D'&&+a.kg===+b.kg){out.push(`${a.reps}/${b.reps}×${fmtKg(a.kg)}`);i++}else out.push(`${SIDE[a.side]||''} ${a.reps}×${fmtKg(a.kg)}`)}
   return out.join(' · ')+' kg (izq./der.)'};
-function exerciseNames(uid){const set=new Set(EXERCISES);for(const s of S.strength)if(s.userId===uid)for(const e of s.exercises)if(e.name.trim())set.add(e.name.trim());return [...set].sort((a,b)=>a.localeCompare(b,'es'))}
+function exerciseNames(uid){const set=new Set(EXERCISES);if(!isClient())for(const x of libAll())set.add(x.name);for(const s of S.strength)if(s.userId===uid)for(const e of s.exercises)if(e.name.trim())set.add(e.name.trim());return [...set].sort((a,b)=>a.localeCompare(b,'es'))}
 // Última vez que el perfil hizo cada ejercicio (antes de esta sesión)
 // Se empareja por nombre + variante (sin mayúsculas, tildes ni espacios de más)
 function lastTimes(st){const m={},byName={};
@@ -1474,13 +1617,13 @@ V.strength=()=>{
   const recs=new Map(exerciseRecords(st.userId).map(r=>[r.key,r]));
   const acts=st.exercises.map((e,i)=>[e,i]).filter(([e])=>e.act);let num=0;
   if(acts.length)h+=`<div class="card"><div class="sec-h"><span class="lbl">Activación</span><span class="hint num">${acts.filter(([e])=>e.done).length}/${acts.length}</span></div>
-    <div class="act-list">${acts.map(([e,i])=>`<button type="button" class="act-row${e.done?' done':''}" data-act="stActDone" data-i="${i}" aria-pressed="${!!e.done}"><span class="act-box" aria-hidden="true">${e.done?'✓':''}</span><span class="grow"><b>${esc(e.name)}</b>${e.variant||(e.plan||[]).length?`<span class="hint num">${[actPlanTxt(e.plan),esc(e.variant||'')].filter(x=>x).join(' · ')}</span>`:''}</span></button>`).join('')}</div>
+    <div class="act-list">${acts.map(([e,i])=>`<div class="act-line"><button type="button" class="act-row${e.done?' done':''}" data-act="stActDone" data-i="${i}" aria-pressed="${!!e.done}"><span class="act-box" aria-hidden="true">${e.done?'✓':''}</span><span class="grow"><b>${esc(e.name)}</b>${e.variant||(e.plan||[]).length?`<span class="hint num">${[actPlanTxt(e.plan),esc(e.variant||'')].filter(x=>x).join(' · ')}</span>`:''}</span></button>${howBtn(e,`data-src="st" data-i="${i}"`)}</div>`).join('')}</div>
     <span class="hint">Márcalos al hacerlos. La activación no suma volumen ni carga.</span></div><span class="lbl sec-lbl">Parte principal</span>`;
   st.exercises.forEach((e,i)=>{if(e.act)return;num++;const k=strengthStats({exercises:[e]}).ex[0],vars=variantsOf(st.userId,e.name);
     h+=`<div class="card ex">
     <div class="ex-h"><span class="ex-n">${num}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
-      <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
+      <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label></div>${howBtn(e,`data-src="st" data-i="${i}"`)}
     ${e.plyo?'':isClient()?`<details class="mg-fold"><summary>Grupos musculares</summary>${mgChips(e,i)}</details>`:mgChips(e,i)}
     ${e.plan?`<span class="hint num plan-hint">${ic('clock','sm')} Programado: ${e.plyo?plyoSetsText(e.plan,e.unilateral):planSetsText(e.plan,e.unilateral)}</span>`:''}${prevHint(prev,e)}${(()=>{const r=!e.plyo&&recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
     <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':'Kg'}</span><span>${em==='rir'?'RIR':'RPE'}</span><span></span></div>
@@ -1521,7 +1664,7 @@ function autoMuscles(st){let ch=false;
     if(e.muscles&&!(e.mAuto&&e.mFor!==n))continue;
     let m=null;for(const s2 of [...S.strength].filter(x=>x.userId===st.userId&&x.id!==st.id).sort((a,b)=>b.startTime-a.startTime)){
       const f=s2.exercises.find(x=>normTxt(x.name)===n&&x.muscles&&!x.mAuto);if(f){m={...f.muscles};break}}
-    e.muscles=m||suggestMuscles(e.name)||{};e.mAuto=true;e.mFor=n;ch=true}
+    e.muscles=m||(l=>l&&Object.keys(l.muscles||{}).length?{...l.muscles}:null)(libFind(e.name))||suggestMuscles(e.name)||{};e.mAuto=true;e.mFor=n;ch=true}
   return ch}
 function mgChips(e,i){const m=e.muscles||{};
   return `<div class="mg" role="group" aria-label="Grupos musculares del ejercicio ${i+1}">${MG.map(([g,,sh])=>`<button type="button" class="mg-c ${m[g]||''}" data-act="mgToggle" data-i="${i}" data-g="${g}" aria-pressed="${!!m[g]}" title="${m[g]==='p'?'Principal':m[g]==='s'?'Secundario':'Sin asignar'}">${sh}${m[g]==='s'?' ½':''}</button>`).join('')}</div>
@@ -1963,7 +2106,9 @@ const planById=id=>S.plans.find(x=>x.id===id);
 const plansOf=uid=>S.plans.filter(x=>x.userId===uid);
 const todayStr=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
 let plSaveT=null;const savePlanSoon=pl=>{clearTimeout(plSaveT);plSaveT=setTimeout(()=>DB.put('plans',pl),400)};
-async function savePlan(pl){clearTimeout(plSaveT);await DB.put('plans',pl);const i=S.plans.findIndex(x=>x.id===pl.id);if(i<0)S.plans.push(pl);else S.plans[i]=pl}
+async function savePlan(pl){clearTimeout(plSaveT);
+  if(!isClient())for(const e of pl.exercises||[]){const l=libFind(e.name);if(l&&l.cues.length)e.how={cues:l.cues};else delete e.how}
+  await DB.put('plans',pl);const i=S.plans.findIndex(x=>x.id===pl.id);if(i<0)S.plans.push(pl);else S.plans[i]=pl}
 function planDateTxt(ds){if(!ds)return'Sin fecha';const d=new Date(ds+'T12:00:00'),t=new Date();t.setHours(12,0,0,0);const n=Math.round((d-t)/864e5);
   return n===0?'Hoy':n===1?'Mañana':n===-1?'Ayer':n<-1?`${d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · atrasado`:d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}
 // Intervalos: bloques {min, zone}; los minutos admiten decimales (0,5 = 30 s)
@@ -2094,7 +2239,7 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
         ${pl.hr.type?`<span class="hint">Tipo: ${esc(pl.hr.type)}</span>`:''}<span class="hint">Durante la sesión la app te indica cada bloque y avisa con pitido y vibración al cambiar.</span></div>`}
     else if(pl.kind==='hr'){const h2=pl.hr||{},lim=p?zoneLimits(p):null,z=+h2.zone;
       h+=`<div class="card"><span class="lbl">Objetivo</span><div class="stats">${stat((h2.minutes||'—')+' min','Duración')}${stat(z?'Z'+z:'—','Zona')}${stat(z&&lim?`${lim[z-1]}–${z<5?lim[z]-1:p.hrMax}`:'—','ppm')}</div>${h2.type?`<span class="hint">Tipo: ${esc(h2.type)}</span>`:''}</div>`}
-    else h+=planActHTML(pl)+`<section class="sec"><h3>${(pl.exercises||[]).some(e=>e.act)?'Parte principal':'Ejercicios'}</h3><div class="list">${(pl.exercises||[]).filter(e=>normTxt(e.name)&&!e.act).map((e,i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}${e.plyo?' <span class="tag str">Pliometría</span>':''}</div><div class="chips">${e.plyo?e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'} cont.${x.int?' '+INT[x.int].toLowerCase():''}${effTxt(x)}</span>`).join(''):e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${effTxt(x)}</span>`).join('')}</div></div>`).join('')}</div></section>`}
+    else h+=planActHTML(pl)+`<section class="sec"><h3>${(pl.exercises||[]).some(e=>e.act)?'Parte principal':'Ejercicios'}</h3><div class="list">${(pl.exercises||[]).map((e,oi)=>[e,oi]).filter(([e])=>normTxt(e.name)&&!e.act).map(([e,oi],i)=>`<div class="rec"><div class="rec-h"><span class="ex-n sm">${i+1}</span> <b>${esc(e.name)}</b>${e.variant?`<span class="muted"> · ${esc(e.variant)}</span>`:''}${e.unilateral?' <span class="tag">Unilateral</span>':''}${e.plyo?' <span class="tag str">Pliometría</span>':''}${howBtn(e,`data-src="plan" data-i="${oi}"`)}</div><div class="chips">${e.plyo?e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'} cont.${x.int?' '+INT[x.int].toLowerCase():''}${effTxt(x)}</span>`).join(''):e.sets.map((x,j)=>`<span class="chipset num">${j+1}: ${x.reps??'—'}${e.load==='pct'&&x.pct?'×'+x.pct+'%'+((k=>k?' ≈'+fmtKg(k):'')(planKg(pl.userId,e,x))):x.kg?'×'+fmtKg(x.kg):''}${effTxt(x)}</span>`).join('')}</div></div>`).join('')}</div></section>`}
   else{
     if(pl.src==='hoja')h+=`<div class="note info slim">${ic('info')}<span class="hint"><b>Programado desde la hoja de Google.</b> Si lo cambias aquí, la próxima vez que pulses «Publicar» en la hoja se sustituirá por lo que haya en la hoja.</span></div>`;
     h+=`<div class="field"><label for="plTitle">Título</label><input id="plTitle" data-pf="title" value="${esc(pl.title||'')}"></div>
@@ -2136,8 +2281,8 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
       const actCard=(e,i,n)=>`<div class="card ex act-ex"><div class="ex-h"><span class="ex-n">${n}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Ejercicio de activación" aria-label="Activación ${n}"><button class="icon-btn" data-act="plMoveEx" data-i="${i}" aria-label="Pasar a parte principal" title="Pasar a parte principal">↓</button><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio de activación ${n}">×</button></div>
         <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Indicación (opcional): 2×10, 30 s por lado…" aria-label="Indicación de la activación ${n}"></div></div>`;
       const idx=pl.exercises.map((e,i)=>[e,i]),actI=idx.filter(([e])=>e.act),mainI=idx.filter(([e])=>!e.act);
-      h+=`<section class="pl-part" data-part="act"><div class="sec-h"><h3>Activación</h3><span class="hint">Lista para marcar, sin carga</span></div>${actI.map(([e,i],k)=>actCard(e,i,k+1)).join('')}<button class="btn wide" data-act="plAddEx" data-v="act">+ Añadir a activación</button></section>
-        <section class="pl-part" data-part="main"><div class="sec-h"><h3>Parte principal</h3></div>${mainI.map(([e,i],k)=>exCard(e,i,k+1)).join('')}<button class="btn wide" data-act="plAddEx" data-v="main">+ Añadir a parte principal</button></section>`;
+      h+=`<section class="pl-part" data-part="act"><div class="sec-h"><h3>Activación</h3><span class="hint">Lista para marcar, sin carga</span></div>${actI.map(([e,i],k)=>actCard(e,i,k+1)).join('')}<div class="g2"><button class="btn" data-act="exPickOpen" data-v="act">${ic('list')}De la batería</button><button class="btn" data-act="plAddEx" data-v="act">+ Escribir uno</button></div></section>
+        <section class="pl-part" data-part="main"><div class="sec-h"><h3>Parte principal</h3></div>${mainI.map(([e,i],k)=>exCard(e,i,k+1)).join('')}<div class="g2"><button class="btn" data-act="exPickOpen" data-v="main">${ic('list')}De la batería</button><button class="btn" data-act="plAddEx" data-v="main">+ Escribir uno</button></div></section>`;
       h+=`<datalist id="exlist">${exerciseNames(pl.userId).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`;
       const c=pl.cardio;
       h+=c?`<div class="card"><div class="sec-h"><span class="lbl">Aeróbico post-sesión</span><button class="icon-btn" data-act="plCardioDel" aria-label="Quitar el aeróbico">×</button></div>
@@ -2157,8 +2302,8 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
     ${info('Pulsa «Enviar» y elige WhatsApp. Tu deportista abre el archivo con IMDTraining (compartiéndolo a la app o con «Abrir entrenamiento recibido» en el menú) y le aparecerá en su resumen. Al hacerlo, la sesión se rellena con lo programado y solo tiene que anotar lo que cambie y el RPE. Cuando te envíe sus datos, este entrenamiento se marcará como hecho.<br><br>«Hacerlo ahora» es para cuando lo entrenas tú en persona: lo registras en tu móvil y al terminar puedes enviarle la sesión.','Cómo funciona')}`;
   h+=`<details class="card danger-zone"><summary>Borrar entrenamiento programado</summary><button class="btn danger wide" data-act="plDel">Borrar</button></details>`;
   return h};
-function planActHTML(pl){const a=(pl.exercises||[]).filter(e=>e.act&&normTxt(e.name));if(!a.length)return'';
-  return `<section class="sec"><h3>Activación</h3><div class="card"><div class="act-list">${a.map(e=>`<div class="act-row" style="cursor:default"><span class="act-box" aria-hidden="true"></span><span class="grow"><b>${esc(e.name)}</b><span class="hint num">${[actPlanTxt(e.sets),esc(e.variant||'')].filter(x=>x).join(' · ')}</span></span></div>`).join('')}</div></div></section>`}
+function planActHTML(pl){const a=(pl.exercises||[]).map((e,oi)=>[e,oi]).filter(([e])=>e.act&&normTxt(e.name));if(!a.length)return'';
+  return `<section class="sec"><h3>Activación</h3><div class="card"><div class="act-list">${a.map(([e,oi])=>`<div class="act-row" style="cursor:default"><span class="act-box" aria-hidden="true"></span><span class="grow"><b>${esc(e.name)}</b><span class="hint num">${[actPlanTxt(e.sets),esc(e.variant||'')].filter(x=>x).join(' · ')}</span></span>${howBtn(e,`data-src="plan" data-i="${oi}"`)}</div>`).join('')}</div></div></section>`}
 // Empezar un entrenamiento programado
 async function startPlan(pl){const p=prof(pl.userId);if(!p){toast('No se encuentra el perfil de este entrenamiento');return}
   if(pl.kind==='hr'){if(S.rec){toast('Ya hay una sesión grabándose');return}S.form={type:pl.hr?.type||pl.title,planId:pl.id};go('pre',p.id,{keepForm:true});return}
@@ -2168,6 +2313,7 @@ async function startPlan(pl){const p=prof(pl.userId);if(!p){toast('No se encuent
     sets:e.unilateral?e.sets.flatMap(x=>[{side:'I',reps:x.reps??null,int:x.int??null,kg:null,rpe:null},{side:'D',reps:x.reps??null,int:x.int??null,kg:null,rpe:null}]):e.sets.map(x=>({reps:x.reps??null,int:x.int??null,kg:null,rpe:null}))}:({name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,
     ...(e.muscles?{muscles:{...e.muscles},mAuto:false}:{}),plan:e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),pct:e.load==='pct'?x.pct??null:null,rpe:x.rpe??null,rir:x.rir??null})),
     sets:e.unilateral?e.sets.flatMap(x=>{const k=planKg(p.id,e,x);return [{side:'I',reps:x.reps??null,kg:k,rpe:null},{side:'D',reps:x.reps??null,kg:k,rpe:null}]}):e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),rpe:null}))}));
+  (pl.exercises||[]).filter(e=>normTxt(e.name)).forEach((e,i)=>{if(e.how&&ex[i])ex[i].how=e.how});
   ex.sort((a,b)=>(b.act?1:0)-(a.act?1:0));
   const st={id:uid(),userId:p.id,kind:'strength',type:pl.title||'Fuerza',startTime:Date.now(),endTime:null,durationMin:null,rpePre:null,rpePost:null,rpePostTime:null,notes:'',status:'open',planId:pl.id,...(pl.cardio?{cardio:JSON.parse(JSON.stringify(pl.cardio))}:{}),
     exercises:ex.length?ex:[{name:'',sets:[{reps:null,kg:null,rpe:null}]}]};
@@ -2502,7 +2648,7 @@ $('#app').addEventListener('input',e=>{
 $('#app').addEventListener('change',e=>{if(e.target.id==='tUser')go('tests',e.target.value,{push:false})});
 
 /* ================= Navegación ================= */
-const TITLES={home:()=> 'IMDTraining',welcome:()=>'IMDTraining',edit:()=>S.arg?'Editar perfil':isClient()?'Tu perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Aeróbico',exprog:()=>exerciseRecords(S.arg).find(r=>r.key===S.progKey)?.name||'Progresión',recov:()=>'Recuperación',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',plan:()=>planById(S.arg)?.title||'Entrenamiento',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
+const TITLES={exlib:()=>'Ejercicios',exedit:()=>S.arg?'Editar ejercicio':'Nuevo ejercicio',home:()=> 'IMDTraining',welcome:()=>'IMDTraining',edit:()=>S.arg?'Editar perfil':isClient()?'Tu perfil':'Nuevo perfil',profile:()=>prof(S.arg)?.name||'Perfil',pre:()=>'Aeróbico',exprog:()=>exerciseRecords(S.arg).find(r=>r.key===S.progKey)?.name||'Progresión',recov:()=>'Recuperación',live:()=>prof(S.rec?.userId)?.name||'Sesión',post:()=>'Después de la sesión',summary:()=>S.sessions.find(x=>x.id===S.arg)?.type||'Sesión',strength:()=>stById(S.arg)?.type||'Fuerza',stpost:()=>'Después de la sesión',ssum:()=>stById(S.arg)?.type||'Fuerza',tests:()=>'Test',plan:()=>planById(S.arg)?.title||'Entrenamiento',test:()=>TEST_TYPES[testById(S.arg)?.type]?.short||'Test'};
 function go(view,arg,{push=true,keepForm=false}={}){
   if(S.view==='strength'&&!(view==='strength'&&arg===S.arg))dropDraft(S.arg);
   if(push)S.stack.push([S.view,S.arg]);
@@ -2548,7 +2694,7 @@ function renderDrawer(){
   const act=activeProfileId();
   const cl=isClient();
   $('#dHome').textContent=cl?'Mi perfil':'Inicio';$('#dHome').classList.toggle('on',S.view==='home'||(cl&&S.view==='profile'));
-  $('#dSecProfiles').hidden=cl;$('#dNew').hidden=cl;$('#dSend').hidden=!cl||!myProfile()||selfCoached();$('#dInvite').hidden=cl;$('#dImport').hidden=cl&&(!myProfile()||selfCoached());$('#dImport').textContent=cl?'Abrir entrenamiento recibido':'Importar datos de un cliente';
+  $('#dSecProfiles').hidden=cl;$('#dNew').hidden=cl;$('#dSend').hidden=!cl||!myProfile()||selfCoached();$('#dInvite').hidden=cl;$('#dExlib').hidden=cl;$('#dExlib').classList.toggle('on',S.view==='exlib'||S.view==='exedit');$('#dImport').hidden=cl&&(!myProfile()||selfCoached());$('#dImport').textContent=cl?'Abrir entrenamiento recibido':'Importar datos de un cliente';
   $('#dMode').textContent=cl?'Cambiar a modo entrenador':'Cambiar a modo deportista';$('#dMode').hidden=coachDev();
   $('#dSync').hidden=cl&&!S.profiles.some(p=>p.cloudToken);
   const dual=coachDev();$('#dSwitch').hidden=!dual;if(dual)$('#dSwitch').innerHTML=`<button class="${cl?'':'on'}" data-d="toCoach">${ic('list','sm')}Entrenador</button><button class="${cl?'on':''}" data-d="toMe">${ic('user','sm')}Mi perfil</button>`;
@@ -2573,6 +2719,7 @@ drawer.addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)r
   if(d==='tests')return navFromDrawer(()=>toRoot('tests',activeProfileId()||[...S.profiles].sort((a,b)=>a.name.localeCompare(b.name))[0]?.id||null));
   if(d==='profile')return navFromDrawer(()=>toRoot('profile',b.dataset.id));
   if(d==='new')return navFromDrawer(()=>toRoot('edit',null));
+  if(d==='exlib')return navFromDrawer(()=>{S.exq='';S.exmov='';S.exmg='';toRoot('exlib',null)});
   if(d==='hr')return navFromDrawer(()=>openHrModal());
   if(d==='send')return navFromDrawer(()=>sendToCoach());
   if(d==='invite')return navFromDrawer(()=>inviteClient());
@@ -2661,6 +2808,24 @@ const A={
   async plBlkRep(){const pl=planById(S.arg),bs=pl.hr.blocks;bs.push(...bs.slice(-2).map(x=>({...x})));await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plKind(_,b){const pl=planById(S.arg);pl.kind=b.dataset.v;if(pl.kind==='hr'&&(!pl.title||pl.title==='Entrenamiento de fuerza'))pl.title='Sesión aeróbica';if(pl.kind==='strength'&&pl.title==='Sesión aeróbica')pl.title='Entrenamiento de fuerza';await savePlan(pl);render()},
   async plAddEx(_,b){const pl=planById(S.arg),act=b?.dataset?.v==='act';pl.exercises.push(act?{name:'',variant:'',act:true,sets:[]}:{name:'',variant:'',unilateral:false,sets:[defSet(pl.userId)]});await savePlan(pl);render();const n=document.querySelectorAll(`.pl-part[data-part="${act?'act':'main'}"] .ex-name`);n[n.length-1]?.focus();n[n.length-1]?.scrollIntoView({block:'center'})},
+  exMov(_,b){S.exmov=b.dataset.v;refreshLibList()},
+  exMg(_,b){S.exmg=b.dataset.v;refreshLibList()},
+  exOpen(id){const x=libById(id);if(!x)return;S.exDraft=JSON.parse(JSON.stringify(x));S.exDelArm=false;go('exedit',id)},
+  exNew(){S.exDraft={name:S.exq||'',mov:S.exmov||'',muscles:S.exmg?{[S.exmg]:'p'}:{},cues:[]};S.exDelArm=false;go('exedit',null)},
+  exMgT(_,b){const m=S.exDraft.muscles||(S.exDraft.muscles={}),g=b.dataset.g;m[g]=!m[g]?'p':m[g]==='p'?'s':undefined;if(!m[g])delete m[g];const y=scrollY;render();scrollTo(0,y)},
+  async exSave(){const x=S.exDraft,name=(x.name||'').trim();if(!name){toast('Ponle un nombre al ejercicio');return}
+    const dup=libAll().find(o=>normTxt(o.name)===normTxt(name)&&o.id!==S.arg);if(dup){toast('Ya hay un ejercicio con ese nombre');return}
+    const rec={id:S.arg||'x'+uid(),name,mov:x.mov||'',muscles:{...(x.muscles||{})},cues:(x.cues||[]).map(c=>c.trim()).filter(c=>c),hidden:false};
+    await DB.put('exercises',rec);S.exercises=await DB.all('exercises');back();toast('Ejercicio guardado')},
+  async exDel(_,b){if(!S.exDelArm){S.exDelArm=true;b.textContent='Pulsa otra vez para confirmar';return}
+    const x=S.exDraft;if(x.base)await DB.put('exercises',{id:S.arg,name:x.name,hidden:true});else await DB.del('exercises',S.arg);
+    S.exercises=await DB.all('exercises');back();toast(x.base?'Quitado de la batería':'Ejercicio borrado')},
+  async exReset(){await DB.del('exercises',S.arg);S.exercises=await DB.all('exercises');back();toast('Vuelve a estar como el original')},
+  exPickOpen(_,b){openExPicker(b.dataset.v)},
+  async exPick(id){const pl=planById(S.arg),x=libById(id);if(!pl||!x)return;const act=S.exPart==='act';
+    pl.exercises.push(act?{name:x.name,variant:'',act:true,sets:[]}:{name:x.name,variant:'',unilateral:false,plyo:x.mov==='plyo',sets:[defSet(pl.userId)]});
+    await savePlan(pl);closeModal();render();toast('Añadido: '+x.name);const n=document.querySelectorAll(`.pl-part[data-part="${act?'act':'main'}"] .card.ex`);n[n.length-1]?.scrollIntoView({block:'center'})},
+  exHowOpen(_,b){const src=b.dataset.src,i=+b.dataset.i,list=src==='st'?stById(S.arg)?.exercises:planById(S.arg)?.exercises,e=list?.[i];if(e)openExHow(e.name,exHow(e))},
   async plMoveEx(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i];if(!e)return;e.act=!e.act;if(e.act){e.plyo=false}else if(!(e.sets||[]).length)e.sets=[defSet(pl.userId)];await savePlan(pl);render();toast(e.act?'Pasado a activación':'Pasado a parte principal')},
   async plDelEx(_,b){const pl=planById(S.arg);pl.exercises.splice(+b.dataset.i,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plAddSet(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i],l=e.sets[e.sets.length-1];e.sets.push(l?{...l}:defSet(pl.userId));await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
@@ -2841,7 +3006,7 @@ const A={
       else r=[p.name,new Date(s.startTime).toLocaleString('es-ES'),'Aeróbico',s.type,dec(s.activeMs/60000),s.avgHr??'',s.maxHr??'',...s.zoneMs.map(m=>dec(m/60000)),s.rpePre??'',s.rpePost??'',srpe(s)??'','','','','','',trimp(s)??'',''];
       rows.push(r.map(v=>String(v).replace(/;/g,',')).join(';'))}
     download(`${slug(p.name)}_resumen_${fileDate(Date.now())}.csv`,rows.join('\r\n'),'text/csv')},
-  async backup(){const data={app:'imdtraining',version:4,kind:'backup',role:isClient()?'client':'coach',syncIgnore:Sync.ignored(),strength:await DB.all('strength'),tests:await DB.all('tests'),plans:await DB.all('plans'),wellness:await DB.all('wellness'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
+  async backup(){const data={app:'imdtraining',version:4,kind:'backup',exercises:isClient()?[]:await DB.all('exercises'),role:isClient()?'client':'coach',syncIgnore:Sync.ignored(),strength:await DB.all('strength'),tests:await DB.all('tests'),plans:await DB.all('plans'),wellness:await DB.all('wellness'),exported:new Date().toISOString(),profiles:await DB.all('profiles'),sessions:await DB.all('sessions'),tracks:await DB.all('tracks')};
     const r=await shareFile(data,`imdtraining_copia_${fileDate(Date.now())}`,'Copia de seguridad IMDTraining','Copia de seguridad de IMDTraining. Guárdala en Drive o en tu correo.');
     if(r==='cancel')return;lsSet('lastBackup',Date.now());render();toast(r==='shared'?'Copia guardada':'Copia guardada en Descargas: súbela a Drive para no perderla')},
   import(){$('#importFile').click()},
@@ -2884,6 +3049,10 @@ async function saveProfile(){
   if(old)back();else go('profile',f.id);toast('Perfil guardado');
 }
 function actClick(e){const b=e.target.closest('[data-act]');if(!b||b.tagName==='TEXTAREA')return;const fn=A[b.dataset.act];if(!fn)return;e.preventDefault();fn(b.dataset.id??b,b)}
+document.addEventListener('input',e=>{const el=e.target;if(el.id==='libSearch'){S.exq=el.value;refreshLibList();return}
+  if(el.dataset?.xf&&S.view==='exedit'&&S.exDraft){const k=el.dataset.xf,x=S.exDraft;
+    if(k==='cues')x.cues=el.value.split('\n');else x[k]=el.value}});
+document.addEventListener('change',e=>{const el=e.target;if(el.dataset?.xf&&S.view==='exedit'&&S.exDraft&&el.tagName==='SELECT')S.exDraft[el.dataset.xf]=el.value});
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){A.wClose?.();return}actClick(e)});
 $('#restBar').addEventListener('click',actClick);
 $('#meBtn').addEventListener('click',()=>switchMode());
@@ -2935,6 +3104,7 @@ async function importFiles(files){
     // Copia completa de un móvil de entrenador: se restaura tal cual (con sus vínculos y la lista de códigos que no se descargan)
     const coachCopy=d.kind==='backup'&&d.role==='coach';
     if(coachCopy&&Array.isArray(d.syncIgnore))for(const c of d.syncIgnore)if(typeof c==='string'&&!S.profiles.some(p=>p.cloudId===c&&!p.example))Sync.ignore(c,true);
+    if(coachCopy)for(const x of d.exercises||[])if(x&&x.id&&!(await DB.getRaw('exercises',x.id))?.dirty)await DB.put('exercises',x,{imported:true});
     const fromOther=!coachCopy&&(d.kind==='client'||profiles.some(p=>p.owner==='client'));
     // Si el deportista abrió algo que le enviaste desde un perfil creado por ti, sus datos se guardan en ese mismo perfil
     const idMap={};
@@ -3112,6 +3282,7 @@ const Sync={running:null,again:false,againFull:false,timer:null,retryMs:0,
     return ctx},
   // Qué no se sube: datos de ejemplo, perfiles sin vincular, sesiones grabándose y borradores de fuerza vacíos
   shouldPush(s,rec,ctx){if(rec.example)return false;
+    if(s==='exercises')return ctx.role==='coach'&&lsGet('srvLib')==='1'; // la batería solo la sube el entrenador, y si la hoja ya la admite
     const sess=s==='tracks'?ctx.sess.get(rec.id):null,uid=s==='profiles'?rec.id:s==='tracks'?sess?.userId:rec.userId;
     if(!ctx.linked(ctx.byId.get(uid)))return false;
     if(!rec.deleted){
@@ -3120,6 +3291,7 @@ const Sync={running:null,again:false,againFull:false,timer:null,retryMs:0,
       if(s==='strength'&&rec.status==='open'&&stEmpty(rec))return false}
     return true},
   async toCloud(s,rec,ctx){const deleted=!!rec.deleted;
+    if(s==='exercises')return {store:s,id:rec.id,userId:LIB_UID,updatedAt:rec.updatedAt,deleted,data:deleted?null:pick(rec,LIB_FIELDS)};
     if(s==='profiles'){const cid=rec.cloudId;return {store:s,id:cid,userId:cid,updatedAt:rec.updatedAt,deleted,data:deleted?null:pick(rec,PROFILE_FIELDS)}}
     if(s==='tracks'){const cid=ctx.cloudIdOf(ctx.sess.get(rec.id).userId); // el track no tiene userId: es el de su sesión
       return {store:s,id:rec.id,userId:cid,updatedAt:rec.updatedAt,deleted,data:deleted?null:await packData({id:rec.id,samples:rec.samples,rr:rec.rr,pauses:rec.pauses})}}
@@ -3140,12 +3312,16 @@ const Sync={running:null,again:false,againFull:false,timer:null,retryMs:0,
     if(ok&&r.deleted){await DB.purge(x.store,x.local);return}
     r.dirty=0;if(ok)r.synced=1;await DB.putRaw(x.store,r)},
   async pullAll(){let changed=0,since=+lsGet('syncCursor')||0,res;
-    do{res=await this.call({action:'pull',since});const ctx=await this.ctx();
+    do{res=await this.call({action:'pull',since,lib:1});if(res.lib)lsSet('srvLib','1');const ctx=await this.ctx();
       for(const c of [...res.records].sort((a,b)=>(a.store!=='profiles')-(b.store!=='profiles')))changed+=await this.merge(c,ctx);
       since=res.cursor;lsSet('syncCursor',String(since))}while(res.more);
     return changed},
   // Fusión: gana el updatedAt mayor; en empate, la hoja. Devuelve 1 si ha cambiado algo en el móvil
   async merge(c,ctx){
+    if(c.store==='exercises'){if(ctx.role!=='coach')return 0;const l=await DB.getRaw('exercises',c.id);
+      if(!l&&c.deleted)return 0;if(l&&l.dirty&&l.updatedAt>c.updatedAt)return 0;if(l&&!l.dirty&&l.updatedAt===c.updatedAt)return 0;
+      const meta={updatedAt:c.updatedAt,author:c.author,dirty:0,synced:1},r=c.deleted?{id:c.id,deleted:true,...meta}:{...pick(c.data||{},LIB_FIELDS),id:c.id,...meta};
+      await DB.putRaw('exercises',r);this.applyLocal('exercises',r);return 1}
     if(c.store==='profiles'){if(c.deleted)return 0;const lu=await ctx.localIdOf(c.id),l=lu&&await DB.getRaw('profiles',lu);if(!l)return 0;
       if(l.dirty&&l.updatedAt>c.updatedAt)return 0;if(!l.dirty&&l.updatedAt===c.updatedAt)return 0;
       const m={...l,...pick(c.data||{},PROFILE_FIELDS),updatedAt:c.updatedAt,dirty:0,synced:1}; // nombre, fecha y vínculos: los del móvil
@@ -3245,7 +3421,7 @@ async function syncResend(id){const p=prof(id);if(!p?.cloudId)return;
   await shareInvite(p)}
 
 /* ================= Arranque ================= */
-async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests');S.plans=await DB.all('plans');S.wellness=await DB.all('wellness')}
+async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests');S.plans=await DB.all('plans');S.wellness=await DB.all('wellness');S.exercises=await DB.all('exercises')}
 (async()=>{
   await DB.open();await loadAll();
   try{navigator.storage?.persist?.()}catch(e){}

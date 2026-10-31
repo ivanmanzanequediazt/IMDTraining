@@ -77,7 +77,7 @@ function load() {
   // Pestañas de Código.gs
   ss.add('config', [['key', 'value'], ['coachToken', 'COACH'], ['version', '1']]);
   ss.add('athletes', [['id_unico', 'token', 'createdAt', 'revoked'], ['d1', 'T1', 1, false], ['d2', 'T2', 2, false], ['d3', 'T3', 3, true]]);
-  ['profiles', 'sessions', 'strength', 'tests', 'plans', 'wellness'].forEach(n => ss.add(n, [['id', 'userId', 'author', 'updatedAt', 'serverAt', 'deleted', 'data']]));
+  ['profiles', 'sessions', 'strength', 'tests', 'plans', 'wellness', 'exercises'].forEach(n => ss.add(n, [['id', 'userId', 'author', 'updatedAt', 'serverAt', 'deleted', 'data']]));
   ss.add('tracks', [['id', 'userId', 'part', 'parts', 'updatedAt', 'serverAt', 'deleted', 'data']]);
   ss.add('deportistas', [['codigo', 'apodo']]);
   ss.add('programacion', [['h']]);
@@ -328,5 +328,21 @@ test('Fechas pasadas: se registran como sesión realizada', () => {
   eq([sd2.exercises[1].sets[0].kg, sd2.durationMin, sd2.rpePost], [85, 60, 7], 'cambio del Excel sin perder duración y RPE');
 });
 
+
+test('Batería de ejercicios: solo el entrenador, y solo si la app la pide', () => {
+  const { api } = load();
+  const call = p => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(p) } }));
+  const rec = { store: 'exercises', id: 'x1', userId: 'lib', updatedAt: 5, data: { name: 'Mi ejercicio', cues: ['a'] } };
+  const r = call({ token: 'COACH', action: 'push', records: [rec] });
+  eq(r.accepted.length, 1, 'el entrenador sube un ejercicio');
+  const ra = call({ token: 'T1', action: 'push', records: [{ ...rec, id: 'x2' }] });
+  eq(ra.rejected.map(x => x.reason), ['forbidden'], 'un deportista no puede');
+  const withLib = call({ token: 'COACH', action: 'pull', since: 0, lib: true });
+  ok(withLib.lib === true && withLib.records.some(x => x.store === 'exercises' && x.data.name === 'Mi ejercicio'), 'pull con lib la trae');
+  const old = call({ token: 'COACH', action: 'pull', since: 0 });
+  ok(!old.records.some(x => x.store === 'exercises'), 'una app antigua no la recibe');
+  const ath = call({ token: 'T1', action: 'pull', since: 0, lib: true });
+  ok(!ath.records.some(x => x.store === 'exercises'), 'el deportista no la recibe');
+});
 console.log(`\n${passes} comprobaciones correctas, ${fails} fallos`);
 process.exit(fails ? 1 : 0);

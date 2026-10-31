@@ -80,7 +80,7 @@ function load() {
   vm.runInContext(src, ctx, { filename: 'gs.js' });
   ss.add('config', [['key', 'value'], ['coachToken', 'COACH'], ['version', '1']]);
   ss.add('athletes', [['id_unico', 'token', 'createdAt', 'revoked'], ['dA', 'TA', 1, false], ['dB', 'TB', 2, false], ['dC', 'TC', 3, false]]);
-  ['profiles', 'sessions', 'strength', 'tests', 'plans', 'wellness'].forEach(n => ss.add(n, [['id', 'userId', 'author', 'updatedAt', 'serverAt', 'deleted', 'data']]));
+  ['profiles', 'sessions', 'strength', 'tests', 'plans', 'wellness', 'exercises'].forEach(n => ss.add(n, [['id', 'userId', 'author', 'updatedAt', 'serverAt', 'deleted', 'data']]));
   ss.add('tracks', [['id', 'userId', 'part', 'parts', 'updatedAt', 'serverAt', 'deleted', 'data']]);
   ss.add('deportistas', [['codigo', 'apodo'], ['dA', 'Ana'], ['dB', 'Bea'], ['dC', 'Car']]);
   ss.add('fuentes', [['Apodo', 'Mes', 'Enlace', 'Importar', 'Estado', 'Última importación'],
