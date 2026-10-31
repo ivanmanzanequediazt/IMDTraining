@@ -669,9 +669,10 @@ function strengthStats(st,formula='brzycki'){
 const stLoad=st=>st.rpePost==null||!(st.durationMin>0)?null:Math.round(st.rpePost*st.durationMin);
 /* ===== Grupos musculares ===== */
 const MG=[['back','Espalda','Espalda'],['shoulders','Hombros','Hombros'],['chest','Pecho','Pecho'],['quads','Muslo anterior','Muslo ant.'],
-  ['post','Muslo posterior y glúteo','Post. y glúteo'],['arms','Brazos','Brazos'],['core','Core','Core'],['calves','Pantorrillas','Pantorrillas']];
+  ['post','Muslo posterior y glúteo','Post. y glúteo'],['add','Aductores','Aductores'],['arms','Brazos','Brazos'],['core','Core','Core'],['calves','Pantorrillas','Pantorrillas']];
 // Asignación propuesta por palabras clave (el orden importa: lo más específico primero). p = principal, s = secundario
 const MG_RULES=[
+  [['aductor','aduccion','copenhague','copenhagen'],{add:'p'}],
   [['curl femoral','nordic','isquio','good morning','buenos dias','hip thrust','puente de gluteo','patada de gluteo','abduc','gluteo'],{post:'p'}],
   [['peso muerto rumano','rumano','stiff','piernas rigidas'],{post:'p',back:'s'}],
   [['peso muerto','deadlift','trap bar'],{post:'p',quads:'s',back:'s'}],
@@ -701,9 +702,9 @@ function muscleVolume(sessions){
 // Patrones de movimiento. La batería base viene con la app; lo que añade o cambia el entrenador se guarda en «exercises»
 // (se sincroniza con la hoja entre sus aparatos). Al cliente le llegan las indicaciones dentro de cada entrenamiento.
 const MOV=[['squat','Sentadilla'],['hinge','Bisagra de cadera'],['lunge','Unilateral pierna'],['hpush','Empuje horizontal'],['vpush','Empuje vertical'],
-  ['hpull','Tracción horizontal'],['vpull','Tracción vertical'],['core','Core'],['arms','Brazos'],['calves','Pantorrillas'],['plyo','Pliometría'],['mob','Movilidad / activación']];
+  ['hpull','Tracción horizontal'],['vpull','Tracción vertical'],['core-s','Core sagital'],['core-f','Core frontal'],['core-t','Core transversal'],['add','Aductores'],['arms','Brazos'],['calves','Pantorrillas'],['plyo','Pliometría'],['mb','Balón medicinal'],['mob','Movilidad / activación']];
 const movLabel=k=>(MOV.find(m=>m[0]===k)||[,''])[1];
-// [id, nombre, movimiento, grupos (g:p principal / g:s secundario), (libre), indicaciones separadas por |]
+// [id, nombre, movimiento, grupos (g:p principal / g:s secundario), u = unilateral, indicaciones separadas por |]
 const BASE_EX=[
  ['sentadilla','Sentadilla con barra','squat','quads:p,post:s,core:s','','Pies a la anchura de los hombros, puntas algo abiertas|Baja llevando la cadera atrás y abajo, rodillas en la línea de los pies|Pecho alto y talones apoyados; sube empujando el suelo'],
  ['sentadilla-goblet','Sentadilla goblet','squat','quads:p,post:s,core:s','','Sujeta la pesa pegada al pecho, codos hacia abajo|Baja entre las piernas con la espalda recta|Sube empujando con todo el pie'],
@@ -722,12 +723,12 @@ const BASE_EX=[
  ['curl-femoral','Curl femoral','hinge','post:p','','Rodilla alineada con el eje de la máquina|Flexiona hasta el final sin levantar la cadera|Baja controlando'],
  ['curl-nordico','Curl nórdico','hinge','post:p','','Tobillos bien sujetos y cuerpo recto de rodillas a cabeza|Baja lo más lento que puedas|Ayúdate con las manos al final y vuelve'],
  ['hiperextension','Hiperextensión lumbar','hinge','post:p,back:s','','Cadera apoyada en el borde del soporte|Baja con la espalda neutra|Sube hasta alinear el cuerpo, sin pasarte'],
- ['zancada','Zancada','lunge','quads:p,post:s','','Paso largo y tronco erguido|Baja hasta casi tocar el suelo con la rodilla de atrás|Vuelve empujando con el pie de delante'],
- ['zancada-atras','Zancada atrás','lunge','quads:p,post:s','','Da el paso hacia atrás con el peso en la pierna de delante|Rodilla de delante en la línea del pie|Vuelve empujando con el talón de delante'],
- ['sentadilla-bulgara','Sentadilla búlgara','lunge','quads:p,post:s','','Empeine de atrás apoyado en el banco|Baja en vertical con el peso en la pierna de delante|Rodilla de delante alineada con el pie'],
- ['sentadilla-split','Sentadilla split','lunge','quads:p,post:s','','Pies separados en paso largo, sin moverlos|Baja y sube en vertical|Tronco erguido y abdomen activo'],
- ['subida-cajon','Subida al cajón','lunge','quads:p,post:s','','Apoya todo el pie en el cajón|Sube con la pierna de arriba, sin impulsarte con la de abajo|Baja controlando'],
- ['zancada-lateral','Zancada lateral','lunge','quads:p,post:s','','Paso lateral amplio con el otro pie fijo|Lleva la cadera atrás sobre la pierna que flexiona|La otra pierna estirada y los pies mirando al frente'],
+ ['zancada','Zancada','lunge','quads:p,post:s','u','Paso largo y tronco erguido|Baja hasta casi tocar el suelo con la rodilla de atrás|Vuelve empujando con el pie de delante'],
+ ['zancada-atras','Zancada atrás','lunge','quads:p,post:s','u','Da el paso hacia atrás con el peso en la pierna de delante|Rodilla de delante en la línea del pie|Vuelve empujando con el talón de delante'],
+ ['sentadilla-bulgara','Sentadilla búlgara','lunge','quads:p,post:s','u','Empeine de atrás apoyado en el banco|Baja en vertical con el peso en la pierna de delante|Rodilla de delante alineada con el pie'],
+ ['sentadilla-split','Sentadilla split','lunge','quads:p,post:s','u','Pies separados en paso largo, sin moverlos|Baja y sube en vertical|Tronco erguido y abdomen activo'],
+ ['subida-cajon','Subida al cajón','lunge','quads:p,post:s','u','Apoya todo el pie en el cajón|Sube con la pierna de arriba, sin impulsarte con la de abajo|Baja controlando'],
+ ['zancada-lateral','Zancada lateral','lunge','quads:p,add:s,post:s','u','Paso lateral amplio con el otro pie fijo|Lleva la cadera atrás sobre la pierna que flexiona|La otra pierna estirada y los pies mirando al frente'],
  ['elevacion-talones','Elevación de talones','calves','calves:p','','Puntas en el borde de un escalón|Sube lo más alto posible y aguanta un segundo|Baja hasta estirar el gemelo'],
  ['elevacion-talones-sentado','Elevación de talones sentado','calves','calves:p','','Rodillas a 90° con el peso sobre ellas|Sube lo más alto posible|Baja lento hasta estirar'],
  ['press-banca','Press banca','hpush','chest:p,arms:s,shoulders:s','','Escápulas juntas y hacia abajo, pies firmes en el suelo|Baja la barra a la parte baja del pecho|Codos a unos 45° del cuerpo, no abiertos del todo'],
@@ -747,7 +748,7 @@ const BASE_EX=[
  ['pajaro','Pájaro (deltoides posterior)','hpull','shoulders:p,back:s','','Tronco inclinado y espalda recta|Abre los brazos llevando los codos hacia atrás|Sin balancear el cuerpo'],
  ['face-pull','Face pull','hpull','shoulders:p,back:s','','Polea a la altura de la cara|Tira hacia la frente separando las manos|Codos altos y escápulas juntas al final'],
  ['remo-barra','Remo con barra','hpull','back:p,arms:s','','Tronco inclinado y espalda neutra|Tira de la barra hacia el ombligo|Junta las escápulas arriba'],
- ['remo-mancuerna','Remo con mancuerna','hpull','back:p,arms:s','','Mano y rodilla apoyadas en el banco|Lleva el codo hacia la cadera|Sin girar el tronco'],
+ ['remo-mancuerna','Remo con mancuerna','hpull','back:p,arms:s','u','Mano y rodilla apoyadas en el banco|Lleva el codo hacia la cadera|Sin girar el tronco'],
  ['remo-polea','Remo en polea baja','hpull','back:p,arms:s','','Espalda recta, sin balancearte|Tira hacia el abdomen|Escápulas juntas y hombros abajo'],
  ['remo-invertido','Remo invertido','hpull','back:p,arms:s,core:s','','Cuerpo recto bajo la barra|Lleva el pecho hacia la barra|Cuanto más horizontal, más difícil'],
  ['remo-trx','Remo con TRX','hpull','back:p,arms:s','','Cuerpo recto inclinado hacia atrás|Tira llevando los codos atrás|Junta las escápulas al final'],
@@ -755,16 +756,16 @@ const BASE_EX=[
  ['dominadas-asistidas','Dominadas asistidas','vpull','back:p,arms:s','','Usa una goma o la máquina para quitar peso|Mismo recorrido que la dominada completa|Baja controlando'],
  ['jalon-pecho','Jalón al pecho','vpull','back:p,arms:s','','Muslos bien sujetos bajo el soporte|Tira de la barra hacia la parte alta del pecho|Codos hacia abajo y atrás'],
  ['pull-over-polea','Pull over en polea','vpull','back:p','','Brazos casi estirados|Lleva la barra hasta los muslos|Sube despacio sin doblar los codos'],
- ['plancha','Plancha','core','core:p','','Codos bajo los hombros|Cuerpo recto: aprieta glúteos y abdomen|No dejes caer la cadera'],
- ['plancha-lateral','Plancha lateral','core','core:p','','Codo bajo el hombro|Cadera alta, cuerpo en línea|Aguanta sin rotar'],
- ['dead-bug','Dead bug','core','core:p','','Zona lumbar pegada al suelo|Estira despacio el brazo y la pierna contrarios|Vuelve y cambia de lado'],
- ['bird-dog','Bird dog','core','core:p,post:s','','En cuadrupedia, espalda neutra|Estira el brazo y la pierna contrarios|Sin girar la cadera'],
- ['press-pallof','Press Pallof','core','core:p','','De lado a la polea, pies a la anchura de los hombros|Lleva los brazos al frente y aguanta|Que la polea no te gire el tronco'],
- ['rueda-abdominal','Rueda abdominal','core','core:p','','Empieza de rodillas con el abdomen apretado|Rueda hacia delante sin hundir la lumbar|Vuelve tirando desde el abdomen'],
- ['crunch','Crunch abdominal','core','core:p','','Zona lumbar apoyada en el suelo|Sube los hombros sin tirar del cuello|Baja controlando'],
- ['lenador','Leñador en polea','core','core:p','','Pies firmes y brazos casi estirados|El giro sale del tronco y la cadera|Vuelve despacio'],
- ['hollow','Hollow hold','core','core:p','','Zona lumbar pegada al suelo|Brazos y piernas estirados y separados del suelo|Si cuesta, flexiona las rodillas'],
- ['paseo-granjero','Paseo del granjero','core','core:p,shoulders:s,arms:s','','Pesas a los lados y hombros atrás|Camina con pasos cortos y tronco erguido|Sin inclinarte hacia ningún lado'],
+ ['plancha','Plancha','core-s','core:p','','Codos bajo los hombros|Cuerpo recto: aprieta glúteos y abdomen|No dejes caer la cadera'],
+ ['plancha-lateral','Plancha lateral','core-f','core:p','','Codo bajo el hombro|Cadera alta, cuerpo en línea|Aguanta sin rotar'],
+ ['dead-bug','Dead bug','core-s','core:p','','Zona lumbar pegada al suelo|Estira despacio el brazo y la pierna contrarios|Vuelve y cambia de lado'],
+ ['bird-dog','Bird dog','core-t','core:p,post:s','','En cuadrupedia, espalda neutra|Estira el brazo y la pierna contrarios|Sin girar la cadera'],
+ ['press-pallof','Press Pallof','core-t','core:p','','De lado a la polea, pies a la anchura de los hombros|Lleva los brazos al frente y aguanta|Que la polea no te gire el tronco'],
+ ['rueda-abdominal','Rueda abdominal','core-s','core:p','','Empieza de rodillas con el abdomen apretado|Rueda hacia delante sin hundir la lumbar|Vuelve tirando desde el abdomen'],
+ ['crunch','Crunch abdominal','core-s','core:p','','Zona lumbar apoyada en el suelo|Sube los hombros sin tirar del cuello|Baja controlando'],
+ ['lenador','Leñador en polea','core-t','core:p','','Pies firmes y brazos casi estirados|El giro sale del tronco y la cadera|Vuelve despacio'],
+ ['hollow','Hollow hold','core-s','core:p','','Zona lumbar pegada al suelo|Brazos y piernas estirados y separados del suelo|Si cuesta, flexiona las rodillas'],
+ ['paseo-granjero','Paseo del granjero','core-s','core:p,shoulders:s,arms:s','','Pesas a los lados y hombros atrás|Camina con pasos cortos y tronco erguido|Sin inclinarte hacia ningún lado'],
  ['curl-biceps','Curl de bíceps','arms','arms:p','','Codos pegados al cuerpo y fijos|Sube sin balancear el tronco|Baja lento hasta estirar'],
  ['curl-martillo','Curl martillo','arms','arms:p','','Palmas mirándose entre sí|Codos fijos junto al cuerpo|Sube y baja controlando'],
  ['extension-triceps-polea','Extensión de tríceps en polea','arms','arms:p','','Codos pegados al cuerpo|Estira del todo abajo|Sube controlando sin mover los codos'],
@@ -781,7 +782,61 @@ const BASE_EX=[
  ['clamshell','Almeja con goma','mob','post:p','','Tumbado de lado, rodillas flexionadas|Abre la rodilla de arriba sin mover la cadera|Baja lento'],
  ['band-pull-apart','Aperturas con goma','mob','shoulders:p,back:s','','Brazos estirados al frente con la goma|Abre hasta tocar el pecho con la goma|Junta las escápulas'],
  ['movilidad-tobillo','Movilidad de tobillo en pared','mob','','','Pie a un palmo de la pared|Lleva la rodilla a la pared sin levantar el talón|Alterna los dos lados'],
-].map(([id,name,mov,mg,,cues])=>({id:'b-'+id,name,mov,muscles:Object.fromEntries(mg?mg.split(',').map(x=>x.split(':')):[]),cues:cues?cues.split('|'):[],base:true}));
+ ['peso-muerto-rumano-1p','Peso muerto rumano a una pierna','hinge','post:p,core:s','u','Rodilla de apoyo un poco flexionada|Cadera y hombros paralelos al suelo, sin abrir la cadera|La pierna libre sube en línea con el tronco'],
+ ['hip-thrust-1p','Hip thrust a una pierna','hinge','post:p','u','Escápulas en el banco y un pie apoyado bajo la rodilla|Sube sin que la cadera se incline hacia un lado|Aprieta el glúteo arriba'],
+ ['puente-gluteo-1p','Puente de glúteo a una pierna','hinge','post:p,core:s','u','Un pie apoyado y la otra pierna estirada|Sube la cadera sin que se incline hacia un lado|Baja controlando'],
+ ['curl-femoral-1p','Curl femoral a una pierna','hinge','post:p','u','Rodilla alineada con el eje de la máquina|Flexiona hasta el final sin levantar la cadera|Baja controlando'],
+ ['swing-1m','Swing con kettlebell a una mano','hinge','post:p,core:s','u','Empuja con la cadera, el brazo solo acompaña|Hombros cuadrados: que la pesa no te gire el tronco|Abdomen y glúteos apretados arriba'],
+ ['prensa-1p','Prensa a una pierna','squat','quads:p,post:s','u','Pie en el centro de la plataforma|Baja sin que la rodilla se vaya hacia dentro|No bloquees la rodilla arriba'],
+ ['sentadilla-1p-cajon','Sentadilla a una pierna a cajón','squat','quads:p,post:s','u','Siéntate atrás despacio sobre una pierna hasta rozar el cajón|Rodilla en la línea del pie|Sube sin impulsarte con la otra pierna'],
+ ['extension-cuadriceps-1p','Extensión de cuádriceps a una pierna','squat','quads:p','u','Rodilla alineada con el eje de la máquina|Estira del todo y aguanta un segundo arriba|Baja lento'],
+ ['elevacion-talones-1p','Elevación de talones a una pierna','calves','calves:p','u','Punta de un pie en el borde del escalón, apoyo ligero con la mano|Sube lo más alto posible|Baja hasta estirar el gemelo'],
+ ['press-banca-1m','Press banca a una mano','hpush','chest:p,arms:s,core:s','u','Una mancuerna; la otra mano en el pecho|Que el tronco no gire hacia el lado de la pesa|Baja controlando hasta la altura del pecho'],
+ ['press-hombro-1m','Press de hombro a una mano','vpush','shoulders:p,arms:s,core:s','u','De pie o medio arrodillado, abdomen firme|Sube sin inclinarte hacia el otro lado|Baja hasta la altura del hombro'],
+ ['press-landmine-1m','Press landmine a una mano','vpush','shoulders:p,chest:s,core:s','u','Extremo de la barra junto al hombro|Empuja hacia arriba y adelante sin girar el tronco|Abdomen firme'],
+ ['remo-polea-1m','Remo en polea a una mano','hpull','back:p,arms:s,core:s','u','Tronco quieto, sin girarte para tirar|Lleva el codo atrás pegado al cuerpo|Estira del todo al volver'],
+ ['jalon-1m','Jalón a una mano','vpull','back:p,arms:s','u','Agarre en la polea alta con una mano|Lleva el codo hacia la cadera|Sin inclinar el tronco hacia el lado'],
+ ['curl-biceps-1m','Curl de bíceps a una mano','arms','arms:p','u','Codo pegado al cuerpo y fijo|Sube sin balancear el tronco|Baja lento hasta estirar'],
+ ['aductores-squeeze','Apretar balón con aductores (isométrico)','add','add:p','','Tumbado boca arriba, rodillas flexionadas y un balón entre ellas|Aprieta el balón con fuerza y aguanta|Zona lumbar apoyada, respira con normalidad'],
+ ['copenhague-corta-iso','Plancha Copenhague corta (isométrica)','add','add:p,core:s','u','De lado, rodilla de arriba apoyada en el banco|Sube la cadera hasta alinear el cuerpo y aguanta|La pierna de abajo puede ayudar al principio'],
+ ['copenhague-larga-iso','Plancha Copenhague larga (isométrica)','add','add:p,core:s','u','De lado, tobillo de arriba apoyado en el banco|Cuerpo recto y cadera alta|Aguanta sin dejar caer la cadera'],
+ ['copenhague-dinamica','Aducción Copenhague','add','add:p,core:s','u','De lado con la pierna de arriba en el banco (rodilla o tobillo)|Baja la cadera hasta casi tocar el suelo y vuelve a subir|La pierna de abajo sube hasta tocar el banco'],
+ ['aduccion-polea','Aducción en polea','add','add:p','u','Tobillera en la polea baja, de lado|Lleva la pierna por delante de la otra|Vuelve despacio sin girar la cadera'],
+ ['maquina-aductores','Máquina de aductores','add','add:p','','Espalda apoyada y rodillas alineadas con las almohadillas|Junta las piernas y aguanta un segundo|Abre despacio hasta notar estiramiento'],
+ ['aduccion-tumbado','Aducción tumbado de lado','add','add:p','u','Tumbado de lado, la pierna de arriba flexionada por delante|Sube la pierna de abajo estirada|Baja lento sin apoyarla del todo'],
+ ['body-saw','Body saw con deslizadores','core-s','core:p,shoulders:s','','Plancha de antebrazos con los pies sobre deslizadores|Desplaza el cuerpo atrás y adelante desde los hombros|Sin hundir la cadera'],
+ ['paseo-cabeza','Paseo con peso por encima de la cabeza','core-s','core:p,shoulders:s','','Peso estirado por encima de la cabeza|No arquees la espalda|Pasos cortos y abdomen firme'],
+ ['paseo-maleta','Paseo de maleta','core-f','core:p,arms:s','u','Peso en una sola mano|Camina sin inclinarte hacia ningún lado|Hombros a la misma altura'],
+ ['press-medio-arrodillado','Press a una mano medio arrodillado','core-f','shoulders:p,core:s','u','Rodilla del lado de la pesa en el suelo|Sube sin inclinar el tronco|Glúteo de la rodilla apoyada apretado'],
+ ['plancha-lateral-abduccion','Plancha lateral con elevación de pierna','core-f','core:p,post:s','u','Plancha lateral con la cadera alta|Sube la pierna de arriba sin girar la cadera|Baja controlando'],
+ ['plancha-toques-hombro','Plancha con toques de hombro','core-t','core:p','','Plancha con brazos estirados y pies algo separados|Toca el hombro contrario sin que la cadera se mueva|Alterna despacio'],
+ ['plancha-arrastre','Plancha con arrastre (pull-through)','core-t','core:p','','Plancha con brazos estirados y una pesa al lado|Pásala al otro lado con la mano contraria|Cadera quieta, sin girar'],
+ ['landmine-antirrotacion','Antirrotación con landmine','core-t','core:p,shoulders:s','','Brazos estirados sujetando el extremo de la barra|Llévala de lado a lado girando hombros, no cadera|Abdomen firme y pies fijos'],
+ ['pallof-medio-arrodillado','Press Pallof medio arrodillado','core-t','core:p','','Una rodilla en el suelo, de lado a la polea|Lleva los brazos al frente y aguanta|Que la polea no te gire el tronco'],
+ ['lenador-bajo-alto','Leñador de abajo arriba','core-t','core:p','','Polea baja, agarre con las dos manos|Sube en diagonal hasta por encima del hombro contrario|El giro sale del tronco y la cadera'],
+ ['pogos','Saltos de tobillo (pogos)','plyo','calves:p','','Saltos seguidos con las rodillas casi estiradas|Rebota rápido sobre la parte delantera del pie|Contacto con el suelo lo más corto posible'],
+ ['tuck-jump','Saltos con rodillas al pecho','plyo','quads:p,core:s','','Salta y lleva las rodillas al pecho|Cae sobre la parte delantera del pie|Vuelve a saltar sin pausa'],
+ ['salto-sentadilla','Salto desde sentadilla','plyo','quads:p,post:s','','Baja a sentadilla y salta con impulso de brazos|Cae con los dos pies y rodillas flexionadas|Pausa mínima entre saltos'],
+ ['salto-horizontal','Salto horizontal a pies juntos','plyo','quads:p,post:s','','Brazos atrás y cadera atrás antes de saltar|Salta lo más lejos posible|Cae estable, sin pasos'],
+ ['salto-cajon-lateral','Salto lateral al cajón','plyo','quads:p,add:s','','De lado al cajón|Salta de lado y cae suave arriba|Baja andando'],
+ ['saltos-vallas','Saltos de vallas','plyo','quads:p,calves:s','','Saltos seguidos sobre vallas bajas|Rodillas arriba y contacto corto|Sin hundirte entre salto y salto'],
+ ['saltos-vallas-laterales','Saltos laterales de valla','plyo','quads:p,add:s','','De lado a una valla baja|Salta a un lado y vuelve sin pausa|Cae con los dos pies'],
+ ['zancada-saltada','Zancada saltada','plyo','quads:p,post:s','','Zancada con las dos rodillas flexionadas|Salta y cambia de pierna en el aire|Cae suave y repite'],
+ ['multisaltos','Multisaltos (bounding)','plyo','post:p,quads:s','','Carrera exagerada con zancadas largas|Empuje fuerte con cada pie y tiempo en el aire|Brazos coordinados con las piernas'],
+ ['saltos-1p','Saltos a una pierna','plyo','quads:p,calves:s','u','Saltos seguidos sobre una pierna|Cae estable con la rodilla en la línea del pie|Cambia de pierna tras la serie'],
+ ['saltos-laterales-1p','Saltos laterales a una pierna','plyo','quads:p,add:s','u','Salta de lado sobre una línea con una pierna|Vuelve sin pausa y sin perder el equilibrio|Rodilla alineada con el pie'],
+ ['patinador','Saltos de patinador','plyo','post:p,add:s','u','Salto lateral de una pierna a la otra|Cae estable sobre una pierna y aguanta un instante|Empuja fuerte con la pierna de apoyo'],
+ ['salto-profundidad','Salto en profundidad (drop jump)','plyo','quads:p,post:s,calves:s','','Déjate caer del cajón, no saltes desde él|Cae con los dos pies y salta lo más alto posible al instante|Empieza con alturas bajas (unos 30 cm)'],
+ ['mb-slam','Lanzamiento al suelo (slam)','mb','core:p,shoulders:s,back:s','','Balón estirado por encima de la cabeza|Lánzalo con fuerza al suelo doblando la cadera|Recógelo con la espalda recta'],
+ ['mb-slam-rotacional','Slam rotacional','mb','core:p,shoulders:s','','Gira hacia un lado al bajar el balón|Lánzalo al suelo junto a ese lado|Alterna lados o haz la serie de un lado'],
+ ['mb-pase-pecho','Pase de pecho','mb','chest:p,arms:s,shoulders:s','','Balón a la altura del pecho, pies firmes|Empuja con fuerza contra la pared o al compañero|Estira los brazos del todo al soltarlo'],
+ ['mb-lanzamiento-atras','Lanzamiento hacia atrás por encima de la cabeza','mb','post:p,quads:s,shoulders:s','','Baja a un cuarto de sentadilla con el balón entre las rodillas|Extiende cadera y rodillas de forma explosiva|Lanza por encima de la cabeza hacia atrás'],
+ ['mb-lanzamiento-vertical','Lanzamiento vertical desde sentadilla','mb','quads:p,post:s,shoulders:s','','Balón a la altura de la cintura con los brazos estirados|Sube con un salto desde la sentadilla y lanza hacia arriba|Apártate de donde va a caer'],
+ ['mb-rotacional-split','Lanzamiento rotacional en zancada','mb','core:p,post:s','u','Posición de zancada con el tronco erguido|Lleva el balón atrás junto a la cadera de atrás|Lanza de abajo arriba girando el tronco'],
+ ['mb-lateral','Lanzamiento lateral de pie','mb','core:p,shoulders:s','u','De lado a la pared|Gira los hombros respecto a la cadera para cargar|Lanza cruzando el cuerpo con el balón cerca del abdomen'],
+ ['mb-pase-lateral-rodillas','Pase lateral de rodillas','mb','core:p','u','De rodillas y de lado a la dirección del lanzamiento|Gira los hombros para cargar|Lanza cruzando el cuerpo'],
+ ['mb-pase-cabeza-rodillas','Pase por encima de la cabeza de rodillas','mb','shoulders:p,core:s,back:s','','De rodillas sobre una superficie blanda|Lleva el balón detrás de la cabeza|Pásalo con fuerza manteniendo el tronco firme'],
+].map(([id,name,mov,mg,u,cues])=>({id:'b-'+id,name,mov,muscles:Object.fromEntries(mg?mg.split(',').map(x=>x.split(':')):[]),uni:u==='u',cues:cues?cues.split('|'):[],base:true}));
 // Batería completa: la base con los cambios del entrenador (S.exercises) encima; los ocultos no salen
 function libAll(){const own=new Map((S.exercises||[]).map(x=>[x.id,x]));
   const out=BASE_EX.map(b=>own.has(b.id)?{...b,...own.get(b.id),base:true,edited:true}:b);
@@ -896,7 +951,7 @@ const DB={db:null,mem:null,
     await this.putRaw(s,s==='tracks'?{id,deleted:true,dirty:1,synced:1,updatedAt:Date.now()}:{...v,deleted:true,dirty:1,updatedAt:Date.now()});Sync.schedule()}
 };
 const SYNC_STORES=['profiles','sessions','tracks','strength','tests','plans','wellness','exercises'];
-const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','cues','hidden'];
+const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','uni','cues','hidden'];
 
 /* ================= Estado ================= */
 const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],wellness:[],exercises:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
@@ -1189,7 +1244,7 @@ function libChips(){const mv=S.exmov||'',mg=S.exmg||'';
   return `<div class="chips-f lib-f" role="radiogroup" aria-label="Movimiento"><button type="button" role="radio" aria-checked="${!mv}" class="fchip ${mv?'':'on'}" data-act="exMov" data-v="">Todos</button>${MOV.map(([k,l])=>`<button type="button" role="radio" aria-checked="${mv===k}" class="fchip ${mv===k?'on':''}" data-act="exMov" data-v="${k}">${l}</button>`).join('')}</div>
   <div class="chips-f lib-f" role="radiogroup" aria-label="Grupo muscular"><button type="button" role="radio" aria-checked="${!mg}" class="fchip ${mg?'':'on'}" data-act="exMg" data-v="">Todos los grupos</button>${MG.map(([k,,sh])=>`<button type="button" role="radio" aria-checked="${mg===k}" class="fchip ${mg===k?'on':''}" data-act="exMg" data-v="${k}">${sh}</button>`).join('')}</div>`}
 function libItem(x,act){const gs=MG.filter(([g])=>x.muscles?.[g]).map(([g,,sh])=>sh+(x.muscles[g]==='s'?' ½':''));
-  return `<button class="item" data-act="${act}" data-id="${x.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${esc(movLabel(x.mov)||'Sin movimiento')}${gs.length?' · '+gs.join(', '):''}</span></span>${x.edited||!x.base?`<span class="tag">${x.base?'Editado':'Tuyo'}</span>`:''}${ic('chev','sm')}</button>`}
+  return `<button class="item" data-act="${act}" data-id="${x.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${esc(movLabel(x.mov)||'Sin movimiento')}${x.uni?' · unilateral':''}${gs.length?' · '+gs.join(', '):''}</span></span>${x.edited||!x.base?`<span class="tag">${x.base?'Editado':'Tuyo'}</span>`:''}${ic('chev','sm')}</button>`}
 function libListHTML(act){const list=libFilter(libAll());
   return list.length?`<div class="list">${list.map(x=>libItem(x,act)).join('')}</div>`:`<div class="empty small">No hay ejercicios con ese filtro.</div>`}
 V.exlib=()=>`<div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
@@ -1198,6 +1253,7 @@ V.exlib=()=>`<div class="field lib-q"><input id="libSearch" type="search" placeh
   ${info('La batería base viene con la app. Lo que cambies o añadas se guarda en tu hoja de Google y sale igual en tu móvil y en tu ordenador. Al programar, elige los ejercicios de aquí: el cliente verá sus indicaciones al tocar «Cómo se hace».','Cómo funciona')}`;
 V.exedit=()=>{const x=S.exDraft;if(!x)return'<div class="empty">Ejercicio no encontrado.</div>';const m=x.muscles||{};
   return `<div class="card"><div class="field"><label for="exName">Nombre</label><input id="exName" data-xf="name" value="${esc(x.name||'')}" placeholder="Nombre del ejercicio"></div>
+    <label class="uni"><input type="checkbox" id="exUni"${x.uni?' checked':''}> Unilateral</label>
     <div class="field"><label for="exMovSel">Movimiento</label><select id="exMovSel" data-xf="mov"><option value="">—</option>${MOV.map(([k,l])=>`<option value="${k}"${x.mov===k?' selected':''}>${l}</option>`).join('')}</select></div>
     <span class="lbl">Grupos musculares</span><span class="hint">Toca para cambiar: principal → secundario (½) → nada.</span>
     <div class="mg" role="group" aria-label="Grupos musculares">${MG.map(([g,,sh])=>`<button type="button" class="mg-c ${m[g]||''}" data-act="exMgT" data-g="${g}" aria-pressed="${!!m[g]}">${sh}${m[g]==='s'?' ½':''}</button>`).join('')}</div></div>
@@ -1210,8 +1266,9 @@ function openExPicker(part){S.modalKind='expick';S.exPart=part;S.exq='';S.exmg='
   $('#modal').innerHTML=`<div class="modal-card lib-pick" role="dialog" aria-modal="true" aria-labelledby="exPickT"><div class="sec-h"><h2 id="exPickT">${part==='act'?'Añadir a activación':'Añadir a parte principal'}</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
     <div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
     <div id="libList" class="lib-scroll">${libListHTML('exPick')}</div></div>`;
-  $('#modal').hidden=false;document.body.classList.add('modal-open');setTimeout(()=>$('#modal .lib-f .fchip.on')?.scrollIntoView({inline:'center',block:'nearest'}),0)}
-function refreshLibList(){const l=$('#libList');if(!l)return;l.innerHTML=libListHTML(S.modalKind==='expick'?'exPick':'exOpen');const c=$('#libChips');if(c)c.innerHTML=libChips();const n=$('#libCount');if(n)n.textContent=libFilter(libAll()).length+' ejercicios'}
+  $('#modal').hidden=false;document.body.classList.add('modal-open');setTimeout(centerLibChips,0)}
+function refreshLibList(){const l=$('#libList');if(!l)return;l.innerHTML=libListHTML(S.modalKind==='expick'?'exPick':'exOpen');const c=$('#libChips');if(c)c.innerHTML=libChips();const n=$('#libCount');if(n)n.textContent=libFilter(libAll()).length+' ejercicios';centerLibChips()}
+function centerLibChips(){document.querySelectorAll('.lib-f').forEach(r=>{const c=r.querySelector('.fchip.on');if(c)r.scrollLeft=c.offsetLeft-r.offsetLeft-(r.clientWidth-c.clientWidth)/2})}
 // «Cómo se hace»: animación e indicaciones de un ejercicio
 function openExHow(name,how){if(!how)return;S.modalKind='exhow';
   $('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exHowT"><div class="sec-h"><h2 id="exHowT">${esc(name)}</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
@@ -2815,7 +2872,7 @@ const A={
   exMgT(_,b){const m=S.exDraft.muscles||(S.exDraft.muscles={}),g=b.dataset.g;m[g]=!m[g]?'p':m[g]==='p'?'s':undefined;if(!m[g])delete m[g];const y=scrollY;render();scrollTo(0,y)},
   async exSave(){const x=S.exDraft,name=(x.name||'').trim();if(!name){toast('Ponle un nombre al ejercicio');return}
     const dup=libAll().find(o=>normTxt(o.name)===normTxt(name)&&o.id!==S.arg);if(dup){toast('Ya hay un ejercicio con ese nombre');return}
-    const rec={id:S.arg||'x'+uid(),name,mov:x.mov||'',muscles:{...(x.muscles||{})},cues:(x.cues||[]).map(c=>c.trim()).filter(c=>c),hidden:false};
+    const rec={id:S.arg||'x'+uid(),name,mov:x.mov||'',uni:!!$('#exUni')?.checked,muscles:{...(x.muscles||{})},cues:(x.cues||[]).map(c=>c.trim()).filter(c=>c),hidden:false};
     await DB.put('exercises',rec);S.exercises=await DB.all('exercises');back();toast('Ejercicio guardado')},
   async exDel(_,b){if(!S.exDelArm){S.exDelArm=true;b.textContent='Pulsa otra vez para confirmar';return}
     const x=S.exDraft;if(x.base)await DB.put('exercises',{id:S.arg,name:x.name,hidden:true});else await DB.del('exercises',S.arg);
@@ -2823,7 +2880,7 @@ const A={
   async exReset(){await DB.del('exercises',S.arg);S.exercises=await DB.all('exercises');back();toast('Vuelve a estar como el original')},
   exPickOpen(_,b){openExPicker(b.dataset.v)},
   async exPick(id){const pl=planById(S.arg),x=libById(id);if(!pl||!x)return;const act=S.exPart==='act';
-    pl.exercises.push(act?{name:x.name,variant:'',act:true,sets:[]}:{name:x.name,variant:'',unilateral:false,plyo:x.mov==='plyo',sets:[defSet(pl.userId)]});
+    pl.exercises.push(act?{name:x.name,variant:'',act:true,sets:[]}:{name:x.name,variant:'',unilateral:!!x.uni,plyo:x.mov==='plyo',sets:[defSet(pl.userId)]});
     await savePlan(pl);closeModal();render();toast('Añadido: '+x.name);const n=document.querySelectorAll(`.pl-part[data-part="${act?'act':'main'}"] .card.ex`);n[n.length-1]?.scrollIntoView({block:'center'})},
   exHowOpen(_,b){const src=b.dataset.src,i=+b.dataset.i,list=src==='st'?stById(S.arg)?.exercises:planById(S.arg)?.exercises,e=list?.[i];if(e)openExHow(e.name,exHow(e))},
   async plMoveEx(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i];if(!e)return;e.act=!e.act;if(e.act){e.plyo=false}else if(!(e.sets||[]).length)e.sets=[defSet(pl.userId)];await savePlan(pl);render();toast(e.act?'Pasado a activación':'Pasado a parte principal')},
