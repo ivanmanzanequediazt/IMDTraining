@@ -649,12 +649,16 @@ const intTxt=b=>[3,2,1].filter(i=>b[i]).map(i=>`${b[i]} ${INT[i].toLowerCase()}`
 const asym=(a,b)=>{const hi=Math.max(a,b),lo=Math.min(a,b);return hi>0?(hi-lo)/hi*100:null};
 // Ejercicios con el peso corporal: parte del peso que se mueve (se suma a los kg anotados, que serían el lastre).
 // Flexiones 64 % y de rodillas o inclinadas 49 % (Ebben et al., 2011); dominadas y fondos ~95 % (todo menos antebrazos y manos);
-// remo invertido ~60 % (depende de la inclinación). La ayuda de la goma no se descuenta
+// remo invertido ~60 % (depende de la inclinación); curl nórdico y sentadilla sissy ~88 % (lo que queda por encima de la rodilla);
+// plancha Copenhague ~50 % (el cuerpo apoyado entre el antebrazo y la pierna). La ayuda de la goma no se descuenta
 function bwFactor(name){const n=' '+normTxt(name)+' ';
   if(/ (flexion|flexiones|push ?ups?) /.test(n)&&!/ (cadera|escapular|caida) /.test(n))return / (rodillas|inclinad[ao]s?) /.test(n)?.49:.64;
   if(/ (dominada|dominadas|pull ?ups?|chin ?ups?) /.test(n))return .95;
   if(/ fondos /.test(n)&&!/ banco /.test(n))return .95;
   if(/ remo (invertido|trx) |inverted row/.test(n))return .6;
+  if(/ (nordic[oa]?|isquios? excentric)/.test(n))return .88;
+  if(/ sissy /.test(n))return .88;
+  if(/ (copenhague|copenaghe|copenhagen) /.test(n))return .5;
   return 0}
 function bwKg(uid,e){if(e.plyo)return 0;const f=bwFactor(e.name);if(!f)return 0;const w=+(prof(uid)?.weight)||0;return w?Math.round(w*f*10)/10:0}
 function strengthStats(st,formula='brzycki'){
