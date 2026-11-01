@@ -38,6 +38,8 @@ eq(['Pogos asistidos goma', 'Drop jump desde step', 'Frenadas remo invertido', '
 { const sc = { fecha: '2026-10-06', sesion: 'X', ejercicios: [{ name: 'Oso birdog', series: 2, repsTxt: '6 rep por lado', pesoTxt: '', rpe: 6, obs: 'core', act: true }] };
   const fc = X.filasDeSesion_('Pepe', sc, 'excel:x')[0];
   eq([fc[X.PC.tipo], fc[X.PC.series], fc[X.PC.variante].split(' · ')[0]], ['Fuerza', 2, 'core'], '«core» en Observaciones: cuenta como series'); }
+{ const sn = { fecha: '2026-10-06', sesion: 'X', ejercicios: [{ name: 'Curl nórdico excéntrico + rueda abdominal', series: 2, repsTxt: '5 rep', pesoTxt: '', rpe: 8, obs: '', act: true }] };
+  eq(X.filasDeSesion_('Pepe', sn, 'excel:x').map(r => r[X.PC.tipo]), ['Fuerza', 'Activación'], 'curl nórdico cuenta aunque esté en la activación'); }
 eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
   [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
 eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra'], 'subapartados de la parte principal');

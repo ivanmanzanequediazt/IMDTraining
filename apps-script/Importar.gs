@@ -792,6 +792,8 @@ function valorDe_(v, letra, letras) {
 // Sesiones -> filas de «programacion» (22 columnas + Origen)
 // "Sentadilla + plancha" -> ["Sentadilla", "plancha"]; los paréntesis se quitan ("A + (B + C)" -> A, B, C)
 // Ejercicio de pliometría por el nombre (saltos, pogos, drop jump, multisaltos, vallas, frenadas, lanzamientos de balón…)
+const FUERZA_EN_ACTIVACION = /nordic/;
+
 function esPlyo_(name) {
   const n = ' ' + sinAcentos_(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
   if (/ drop set /.test(n)) return false;
@@ -858,6 +860,8 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const r = PROG_HEADERS.map(function () { return ''; });
       r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = e.act && !core ? 'Activación' : 'Fuerza';
       r[PC.ejercicio] = nombre;
+      // Ejercicios que cuentan como fuerza aunque estén en la activación (curl nórdico → isquios)
+      if (e.act && !core && FUERZA_EN_ACTIVACION.test(sinAcentos_(nombre))) r[PC.tipo] = 'Fuerza';
       // Pliometría: marcada en el Excel, por el apartado, por el nombre o con «pliometría» en Observaciones
       const plyo = !(e.act && !core) && (!!e.plyo || esPlyo_(nombre) || /pliometri/.test(sinAcentos_(e.obs || '')));
       r[PC.unilateral] = !!e.unilateral; r[PC.plyo] = plyo;
