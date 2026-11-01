@@ -629,8 +629,8 @@ function buildPlan_(g, id, cid, existing, now) {
 
 // Plan con fecha pasada -> sesión de fuerza realizada (formato de la app). Conserva lo que se haya añadido luego
 // en la app (duración, RPE pre/post, notas).
-// Sesiones de octubre de 2026 pasadas desde los Excel: sin RPE de sesión ni duración anotados, se ponen RPE 8 y 60 min
-const OCTUBRE_2026 = { desde: '2026-10-01', hasta: '2026-11-01', rpe: 8, min: 60 };
+// Sesiones de octubre de 2026 (y la semana del 28 de septiembre) pasadas desde los Excel: sin RPE de sesión ni duración anotados, se ponen RPE 8 y 60 min
+const OCTUBRE_2026 = { desde: '2026-09-28', hasta: '2026-11-01', rpe: 8, min: 60 };   // incluye la semana del 28 sep (hojas «28-2»)
 
 function sesionDesdePlan_(plan, sid, cid, prev) {
   const nn = function (v) { return v === undefined || v === '' ? null : v; };

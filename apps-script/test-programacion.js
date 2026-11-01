@@ -333,7 +333,7 @@ test('Octubre de 2026: RPE de sesión 8 y 60 minutos si no hay nada anotado', ()
   ss.sheets.deportistas.data.push(['d1', 'DG']);
   setProg(ss, [
     { apodo: 'DG', fecha: D('2026-10-05'), sesion: 'Pierna', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 3, reps: 5, kg: 80 },
-    { apodo: 'DG', fecha: D('2026-09-28'), sesion: 'Torso', tipo: 'Fuerza', ejercicio: 'Press', series: 3, reps: 5, kg: 40 },
+    { apodo: 'DG', fecha: D('2026-09-21'), sesion: 'Torso', tipo: 'Fuerza', ejercicio: 'Press', series: 3, reps: 5, kg: 40 },
   ]);
   api.publicarProgramacion();
   const st = JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'pull', since: 0 }) } })).records.filter(r => r.store === 'strength');

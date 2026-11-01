@@ -662,6 +662,11 @@ function parseWorkbook_(wb, y, m) {
     if (!nm) return;                                   // ANUAL, RPE SERIES, RM BÁSICOS, INSTRUCCIONES…
     if (!y || !m) { avisos.push('hoja ' + sh.name + ': pon el mes en la columna Mes de «fuentes»'); return; }
     const d1 = +nm[1], d2 = +nm[2];
+    // Semana que cruza de mes («28-2»): si acaba antes de que empiecen las demás hojas, es la primera (28 sep – 2 oct)
+    const otras = wb.map(function (o) { const q = String(o.name).trim().match(/^(\d{1,2})\s*[-–_]\s*(\d{1,2})$/); return q && +q[1] <= +q[2] ? +q[1] : null; })
+      .filter(function (x) { return x !== null; });
+    const previo = d1 > d2 && otras.length && d2 < Math.min.apply(null, otras);
+    const ym = previo ? (m === 1 ? { y: y - 1, m: 12 } : { y: y, m: m - 1 }) : { y: y, m: m };
     for (let r = 1; r <= maxRow; r++) {
       Object.keys(grid[r] || {}).forEach(function (cs) {
         const c = +cs;
@@ -687,7 +692,7 @@ function parseWorkbook_(wb, y, m) {
         }
         const where = 'hoja ' + sh.name + ' celda ' + colLet_(c) + r;
         if (dow < 0) { avisos.push('bloque sin día (' + where + ')'); return; }
-        const fecha = fechaBloque_(d1, d2, y, m, dow);
+        const fecha = fechaBloque_(d1, d2, ym.y, ym.m, dow);
         if (!fecha) { avisos.push(DIAS[dow] + ' no cae entre los días ' + sh.name + ' (' + where + ')'); return; }
         const ejercicios = [];
         let vacias = 0, trasHueco = false, seccion = '', hayPrincipal = false, subPlyo = false;
@@ -713,12 +718,13 @@ function parseWorkbook_(wb, y, m) {
             if (seccion === 'p') hayPrincipal = true;
             continue;
           }
-          if (seccion === 'conc' && esCardio_(v.name)) continue;   // concurrente: la parte aeróbica se registra aparte
+          // Filas solo aeróbicas (bici, remo ergómetro…): se registran aparte. En una biserie con fuerza, la fuerza sí se importa
+          if (partesBiserie_(v.name).every(function (x) { return esCardio_(x, seccion === 'conc'); })) continue;
           // Después de un hueco, solo cuentan las filas con series o repeticiones (no las notas sueltas de abajo)
           if (trasHueco && v.series === '' && v.reps === '') continue;
           if (!v.name) { if (v.series !== '' || v.reps !== '') sinNombre++; continue; }
           ejercicios.push({ name: v.name.replace(/\s+/g, ' '), series: v.series, repsTxt: String(v.reps).trim(),
-            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: seccion === 'p' || seccion === 'conc', act: seccion === 'act', plyo: subPlyo && seccion !== 'act' });
+            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, conc: seccion === 'conc', principal: seccion === 'p' || seccion === 'conc', act: seccion === 'act', plyo: subPlyo && seccion !== 'act' });
         }
         // Activación + parte principal; si el bloque no tiene «P. PRINCIPAL», se importa entero (y se avisa)
         if (hayPrincipal) {
@@ -810,9 +816,10 @@ function segundosDe_(txt) {
 }
 
 // Máquina o ejercicio aeróbico dentro de un bloque concurrente (bici, remo ergómetro, cinta, comba…). «Remo con barra» no lo es
-function esCardio_(name) {
+function esCardio_(name, conc) {
   const n = ' ' + sinAcentos_(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
-  return / (bici|bicicleta|bike|airbike|assault|spinning|ergometro|remoergometro|rower|skierg|ski erg|cinta|eliptica|carrera|correr|trote|run|running|sprint|sprints|comba|cuerda) /.test(n) ||
+  return / (bici|bicicleta|bike|airbike|assault|spinning|ergometro|remoergometro|rower|skierg|ski erg|cinta|eliptica|carrera|correr|trote|run|running|sprint|sprints) /.test(n) ||
+    (conc && / (comba|cuerda) /.test(n)) ||
     / remo (erg|ergo|ergometro|concept|maquina) /.test(n);
 }
 
@@ -866,7 +873,8 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       filas.push(r);
       return;
     }
-    const nombres = partesBiserie_(e.name);
+    const todas = partesBiserie_(e.name), nombres = todas.filter(function (x) { return !esCardio_(x, e.conc); });
+    if (todas.length && !nombres.length) return;      // solo aeróbico: se registra aparte
     const n = nombres.length || 1;
     const tipo = n === 2 ? 'biserie' : n === 3 ? 'triserie' : n > 3 ? 'circuito' : '';
     // «core» en Observaciones: cuenta como series de core aunque esté en la activación
@@ -903,6 +911,12 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       if (kg !== null && kg > 0 && kg <= 1000 && !e.plyo) r[PC.kg] = kg;
       if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '') r[PC.rpe] = rpeN;
       r[PC.origen] = origen;
+      // «6,4,3» con 3 series (un solo ejercicio): una fila por serie, que se juntan en el mismo ejercicio
+      const pir = n === 1 && !seg && r[PC.series] >= 2 ? String(repsTxt).split(/\s*[,;\/]\s*/).filter(function (x) { return x; }) : null;
+      if (pir && pir.length === r[PC.series] && pir.every(function (x) { return /^\d+$/.test(x); })) {
+        pir.forEach(function (x) { const c = r.slice(); c[PC.series] = 1; c[PC.reps] = +x; filas.push(c); });
+        return;
+      }
       filas.push(r);
     });
     if (peso.txt && /[a-záéíóúñ]{2}/i.test(peso.txt)) notas.push(e.name + ': ' + peso.txt);

@@ -129,6 +129,15 @@ console.log('· Plantilla de 4 tablas');
   eq(res.sesiones.map(s => s.fecha + ' ' + s.sesion + ': ' + s.ejercicios.map(e => e.name || e.aer.type).join(',')), ['2026-11-02 Pierna: Puente,Sentadilla,Bici'], 'tabla con día; vacía e incompleta fuera');
   ok(res.avisos.some(a => /sesión 2: falta el día/.test(a)), 'aviso: tabla con ejercicios sin día');
 }
+console.log('· Semana que cruza de mes y pirámide');
+{
+  const cab = r => ({ ['A' + r]: 'EJERCICIOS', ['B' + r]: 'SERIES', ['C' + r]: 'REPETICIONES', ['D' + r]: 'PESO' });
+  const h = (name, extra) => ({ name, cells: Object.assign({ A2: 'MARTES', A3: 'S' }, cab(4), { A5: 'P. PRINCIPAL', A6: 'Sentadilla', B6: 3, C6: 5 }, extra || {}) });
+  const res = X.parseWorkbook_([h('28-2'), h('5-9', { A7: 'Dominadas', B7: 3, C7: '6,4,3', A8: 'Bici Z2' })], 2026, 10);
+  eq(res.sesiones.map(s => s.fecha), ['2026-09-29', '2026-10-06'], '«28-2» en el Excel de octubre = 28 sep – 2 oct');
+  const f = X.filasDeSesion_('P', res.sesiones[1], 'x');
+  eq(f.map(r => r[X.PC.ejercicio] + ':' + r[X.PC.series] + 'x' + r[X.PC.reps]), ['Sentadilla:3x5', 'Dominadas:1x6', 'Dominadas:1x4', 'Dominadas:1x3'], 'pirámide 6,4,3 y la bici suelta fuera');
+}
 console.log('· Bloque concurrente');
 {
   const cells = { A2: 'LUNES', A3: 'Sesión', A4: 'EJERCICIOS', B4: 'SERIES', C4: 'REPETICIONES', D4: 'PESO', E4: 'RPE', F4: 'OBSERVACIONES',
