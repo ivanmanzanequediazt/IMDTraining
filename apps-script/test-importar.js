@@ -42,7 +42,7 @@ eq(['Pogos asistidos goma', 'Drop jump desde step', 'Frenadas remo invertido', '
   eq(X.filasDeSesion_('Pepe', sn, 'excel:x').map(r => r[X.PC.tipo]), ['Fuerza', 'Activación'], 'curl nórdico cuenta aunque esté en la activación'); }
 eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
   [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
-eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra'], 'subapartados de la parte principal');
+eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma', 'Concurrente', 'ETTO CONCURRENTE', 'Entrenamiento concurrente'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra', 'conc', 'conc', 'conc'], 'subapartados de la parte principal y concurrente');
 const fx = process.argv[2];
 if (fx && fs.existsSync(fx)) {
   console.log('· Excel de ejemplo: ' + path.basename(fx));
@@ -122,6 +122,13 @@ console.log('· Plantilla de 4 tablas');
   const res = X.parseWorkbook_([{ name: 'Semana 1', cells: c }], null, null);
   eq(res.sesiones.map(s => s.fecha + ' ' + s.sesion + ': ' + s.ejercicios.map(e => e.name || e.aer.type).join(',')), ['2026-11-02 Pierna: Puente,Sentadilla,Bici'], 'tabla con día; vacía e incompleta fuera');
   ok(res.avisos.some(a => /sesión 2: falta el día/.test(a)), 'aviso: tabla con ejercicios sin día');
+}
+console.log('· Bloque concurrente: no se importa');
+{
+  const cells = { A2: 'LUNES', A3: 'Sesión', A4: 'EJERCICIOS', B4: 'SERIES', C4: 'REPETICIONES', D4: 'PESO', E4: 'RPE', F4: 'OBSERVACIONES',
+    A5: 'P. PRINCIPAL', A6: 'Sentadilla', B6: 3, C6: 5, A7: 'Etto concurrente', A8: 'Bici', B8: 1, C8: '10 min', A9: 'Burpees', B9: 3, C9: 10 };
+  const res = X.parseWorkbook_([{ name: '05-09', cells: cells }], 2026, 10);
+  eq(res.sesiones[0].ejercicios.map(e => e.name), ['Sentadilla'], 'lo del bloque concurrente se queda fuera');
 }
 console.log('· Aeróbico con tiempo y zona en Observaciones');
 {

@@ -350,6 +350,8 @@ function esSeccion_(name) {
 function tipoSeccion_(name) {
   const k = sinAcentos_(name).replace(/[^a-z]/g, '');
   if (!k) return '';
+  // Bloque de entrenamiento concurrente (bici, remo ergómetro…): se registra aparte como aeróbico, no se importa
+  if (/concurrente/.test(k)) return 'conc';
   if (k === 'pp' || k === 'ppal' || /^(parteprincipal|pprincipal|principal|bloqueprincipal)/.test(k)) return 'p';
   // Subapartados de la parte principal (Fuerza, Potencia, Pliometría…): cuentan como parte principal
   if (/^(fuerza|potencia|pliometria|pliometrico|saltos|velocidad|lanzamientos|deceleracion)$/.test(k)) return 'p';
@@ -703,7 +705,7 @@ function parseWorkbook_(wb, y, m) {
           // Título de sección: sin series ni repeticiones y con nombre de sección (o en MAYÚSCULAS y corto)
           const sinNumeros = v.series === '' && v.reps === '';
           // «P. PRINCIPAL» o «ACTIVACIÓN» son siempre título, aunque en su fila se hayan quedado series o repeticiones
-          const tFuerte = v.name && /^(p|act)$/.test(tipoSeccion_(v.name)) && v.name.length <= 24;
+          const tFuerte = v.name && /^(p|act|conc)$/.test(tipoSeccion_(v.name)) && v.name.length <= 30;
           if (tFuerte && !sinNumeros) avisos.push('«' + v.name.trim() + '» tiene series o repeticiones en su fila; se toma como título (hoja ' + sh.name + ' fila ' + rr + ')');
           if (v.name && (tFuerte || sinNumeros) && (esSeccion_(v.name) || (!otros && v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20))) {
             seccion = tipoSeccion_(v.name) || 'otra';
@@ -711,6 +713,7 @@ function parseWorkbook_(wb, y, m) {
             if (seccion === 'p') hayPrincipal = true;
             continue;
           }
+          if (seccion === 'conc') continue;           // concurrente: lo registra aparte como aeróbico
           // Después de un hueco, solo cuentan las filas con series o repeticiones (no las notas sueltas de abajo)
           if (trasHueco && v.series === '' && v.reps === '') continue;
           if (!v.name) { if (v.series !== '' || v.reps !== '') sinNombre++; continue; }
