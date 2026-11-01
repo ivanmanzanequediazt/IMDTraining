@@ -691,8 +691,23 @@ const MG=[['back','Espalda','Espalda'],['shoulders','Hombros','Hombros'],['chest
   ['core','Core','Core'],['quads','Muslo anterior','Muslo ant.'],['hams','Muslo posterior (isquios)','Muslo post.'],['glutes','Glúteo','Glúteo'],['add','Aductores','Aductores'],['calves','Pantorrillas','Pantorrillas']];
 // Asignación propuesta por palabras clave (el orden importa: lo más específico primero). p = principal, s = secundario
 const MG_RULES=[
-  [['aductor','aduccion','copenhague','copenhagen'],{add:'p'}],
-  [['curl femoral','nordic','isquio'],{hams:'p'}],
+  [['aductor','aduccion','copenhague','copenhagen','copenaghe','copenague'],{add:'p',core:'s'}],
+  [['flexion de cadera','flexion cadera','flex cadera','flexor de cadera','flexores de cadera','psoas'],{core:'p'}],
+  [['thruster','wallball','wall ball'],{quads:'p',shoulders:'s',glutes:'s',triceps:'s'}],
+  [['floor press'],{chest:'p',triceps:'s'}],
+  [['z press'],{shoulders:'p',triceps:'s',core:'s'}],
+  [['trineo','arrastre'],{quads:'p',glutes:'s',calves:'s'}],
+  [['pogo'],{calves:'p'}],
+  [['salto','jump','drop','abalakov','cmj','multisalto','bound','valla','hop','patinador','skater'],{quads:'p',glutes:'s',calves:'s'}],
+  [['slam','lanzamiento','ball shot','balon','medicine ball','catch'],{core:'p',shoulders:'s'}],
+  [['oso','bear crawl','birdog','bird dog','deadbug','dead bug','hipopresiv','windmill','molino','turco','get up','palof','pallof'],{core:'p',shoulders:'s'}],
+  [['halo','arm bar'],{shoulders:'p',core:'s'}],
+  [['escapular','retraccion','pull apart','face pull','y t w'],{shoulders:'p',back:'s'}],
+  [['ext lumbar','extension lumbar','lumbar'],{back:'p',glutes:'s'}],
+  [['puente'],{glutes:'p',hams:'s'}],
+  [['tiron','high pull','remo alto'],{back:'p',shoulders:'s'}],
+  [['sentadilla lateral','zancada lateral','lateral lunge','cosaca','cossack'],{quads:'p',add:'s',glutes:'s'}],
+  [['curl femoral','nordic','isquio','femoral'],{hams:'p'}],
   [['good morning','buenos dias','hiperextension'],{hams:'p',glutes:'s',back:'s'}],
   [['hip thrust','puente de gluteo','patada de gluteo','abduc','gluteo','clamshell','almeja','monster walk'],{glutes:'p'}],
   [['peso muerto rumano','rumano','stiff','piernas rigidas'],{hams:'p',glutes:'s',back:'s'}],
@@ -705,12 +720,12 @@ const MG_RULES=[
   [['fondos','dips'],{chest:'p',triceps:'s',shoulders:'s'}],
   [['press inclinado'],{chest:'p',shoulders:'s',triceps:'s'}],
   [['aperturas','cruce de poleas','pec deck'],{chest:'p'}],
-  [['press banca','banca','press de pecho','flexiones','push up'],{chest:'p',triceps:'s'}],
+  [['press banca','banca','press de pecho','flexiones','flexion','push up','gusano'],{chest:'p',triceps:'s'}],
   [['landmine'],{shoulders:'p',chest:'s',triceps:'s'}],
   [['elevaciones laterales','elevacion lateral','elevaciones frontales','pajaro','face pull'],{shoulders:'p'}],
   [['press militar','press de hombro','press arnold','push press','hombro'],{shoulders:'p',triceps:'s'}],
   [['dominada','pull up','chin up','jalon','remo','pull over','pullover','encogimiento'],{back:'p',biceps:'s'}],
-  [['plancha','crunch','rueda','pallof','dead bug','abdominal','core','rotacion','lenador','hollow','rueda abdominal','farmer','paseo del granjero'],{core:'p'}]];
+  [['plancha','crunch','rueda','pallof','dead bug','abdominal','core','rotacion','lenador','hollow','rueda abdominal','farmer','paseo del granjero','paseo','antirrotacion'],{core:'p'}]];
 // Datos antiguos: «post» (muslo posterior y glúteo) y «arms» (brazos) se reparten en los grupos nuevos según el ejercicio
 function fixLegacyM(m,name){if(!m||!(m.post||m.arms))return m;const out={...m},sg=suggestMuscles(name)||{};delete out.post;delete out.arms;
   const take=(old,keys,fb)=>{const hit=keys.filter(k=>sg[k]);if(hit.length)for(const k of hit)out[k]=old==='s'?'s':sg[k];else out[fb]=old};
@@ -718,7 +733,29 @@ function fixLegacyM(m,name){if(!m||!(m.post||m.arms))return m;const out={...m},s
 function suggestMuscles(name){const n=normTxt(name);if(!n)return null;
   for(const [keys,m] of MG_RULES)if(keys.some(k=>n.includes(k)))return {...m};return {}}
 const coreByVar=e=>/(^| )core( |$)/.test(normTxt(e.variant||''))?{core:'p'}:null;
-const musclesOf=e=>fixLegacyM(e.muscles,e.name)||(l=>l&&Object.keys(l.muscles||{}).length?{...l.muscles}:null)(libFind(e.name))||coreByVar(e)||suggestMuscles(e.name)||{};
+// Grupos de un ejercicio: lo asignado a mano > «core» en el Excel > batería (nombre igual o parecido) > palabras clave
+const LIB_STOP=new Set(['de','del','la','el','las','los','con','a','al','en','y','o','kb','db','mancuerna','mancuernas','barra','goma','polea','disco','unilateral','bilateral',
+  'caballero','pie','sentado','sentada','tumbado','tumbada','boca','arriba','abajo','iso','isometrico','isometrica','excentrico','excentrica','asistido','asistida','lado','pared','suave','lastre','sin','por']);
+const libToks=name=>normTxt(String(name||'').replace(/\bpm\b/ig,'peso muerto').replace(/\brdl\b/ig,'peso muerto rumano')).split(/[^a-z0-9]+/).filter(t=>t.length>1&&!LIB_STOP.has(t)).map(t=>t.replace(/(es|s)$/,''));
+let libTokCache=null,libTokKey='';
+function libMatch(name){const ex=libFind(name);if(ex&&Object.keys(ex.muscles||{}).length)return {l:ex,n:99};
+  const key=(S.exercises||[]).length+'|'+(S.exercises||[]).reduce((a,x)=>a+(x.updatedAt||0),0);
+  if(libTokKey!==key){libTokKey=key;libTokCache=libAll().filter(x=>Object.keys(x.muscles||{}).length).map(x=>({l:x,t:libToks(x.name)})).filter(x=>x.t.length)}
+  const et=new Set(libToks(name));let best=null;
+  for(const c of libTokCache)if(c.t.every(t=>et.has(t))&&(!best||c.t.length>best.n))best={l:c.l,n:c.t.length};
+  return best}
+function deriveMuscles(e,man){const n=normTxt(e.name);if(!n)return {};
+  if(man&&man.get(n))return {...man.get(n)};const cv=coreByVar(e);if(cv)return cv;
+  const lm=libMatch(e.name);if(lm&&lm.n>=2)return {...lm.l.muscles};
+  const sg=suggestMuscles(e.name);if(sg&&Object.keys(sg).length)return sg;
+  return lm?{...lm.l.muscles}:{}}
+// Asignaciones hechas a mano en otras sesiones del mismo deportista (por nombre)
+function manualMuscleMap(uid,exceptId){const m=new Map();
+  for(const st of S.strength.filter(x=>x.userId===uid&&x.id!==exceptId).sort((a,b)=>a.startTime-b.startTime))
+    for(const e of st.exercises||[])if(e.muscles&&!e.mAuto&&Object.keys(e.muscles).length)m.set(normTxt(e.name),fixLegacyM(e.muscles,e.name));
+  return m}
+const manualM=e=>e.muscles&&!e.mAuto&&Object.keys(e.muscles).length;
+const musclesOf=(e,man)=>manualM(e)?fixLegacyM(e.muscles,e.name):deriveMuscles(e,man);
 // Series y kg por grupo: principal cuenta 1 y secundario 0,5 (recuento fraccional)
 // Carga de fuerza = volumen relativo: cada serie suma repeticiones × %1RM. El % sale de los kg y el 1RM estimado del ejercicio;
 // sin eso, de las repeticiones y el RPE/RIR (escala de repeticiones en reserva, %1RM ≈ (37 − reps − RIR) / 36); sin nada, 60 %
@@ -736,10 +773,10 @@ function exLoad(e,rms){let rel=0,plyo=0;if(e.act)return {rel,plyo};
 function strengthLoad(st,rms){let rel=0,plyo=0;for(const e of st.exercises||[]){const l=exLoad(e,rms);rel+=l.rel;plyo+=l.plyo}return {rel:Math.round(rel),plyo:Math.round(plyo)}}
 const rmMap=uid=>new Map(exerciseRecords(uid).filter(r=>r.rm?.v).map(r=>[r.key,r.rm.v]));
 function strengthItems(uid,kind){const rms=rmMap(uid);return stOf(uid).map(st=>({t:st.startTime,load:strengthLoad(st,rms)[kind]}))}
-function muscleVolume(sessions){const rms=sessions.length?rmMap(sessions[0].userId):null;
+function muscleVolume(sessions){const rms=sessions.length?rmMap(sessions[0].userId):null,man=sessions.length?manualMuscleMap(sessions[0].userId):null;
   const out={},un={sets:0,kg:0,rel:0};for(const [g] of MG)out[g]={sets:0,setsD:0,kg:0,kgD:0,rel:0,relD:0};
   for(const st of sessions){const k=strengthStats(st);
-    st.exercises.forEach((e,i)=>{const x=k.ex[i];if(!x||!x.sets||e.act)return;const m=musclesOf(e),gs=Object.keys(m).filter(g=>out[g]);
+    st.exercises.forEach((e,i)=>{const x=k.ex[i];if(!x||!x.sets||e.act)return;const m=musclesOf(e,man),gs=Object.keys(m).filter(g=>out[g]);
       const ef=exLoad(e,rms).rel;if(!gs.length){un.sets+=x.sets;un.kg+=x.vol;un.rel+=ef;return}
       for(const g of gs){const f=m[g]==='p'?1:0.5;out[g].sets+=x.sets*f;out[g].kg+=x.vol*f;out[g].rel+=ef*f;if(m[g]==='p'){out[g].setsD+=x.sets;out[g].kgD+=x.vol;out[g].relD+=ef}}})}
   return {groups:out,unassigned:un}}
@@ -1399,10 +1436,18 @@ function libItem(x,act){const gs=MG.filter(([g])=>x.muscles?.[g]).map(([g,,sh])=
   return `<button class="item" data-act="${act}" data-id="${x.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${esc(movLabel(x.mov)||'Sin movimiento')}${x.uni?' · unilateral':''}${gs.length?' · '+gs.join(', '):''}</span></span>${x.edited||!x.base?`<span class="tag">${x.base?'Editado':'Tuyo'}</span>`:''}${ic('chev','sm')}</button>`}
 function libListHTML(act){const list=libFilter(libAll());
   return list.length?`<div class="list">${list.map(x=>libItem(x,act)).join('')}</div>`:`<div class="empty small">No hay ejercicios con ese filtro.</div>`}
-V.exlib=()=>`<div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
+// Ejercicios de las sesiones registradas que no tienen ningún grupo muscular (para asignarlo una vez en la batería)
+function sinGrupo(){const m=new Map();
+  const mans=new Map();for(const st of S.strength){if(st.example)continue;if(!mans.has(st.userId))mans.set(st.userId,manualMuscleMap(st.userId));const man=mans.get(st.userId);
+    for(const e of st.exercises||[]){if(e.act||!normTxt(e.name)||!(e.sets||[]).some(x=>+x.reps>0))continue;
+      if(Object.keys(musclesOf(e,man)).length)continue;const k=normTxt(e.name),c=m.get(k);if(c)c.n++;else m.set(k,{name:e.name.trim(),n:1})}}
+  return [...m.values()].sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name,'es'))}
+V.exlib=()=>{const sg=sinGrupo();return (sg.length?`<details class="card sg-card"${S.sgOpen?' open':''}><summary><span class="lbl">Sin grupo muscular</span> <span class="tag pend">${sg.length}</span></summary>
+    <span class="hint">Ejercicios de tus sesiones que no cuentan en ningún grupo. Toca uno, marca sus grupos y guárdalo: se aplica a todas las sesiones donde aparezca.</span>
+    <div class="list">${sg.slice(0,40).map(x=>`<button class="item" data-act="exNewFrom" data-n="${esc(x.name)}"><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${x.n} ${x.n===1?'vez':'veces'}</span></span>${ic('chev','sm')}</button>`).join('')}</div></details>`:'')+`<div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
   <div class="sec-h"><span class="hint num" id="libCount">${libFilter(libAll()).length} ejercicios</span><button class="btn small primary" data-act="exNew">${ic('plus')}Nuevo ejercicio</button></div>
   <div id="libList">${libListHTML('exOpen')}</div>
-  ${info('La batería base viene con la app. Lo que cambies o añadas se guarda en tu hoja de Google y sale igual en tu móvil y en tu ordenador. Al programar, elige los ejercicios de aquí: el cliente verá sus indicaciones al tocar «Cómo se hace».','Cómo funciona')}`;
+  ${info('La batería base viene con la app. Lo que cambies o añadas se guarda en tu hoja de Google y sale igual en tu móvil y en tu ordenador. Al programar, elige los ejercicios de aquí: el cliente verá sus indicaciones al tocar «Cómo se hace».','Cómo funciona')}`};
 V.exedit=()=>{const x=S.exDraft;if(!x)return'<div class="empty">Ejercicio no encontrado.</div>';const m=x.muscles||{};
   return `<div class="card"><div class="field"><label for="exName">Nombre</label><input id="exName" data-xf="name" value="${esc(x.name||'')}" placeholder="Nombre del ejercicio"></div>
     <label class="uni"><input type="checkbox" id="exUni"${x.uni?' checked':''}> Unilateral</label>
@@ -1876,13 +1921,10 @@ function cardioCard(st){const c=st.cardioId&&S.sessions.find(x=>x.id===st.cardio
     <button class="btn ${plan?'primary ':''}wide" data-act="stCardio">${ic('heart')}${plan?'Empezar aeróbico con pulsómetro':'Añadir aeróbico con pulsómetro'}</button></div>`}
 const rmKey=()=>{const k=lsGet('rmFormula');return RM_FORMULAS[k]?k:'brzycki'};
 // Grupos musculares en el registro: toque = principal, otro toque = secundario, otro = quitar
-function autoMuscles(st){let ch=false;
-  for(const e of st.exercises){const n=normTxt(e.name);if(!n)continue;
-    if(e.muscles&&(e.muscles.post||e.muscles.arms)){if(e.mAuto)delete e.muscles;else{e.muscles=fixLegacyM(e.muscles,e.name);ch=true;continue}}
-    if(e.muscles&&!(e.mAuto&&e.mFor!==n))continue;
-    let m=null;for(const s2 of [...S.strength].filter(x=>x.userId===st.userId&&x.id!==st.id).sort((a,b)=>b.startTime-a.startTime)){
-      const f=s2.exercises.find(x=>normTxt(x.name)===n&&x.muscles&&!x.mAuto);if(f){m={...fixLegacyM(f.muscles,f.name)};break}}
-    e.muscles=m||(l=>l&&Object.keys(l.muscles||{}).length?{...l.muscles}:null)(libFind(e.name))||coreByVar(e)||suggestMuscles(e.name)||{};e.mAuto=true;e.mFor=n;ch=true}
+function autoMuscles(st){let ch=false;const man=manualMuscleMap(st.userId,st.id);
+  for(const e of st.exercises){const n=normTxt(e.name);if(!n||e.act)continue;
+    if(manualM(e)){if(e.muscles.post||e.muscles.arms){e.muscles=fixLegacyM(e.muscles,e.name);ch=true}continue}
+    const m=deriveMuscles(e,man);if(JSON.stringify(m)!==JSON.stringify(e.muscles||{})||!e.mAuto){e.muscles=m;e.mAuto=true;e.mFor=n;ch=true}}
   return ch}
 function mgChips(e,i){const m=e.muscles||{};
   return `<div class="mg" role="group" aria-label="Grupos musculares del ejercicio ${i+1}">${MG.map(([g,,sh])=>`<button type="button" class="mg-c ${m[g]||''}" data-act="mgToggle" data-i="${i}" data-g="${g}" aria-pressed="${!!m[g]}" title="${m[g]==='p'?'Principal':m[g]==='s'?'Secundario':'Sin asignar'}">${sh}${m[g]==='s'?' ½':''}</button>`).join('')}</div>
@@ -3041,6 +3083,7 @@ const A={
   exMov(_,b){S.exmov=b.dataset.v;refreshLibList()},
   exMg(_,b){S.exmg=b.dataset.v;refreshLibList()},
   exOpen(id){const x=libById(id);if(!x)return;S.exDraft=JSON.parse(JSON.stringify(x));S.exDelArm=false;go('exedit',id)},
+  exNewFrom(_,b){S.exDraft={name:b.dataset.n,mov:'',muscles:{},cues:[]};S.exDelArm=false;S.sgOpen=true;go('exedit',null)},
   exNew(){S.exDraft={name:S.exq||'',mov:S.exmov||'',muscles:S.exmg?{[S.exmg]:'p'}:{},cues:[]};S.exDelArm=false;go('exedit',null)},
   exMgT(_,b){const m=S.exDraft.muscles||(S.exDraft.muscles={}),g=b.dataset.g;m[g]=!m[g]?'p':m[g]==='p'?'s':undefined;if(!m[g])delete m[g];const y=scrollY;render();scrollTo(0,y)},
   async exSave(){const x=S.exDraft,name=(x.name||'').trim();if(!name){toast('Ponle un nombre al ejercicio');return}
