@@ -703,7 +703,8 @@ function fixLegacyM(m,name){if(!m||!(m.post||m.arms))return m;const out={...m},s
   if(m.post)take(m.post,['glutes','hams'],'glutes');if(m.arms)take(m.arms,['biceps','triceps'],'biceps');return out}
 function suggestMuscles(name){const n=normTxt(name);if(!n)return null;
   for(const [keys,m] of MG_RULES)if(keys.some(k=>n.includes(k)))return {...m};return {}}
-const musclesOf=e=>fixLegacyM(e.muscles,e.name)||(l=>l&&Object.keys(l.muscles||{}).length?{...l.muscles}:null)(libFind(e.name))||suggestMuscles(e.name)||{};
+const coreByVar=e=>/(^| )core( |$)/.test(normTxt(e.variant||''))?{core:'p'}:null;
+const musclesOf=e=>fixLegacyM(e.muscles,e.name)||(l=>l&&Object.keys(l.muscles||{}).length?{...l.muscles}:null)(libFind(e.name))||coreByVar(e)||suggestMuscles(e.name)||{};
 // Series y kg por grupo: principal cuenta 1 y secundario 0,5 (recuento fraccional)
 // Carga de fuerza = volumen relativo: cada serie suma repeticiones × %1RM. El % sale de los kg y el 1RM estimado del ejercicio;
 // sin eso, de las repeticiones y el RPE/RIR (escala de repeticiones en reserva, %1RM ≈ (37 − reps − RIR) / 36); sin nada, 60 %
@@ -1867,7 +1868,7 @@ function autoMuscles(st){let ch=false;
     if(e.muscles&&!(e.mAuto&&e.mFor!==n))continue;
     let m=null;for(const s2 of [...S.strength].filter(x=>x.userId===st.userId&&x.id!==st.id).sort((a,b)=>b.startTime-a.startTime)){
       const f=s2.exercises.find(x=>normTxt(x.name)===n&&x.muscles&&!x.mAuto);if(f){m={...fixLegacyM(f.muscles,f.name)};break}}
-    e.muscles=m||(l=>l&&Object.keys(l.muscles||{}).length?{...l.muscles}:null)(libFind(e.name))||suggestMuscles(e.name)||{};e.mAuto=true;e.mFor=n;ch=true}
+    e.muscles=m||(l=>l&&Object.keys(l.muscles||{}).length?{...l.muscles}:null)(libFind(e.name))||coreByVar(e)||suggestMuscles(e.name)||{};e.mAuto=true;e.mFor=n;ch=true}
   return ch}
 function mgChips(e,i){const m=e.muscles||{};
   return `<div class="mg" role="group" aria-label="Grupos musculares del ejercicio ${i+1}">${MG.map(([g,,sh])=>`<button type="button" class="mg-c ${m[g]||''}" data-act="mgToggle" data-i="${i}" data-g="${g}" aria-pressed="${!!m[g]}" title="${m[g]==='p'?'Principal':m[g]==='s'?'Secundario':'Sin asignar'}">${sh}${m[g]==='s'?' ½':''}</button>`).join('')}</div>

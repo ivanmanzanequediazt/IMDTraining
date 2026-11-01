@@ -35,6 +35,9 @@ eq(['Pogos asistidos goma', 'Drop jump desde step', 'Frenadas remo invertido', '
     { name: 'Remo', series: 2, repsTxt: '8', pesoTxt: '', rpe: 8, obs: 'pliometría suave' }] };
   const fp = X.filasDeSesion_('Pepe', sp, 'excel:x');
   eq(fp.map(r => [r[X.PC.plyo], r[X.PC.int]]), [[true, 'Baja'], [true, 'Media'], [true, 'Alta'], [true, 'Alta']], 'pliometría por Observaciones e intensidad por RPE'); }
+{ const sc = { fecha: '2026-10-06', sesion: 'X', ejercicios: [{ name: 'Oso birdog', series: 2, repsTxt: '6 rep por lado', pesoTxt: '', rpe: 6, obs: 'core', act: true }] };
+  const fc = X.filasDeSesion_('Pepe', sc, 'excel:x')[0];
+  eq([fc[X.PC.tipo], fc[X.PC.series], fc[X.PC.variante].split(' · ')[0]], ['Fuerza', 2, 'core'], '«core» en Observaciones: cuenta como series'); }
 eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
   [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
 eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra'], 'subapartados de la parte principal');

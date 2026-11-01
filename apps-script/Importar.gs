@@ -845,6 +845,8 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
     const nombres = partesBiserie_(e.name);
     const n = nombres.length || 1;
     const tipo = n === 2 ? 'biserie' : n === 3 ? 'triserie' : n > 3 ? 'circuito' : '';
+    // «core» en Observaciones: cuenta como series de core aunque esté en la activación
+    const core = /(^|[^a-z])core([^a-z]|$)/.test(sinAcentos_(e.obs || ''));
     const series = typeof e.series === 'number' ? Math.round(e.series) : primerNumero_(e.series, false);
     const repsP = repartir_(e.repsTxt, n);
     const peso = e.pesos ? { txt: letra && e.pesos[letra] !== undefined ? String(e.pesos[letra]) : (letra ? '' : e.pesoTxt), val: null }
@@ -854,10 +856,10 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
     const rpeN = typeof rpe.val === 'number' ? rpe.val : primerNumero_(rpe.txt, true);
     (nombres.length ? nombres : [e.name]).forEach(function (nombre, k) {
       const r = PROG_HEADERS.map(function () { return ''; });
-      r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = e.act ? 'Activación' : 'Fuerza';
+      r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = e.act && !core ? 'Activación' : 'Fuerza';
       r[PC.ejercicio] = nombre;
       // Pliometría: marcada en el Excel, por el apartado, por el nombre o con «pliometría» en Observaciones
-      const plyo = !e.act && (!!e.plyo || esPlyo_(nombre) || /pliometri/.test(sinAcentos_(e.obs || '')));
+      const plyo = !(e.act && !core) && (!!e.plyo || esPlyo_(nombre) || /pliometri/.test(sinAcentos_(e.obs || '')));
       r[PC.unilateral] = !!e.unilateral; r[PC.plyo] = plyo;
       // Intensidad de la pliometría según el RPE: < 4 baja, 4–6 media, > 6 alta (sin RPE, media)
       if (plyo && rpeN !== null && rpe.txt !== '') r[PC.int] = rpeN < 4 ? 'Baja' : rpeN <= 6 ? 'Media' : 'Alta';
@@ -866,7 +868,7 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const reps = primerNumero_(repsTxt, false);
       r[PC.reps] = reps && reps >= 1 ? reps : '';
       const textoReps = repsTxt && !/^\d+$/.test(repsTxt) ? repsTxt.replace(/\s+/g, ' ') : '';
-      r[PC.variante] = [tipo, textoReps, e.nota || ''].filter(function (x) { return x; }).join(' · ');
+      r[PC.variante] = [core ? 'core' : '', tipo, textoReps, e.nota || ''].filter(function (x) { return x; }).join(' · ');
       // Peso: repartido si viene separado ("40 / 10"); si es uno solo, es del primer ejercicio de la biserie
       const pesoTxt = pesoP ? pesoP[k] : (k === 0 ? peso.txt : '');
       const kg = pesoTxt === '' ? null : primerNumero_(pesoTxt, true);
