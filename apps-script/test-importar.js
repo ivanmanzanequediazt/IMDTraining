@@ -28,6 +28,13 @@ eq([X.primerNumero_("17'5 lado", true), X.primerNumero_('50 kg', true), X.primer
   eq(X.filasDeSesion_('Pepe', so, 'excel:x')[0][X.PC.rpe], 8, 'RPE de cada ejercicio'); }
 eq(['Pogos asistidos goma', 'Drop jump desde step', 'Frenadas remo invertido', 'slam ball lado a lado', 'Sentadilla con salto', 'Press banca', 'Remo drop set', 'Peso muerto'].map(X.esPlyo_),
   [true, true, true, true, true, false, false, false], 'pliometría por el nombre');
+{ const sp = { fecha: '2026-10-06', sesion: 'X', ejercicios: [
+    { name: 'Lanzamiento lateral', series: 2, repsTxt: '6', pesoTxt: '', rpe: 3, obs: 'pliometría' },
+    { name: 'Saltos al cajón', series: 2, repsTxt: '5', pesoTxt: '', rpe: 5, obs: '' },
+    { name: 'Drop jump', series: 2, repsTxt: '4', pesoTxt: '', rpe: 8, obs: '' },
+    { name: 'Remo', series: 2, repsTxt: '8', pesoTxt: '', rpe: 8, obs: 'pliometría suave' }] };
+  const fp = X.filasDeSesion_('Pepe', sp, 'excel:x');
+  eq(fp.map(r => [r[X.PC.plyo], r[X.PC.int]]), [[true, 'Baja'], [true, 'Media'], [true, 'Alta'], [true, 'Alta']], 'pliometría por Observaciones e intensidad por RPE'); }
 eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
   [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
 eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra'], 'subapartados de la parte principal');

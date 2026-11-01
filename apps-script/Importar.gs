@@ -856,7 +856,11 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const r = PROG_HEADERS.map(function () { return ''; });
       r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = e.act ? 'Activación' : 'Fuerza';
       r[PC.ejercicio] = nombre;
-      r[PC.unilateral] = !!e.unilateral; r[PC.plyo] = !e.act && (!!e.plyo || esPlyo_(nombre));
+      // Pliometría: marcada en el Excel, por el apartado, por el nombre o con «pliometría» en Observaciones
+      const plyo = !e.act && (!!e.plyo || esPlyo_(nombre) || /pliometri/.test(sinAcentos_(e.obs || '')));
+      r[PC.unilateral] = !!e.unilateral; r[PC.plyo] = plyo;
+      // Intensidad de la pliometría según el RPE: < 4 baja, 4–6 media, > 6 alta (sin RPE, media)
+      if (plyo && rpeN !== null && rpe.txt !== '') r[PC.int] = rpeN < 4 ? 'Baja' : rpeN <= 6 ? 'Media' : 'Alta';
       r[PC.series] = series && series >= 1 && series <= 20 ? series : 1;
       const repsTxt = repsP ? repsP[k] : e.repsTxt;
       const reps = primerNumero_(repsTxt, false);

@@ -712,8 +712,10 @@ function setPct(s,rm){const r=+s.reps,kg=+s.kg;if(rm&&kg>0)return Math.min(1.2,k
   return rir!=null?Math.max(.3,Math.min(1,(37-(r+rir))/36)):.6}
 // Pliometría = contactos × intensidad (baja 1, media 2, alta 3; sin marcar, media)
 const PLYO_W={1:1,2:2,3:3};
+// Intensidad: la marcada; si no, por el RPE (< 4 baja, 4–6 media, > 6 alta); sin nada, media
+const plyoW=s=>PLYO_W[+s.int]||(s.rpe!=null&&s.rpe!==''?(+s.rpe<4?1:+s.rpe<=6?2:3):2);
 function exLoad(e,rms){let rel=0,plyo=0;if(e.act)return {rel,plyo};
-  if(e.plyo){for(const s of e.sets||[])if(+s.reps>0)plyo+=(+s.reps)*(PLYO_W[+s.int]||2);return {rel,plyo}}
+  if(e.plyo){for(const s of e.sets||[])if(+s.reps>0)plyo+=(+s.reps)*plyoW(s);return {rel,plyo}}
   const rm=rms&&rms.get(exKey(e));for(const s of e.sets||[]){const r=+s.reps;if(r>0)rel+=r*setPct(s,rm)/(e.unilateral?2:1)}
   return {rel,plyo}}
 function strengthLoad(st,rms){let rel=0,plyo=0;for(const e of st.exercises||[]){const l=exLoad(e,rms);rel+=l.rel;plyo+=l.plyo}return {rel:Math.round(rel),plyo:Math.round(plyo)}}
@@ -1640,7 +1642,7 @@ V.profile=()=>{
           <button type="button" data-act="stLoadKind" data-v="rel" class="${sk==='rel'?'on':''}" aria-checked="${sk==='rel'}" role="radio">Fuerza</button>
           <button type="button" data-act="stLoadKind" data-v="plyo" class="${sk==='plyo'?'on':''}" aria-checked="${sk==='plyo'}" role="radio">Pliometría</button></div>
         <canvas id="efv" style="height:150px" role="img" aria-label="Carga por semana"></canvas>
-        ${info(sk==='rel'?'Carga de fuerza (volumen relativo): cada serie suma repeticiones × % del 1RM. 5 repeticiones al 80 % = 4; 5 al 50 % = 2,5. El % sale de los kg y el 1RM estimado del ejercicio; si no hay, se estima con las repeticiones y el RPE o RIR de la serie, y si tampoco hay, se toma un 60 %. Cuenta igual una serie explosiva con RPE bajo que una cerca del fallo: lo que pesa es la intensidad y las repeticiones.':'Carga de pliometría: contactos × intensidad (baja ×1, media ×2, alta ×3; sin marcar cuenta como media). 30 saltos de intensidad alta = 90.','Cómo se calcula')}</div>`})()}
+        ${info(sk==='rel'?'Carga de fuerza (volumen relativo): cada serie suma repeticiones × % del 1RM. 5 repeticiones al 80 % = 4; 5 al 50 % = 2,5. El % sale de los kg y el 1RM estimado del ejercicio; si no hay, se estima con las repeticiones y el RPE o RIR de la serie, y si tampoco hay, se toma un 60 %. Cuenta igual una serie explosiva con RPE bajo que una cerca del fallo: lo que pesa es la intensidad y las repeticiones.':'Carga de pliometría: contactos × intensidad (baja ×1, media ×2, alta ×3). Sin intensidad marcada se usa el RPE (menos de 4 baja, 4–6 media, más de 6 alta); sin nada, media. 30 saltos de intensidad alta = 90.','Cómo se calcula')}</div>`})()}
       <div class="card"><div class="sec-h"><span class="lbl">Volumen-carga por ${view==='week'?'semana':'mes'} · kg</span></div>
         <div class="seg two" role="radiogroup" aria-label="Agrupar por">
           <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
