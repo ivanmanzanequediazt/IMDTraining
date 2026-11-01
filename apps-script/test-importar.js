@@ -48,6 +48,8 @@ eq(["20''", '20"', '20 s', '30 seg', '45 segundos', "1'", '1 min', "1'30''", '6 
   eq(fi.map(r => [r[X.PC.reps], r[X.PC.variante]]), [[7, "20''"], [120, "1'"]], 'isométrico: 1 rep cada 3 s; pliometría por tiempo: 2 contactos/s'); }
 eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
   [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
+{ const sb = { fecha: '2026-10-06', sesion: 'X', ejercicios: [{ name: 'Pogos + drop jump', series: 2, repsTxt: '10', pesoTxt: '', rpe: '3 y 5', obs: '' }] };
+  eq(X.filasDeSesion_('P', sb, 'x').map(r => [r[X.PC.rpe], r[X.PC.int]]), [[3, 'Baja'], [5, 'Media']], 'RPE de cada ejercicio de la biserie'); }
 eq([X.repartir_('2,5 -- 12', 2), X.repartir_('4-6rep', 2)], [['2,5', '12'], null], 'separador « -- »');
 eq(['ACTICVACIÓN', 'Activcion', 'Actividad'].map(X.tipoSeccion_), ['act', 'act', ''], 'erratas de ACTIVACIÓN');
 eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma', 'Concurrente', 'ETTO CONCURRENTE', 'Entrenamiento concurrente'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra', 'conc', 'conc', 'conc'], 'subapartados de la parte principal y concurrente');

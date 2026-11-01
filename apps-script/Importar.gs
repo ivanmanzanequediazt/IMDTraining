@@ -892,11 +892,13 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       : valorDe_(e.pesoTxt, letra, letras);
     const pesoP = repartir_(peso.txt, n);
     const rpe = valorDe_(e.rpe, letra, letras);
-    const rpeN = typeof rpe.val === 'number' ? rpe.val : primerNumero_(rpe.txt, true);
+    const rpeN0 = typeof rpe.val === 'number' ? rpe.val : primerNumero_(rpe.txt, true);
+    const rpeP = repartir_(rpe.txt, n);              // biserie con un RPE para cada ejercicio («3 y 5»)
     (nombres.length ? nombres : [e.name]).forEach(function (nombre, k) {
       const r = PROG_HEADERS.map(function () { return ''; });
       r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = e.act && !core ? 'Activación' : 'Fuerza';
       r[PC.ejercicio] = nombre;
+      const rpeN = rpeP ? primerNumero_(rpeP[k], true) : rpeN0;
       // Ejercicios que cuentan como fuerza aunque estén en la activación (curl nórdico → isquios)
       if (e.act && !core && FUERZA_EN_ACTIVACION.test(sinAcentos_(nombre))) r[PC.tipo] = 'Fuerza';
       // Pliometría: marcada en el Excel, por el apartado, por el nombre o con «pliometría» en Observaciones
