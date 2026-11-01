@@ -356,6 +356,7 @@ function tipoSeccion_(name) {
   // Subapartados de la parte principal (Fuerza, Potencia, Pliometría…): cuentan como parte principal
   if (/^(fuerza|potencia|pliometria|pliometrico|saltos|velocidad|lanzamientos|deceleracion)$/.test(k)) return 'p';
   if (/^(activacion|movilidad|calentamiento|warmup)/.test(k)) return 'act';
+  if (/^act[a-z]{0,6}cion$/.test(k)) return 'act';   // erratas: «ACTICVACIÓN», «ACTIVCION»…
   if (/^(aerobico|cardio)/.test(k)) return 'aer';
   if (k === 'core' ||
       /^(vueltaalacalma|enfriamiento|estiramientos|accesorios|complementarios|finisher|readaptacion)/.test(k)) return 'otra';
@@ -691,7 +692,12 @@ function parseWorkbook_(wb, y, m) {
           if (!label) label = v;
         }
         const where = 'hoja ' + sh.name + ' celda ' + colLet_(c) + r;
-        if (dow < 0) { avisos.push('bloque sin día (' + where + ')'); return; }
+        if (dow < 0) {                                 // tabla vacía (sin ejercicios debajo): sin aviso
+          let alguno = false;
+          for (let q = r + 1; q <= Math.min(maxRow, r + 8); q++) if (txt(q, col.name)) alguno = true;
+          if (alguno) avisos.push('bloque sin día (' + where + ')');
+          return;
+        }
         const fecha = fechaBloque_(d1, d2, ym.y, ym.m, dow);
         if (!fecha) { avisos.push(DIAS[dow] + ' no cae entre los días ' + sh.name + ' (' + where + ')'); return; }
         const ejercicios = [];
@@ -711,7 +717,7 @@ function parseWorkbook_(wb, y, m) {
           const sinNumeros = v.series === '' && v.reps === '';
           // «P. PRINCIPAL» o «ACTIVACIÓN» son siempre título, aunque en su fila se hayan quedado series o repeticiones
           const tFuerte = v.name && /^(p|act|conc)$/.test(tipoSeccion_(v.name)) && v.name.length <= 30;
-          if (tFuerte && !sinNumeros) avisos.push('«' + v.name.trim() + '» tiene series o repeticiones en su fila; se toma como título (hoja ' + sh.name + ' fila ' + rr + ')');
+          if (tFuerte && !sinNumeros && tipoSeccion_(v.name) === 'p') avisos.push('«' + v.name.trim() + '» tiene series o repeticiones en su fila; se toma como título (hoja ' + sh.name + ' fila ' + rr + ')');
           if (v.name && (tFuerte || sinNumeros) && (esSeccion_(v.name) || (!otros && v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20))) {
             seccion = tipoSeccion_(v.name) || 'otra';
             subPlyo = /^(pliometri|saltos|potencia)/.test(sinAcentos_(v.name).replace(/[^a-z]/g, ''));   // lo de debajo es pliometría
@@ -837,8 +843,8 @@ function partesBiserie_(name) {
 // "8 rep / 6-8rep", "8, 12" o "40 y 10" -> una parte por ejercicio de la biserie (si cuadra el número de partes; si no, null)
 function repartir_(txt, n) {
   if (n < 2 || !txt) return null;
-  // Separadores: «/», «;», « y » o una coma que no sea decimal («10 y 2,5» = 10 | 2,5; «8, 5» = 8 | 5)
-  const p = String(txt).split(/\s*(?:[\/;]|\s+y\s+|,(?!\d))\s*/i).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+  // Separadores: «/», «;», « y », « -- » o una coma que no sea decimal («10 y 2,5» = 10 | 2,5; «8, 5» = 8 | 5)
+  const p = String(txt).split(/\s*(?:[\/;]|\s+y\s+|\s+-+\s+|,(?!\d))\s*/i).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
   return p.length === n ? p : null;
 }
 
@@ -878,7 +884,8 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
     const n = nombres.length || 1;
     const tipo = n === 2 ? 'biserie' : n === 3 ? 'triserie' : n > 3 ? 'circuito' : '';
     // «core» en Observaciones: cuenta como series de core aunque esté en la activación
-    const core = /(^|[^a-z])core([^a-z]|$)/.test(sinAcentos_(e.obs || ''));
+    const esCore = /(^|[^a-z])core([^a-z]|$)/.test(sinAcentos_(e.obs || ''));
+    const core = esCore || /pliometri/.test(sinAcentos_(e.obs || ''));   // «core» o «pliometría»: cuenta aunque esté en la activación
     const series = typeof e.series === 'number' ? Math.round(e.series) : primerNumero_(e.series, false);
     const repsP = repartir_(e.repsTxt, n);
     const peso = e.pesos ? { txt: letra && e.pesos[letra] !== undefined ? String(e.pesos[letra]) : (letra ? '' : e.pesoTxt), val: null }
@@ -904,7 +911,7 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const reps = seg ? Math.max(1, Math.round(plyo ? seg * 2 : seg / 3)) : primerNumero_(repsTxt, false);
       r[PC.reps] = reps && reps >= 1 ? reps : '';
       const textoReps = repsTxt && !/^\d+$/.test(repsTxt) ? repsTxt.replace(/\s+/g, ' ') : '';
-      r[PC.variante] = [core ? 'core' : '', tipo, textoReps, e.nota || ''].filter(function (x) { return x; }).join(' · ');
+      r[PC.variante] = [esCore ? 'core' : '', tipo, textoReps, e.nota || ''].filter(function (x) { return x; }).join(' · ');
       // Peso: repartido si viene separado ("40 / 10"); si es uno solo, es del primer ejercicio de la biserie
       const pesoTxt = pesoP ? pesoP[k] : (k === 0 ? peso.txt : '');
       const kg = pesoTxt === '' ? null : primerNumero_(pesoTxt, true);
