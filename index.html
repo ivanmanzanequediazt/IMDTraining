@@ -647,6 +647,16 @@ const intOpts=v=>`<option value=""${!v?' selected':''}>—</option>`+[1,2,3].map
 const intTxt=b=>[3,2,1].filter(i=>b[i]).map(i=>`${b[i]} ${INT[i].toLowerCase()}`).join(' · ');
 // Asimetría = (lado fuerte − lado débil) / lado fuerte × 100
 const asym=(a,b)=>{const hi=Math.max(a,b),lo=Math.min(a,b);return hi>0?(hi-lo)/hi*100:null};
+// Ejercicios con el peso corporal: parte del peso que se mueve (se suma a los kg anotados, que serían el lastre).
+// Flexiones 64 % y de rodillas o inclinadas 49 % (Ebben et al., 2011); dominadas y fondos ~95 % (todo menos antebrazos y manos);
+// remo invertido ~60 % (depende de la inclinación). La ayuda de la goma no se descuenta
+function bwFactor(name){const n=' '+normTxt(name)+' ';
+  if(/ (flexion|flexiones|push ?ups?) /.test(n)&&!/ (cadera|escapular|caida) /.test(n))return / (rodillas|inclinad[ao]s?) /.test(n)?.49:.64;
+  if(/ (dominada|dominadas|pull ?ups?|chin ?ups?) /.test(n))return .95;
+  if(/ fondos /.test(n)&&!/ banco /.test(n))return .95;
+  if(/ remo (invertido|trx) |inverted row/.test(n))return .6;
+  return 0}
+function bwKg(uid,e){if(e.plyo)return 0;const f=bwFactor(e.name);if(!f)return 0;const w=+(prof(uid)?.weight)||0;return w?Math.round(w*f*10)/10:0}
 function strengthStats(st,formula='brzycki'){
   let vol=0,sets=0,reps=0,rs=0,rn=0;
   let contacts=0,plyoSets=0;const byInt={1:0,2:0,3:0};
@@ -656,14 +666,14 @@ function strengthStats(st,formula='brzycki'){
       for(const s of e.sets||[]){const rp=+s.reps;if(!(rp>0))continue;n++;c+=rp;if(+s.int)bi[+s.int]+=rp;if(e.unilateral&&s.side in sd)sd[s.side]++;if(s.rpe!=null&&s.rpe!==''){es+=+s.rpe;en++}if(s.rir!=null&&s.rir!==''){xs+=+s.rir;xn++}}
       const series=e.unilateral?Math.max(sd.I,sd.D):n;contacts+=c;plyoSets+=series;rs+=es;rn+=en;ris+=xs;rin+=xn;for(const k in bi)byInt[k]+=bi[k];
       return {name:e.name,variant:e.variant||'',unilateral:!!e.unilateral,label:exLabel(e),plyo:true,contacts:c,byInt:bi,vol:0,sets:series,reps:0,rpe:en?es/en:null,rir:xn?xs/xn:null,top:null,e1rm:null,rmSet:null}}
-    const sd={I:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null},D:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null}};
+    const sd={I:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null},D:{vol:0,reps:0,sets:0,e1rm:0,rmSet:null}},bw=bwKg(st.userId,e);
     for(const s of e.sets||[]){const rp=+s.reps,kg=+s.kg||0;if(!(rp>0))continue;
-      n++;r+=rp;v+=rp*kg;
+      n++;r+=rp;v+=rp*(kg+bw);
       if(s.rpe!=null&&s.rpe!==''){es+=+s.rpe;en++}
       if(s.rir!=null&&s.rir!==''){xs+=+s.rir;xn++}
       const est=kg>0?oneRM(kg,rp,formula):null;
       if(kg>0){if(est!=null&&est>e1){e1=est;rmSet=s}if(!top||kg>+top.kg||(kg===+top.kg&&rp>+top.reps))top=s}
-      if(e.unilateral&&sd[s.side]){const x=sd[s.side];x.vol+=rp*kg;x.reps+=rp;x.sets++;if(est!=null&&est>x.e1rm){x.e1rm=est;x.rmSet=s}}}
+      if(e.unilateral&&sd[s.side]){const x=sd[s.side];x.vol+=rp*(kg+bw);x.reps+=rp;x.sets++;if(est!=null&&est>x.e1rm){x.e1rm=est;x.rmSet=s}}}
     const series=e.unilateral?Math.max(sd.I.sets,sd.D.sets):n;
     vol+=v;sets+=series;reps+=r;rs+=es;rn+=en;ris+=xs;rin+=xn;
     for(const k of ['I','D'])sd[k].e1rm=sd[k].e1rm?Math.round(sd[k].e1rm*2)/2:null;
