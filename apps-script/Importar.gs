@@ -797,6 +797,18 @@ function valorDe_(v, letra, letras) {
 // Ejercicio de pliometría por el nombre (saltos, pogos, drop jump, multisaltos, vallas, frenadas, lanzamientos de balón…)
 const FUERZA_EN_ACTIVACION = /nordic/;
 
+// Segundos si las «repeticiones» son un tiempo: 20'' · 20" · 20 s · 20 seg · 30 segundos · 1' · 1 min · 1'30''. Si no, null
+function segundosDe_(txt) {
+  const t = sinAcentos_(String(txt || '')).replace(/[\u2019\u2032]/g, "'").replace(/[\u201d\u2033]/g, '"').replace(/,/g, '.');
+  let m = t.match(/(\d+(?:\.\d+)?)\s*'\s*(\d+(?:\.\d+)?)\s*(''|")/);
+  if (m) return +m[1] * 60 + +m[2];
+  m = t.match(/(\d+(?:\.\d+)?)\s*(''|"|s\b|sg\b|seg|segundo)/);
+  if (m) return +m[1];
+  m = t.match(/(\d+(?:\.\d+)?)\s*('(?!')|min)/);
+  if (m) return +m[1] * 60;
+  return null;
+}
+
 // Máquina o ejercicio aeróbico dentro de un bloque concurrente (bici, remo ergómetro, cinta, comba…). «Remo con barra» no lo es
 function esCardio_(name) {
   const n = ' ' + sinAcentos_(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
@@ -879,7 +891,9 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       if (plyo && rpeN !== null && rpe.txt !== '') r[PC.int] = rpeN < 4 ? 'Baja' : rpeN <= 6 ? 'Media' : 'Alta';
       r[PC.series] = series && series >= 1 && series <= 20 ? series : 1;
       const repsTxt = repsP ? repsP[k] : e.repsTxt;
-      const reps = primerNumero_(repsTxt, false);
+      // Tiempo en vez de repeticiones (isométricos: 20'', 30 s, 1'…): 1 repetición cada 3 s; en pliometría, 2 contactos por segundo
+      const seg = segundosDe_(repsTxt);
+      const reps = seg ? Math.max(1, Math.round(plyo ? seg * 2 : seg / 3)) : primerNumero_(repsTxt, false);
       r[PC.reps] = reps && reps >= 1 ? reps : '';
       const textoReps = repsTxt && !/^\d+$/.test(repsTxt) ? repsTxt.replace(/\s+/g, ' ') : '';
       r[PC.variante] = [core ? 'core' : '', tipo, textoReps, e.nota || ''].filter(function (x) { return x; }).join(' · ');

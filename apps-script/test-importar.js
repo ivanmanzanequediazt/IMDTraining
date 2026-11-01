@@ -9,7 +9,7 @@ const dir = __dirname;
 const ctx = { console, Utilities: { formatDate: d => d.toISOString().slice(0, 10) } };
 vm.createContext(ctx);
 const src = ['Code.gs', 'Programacion.gs', 'Importar.gs'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') +
-  '\n;this.__ = {fechaExcel_, partesBiserie_, parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS, repartir_, tipoSeccion_, esPlyo_};';
+  '\n;this.__ = {fechaExcel_, partesBiserie_, parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS, repartir_, tipoSeccion_, esPlyo_, segundosDe_};';
 vm.runInContext(src, ctx);
 const X = ctx.__;
 
@@ -40,6 +40,12 @@ eq(['Pogos asistidos goma', 'Drop jump desde step', 'Frenadas remo invertido', '
   eq([fc[X.PC.tipo], fc[X.PC.series], fc[X.PC.variante].split(' · ')[0]], ['Fuerza', 2, 'core'], '«core» en Observaciones: cuenta como series'); }
 { const sn = { fecha: '2026-10-06', sesion: 'X', ejercicios: [{ name: 'Curl nórdico excéntrico + rueda abdominal', series: 2, repsTxt: '5 rep', pesoTxt: '', rpe: 8, obs: '', act: true }] };
   eq(X.filasDeSesion_('Pepe', sn, 'excel:x').map(r => r[X.PC.tipo]), ['Fuerza', 'Activación'], 'curl nórdico cuenta aunque esté en la activación'); }
+eq(["20''", '20"', '20 s', '30 seg', '45 segundos', "1'", '1 min', "1'30''", '6 rep', '4-6rep', '8'].map(X.segundosDe_), [20, 20, 20, 30, 45, 60, 60, 90, null, null, null], 'tiempo en repeticiones');
+{ const si = { fecha: '2026-10-06', sesion: 'X', ejercicios: [
+    { name: 'Plancha Copenhague', series: 3, repsTxt: "20''", pesoTxt: '', rpe: 8, obs: '' },
+    { name: 'Comba', series: 2, repsTxt: "1'", pesoTxt: '', rpe: '', obs: 'pliometría' }] };
+  const fi = X.filasDeSesion_('Pepe', si, 'excel:x');
+  eq(fi.map(r => [r[X.PC.reps], r[X.PC.variante]]), [[7, "20''"], [120, "1'"]], 'isométrico: 1 rep cada 3 s; pliometría por tiempo: 2 contactos/s'); }
 eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
   [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
 eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma', 'Concurrente', 'ETTO CONCURRENTE', 'Entrenamiento concurrente'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra', 'conc', 'conc', 'conc'], 'subapartados de la parte principal y concurrente');
