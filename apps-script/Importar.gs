@@ -688,7 +688,7 @@ function parseWorkbook_(wb, y, m) {
         const fecha = fechaBloque_(d1, d2, y, m, dow);
         if (!fecha) { avisos.push(DIAS[dow] + ' no cae entre los días ' + sh.name + ' (' + where + ')'); return; }
         const ejercicios = [];
-        let vacias = 0, trasHueco = false, seccion = '', hayPrincipal = false;
+        let vacias = 0, trasHueco = false, seccion = '', hayPrincipal = false, subPlyo = false;
         for (let rr = r + 1; rr <= Math.min(maxRow, r + 40); rr++) {
           const v = { name: txt(rr, col.name), series: at(rr, col.series), reps: at(rr, col.reps), peso: at(rr, col.peso),
             rpe: at(rr, col.rpe), obs: txt(rr, col.obs) };
@@ -707,6 +707,7 @@ function parseWorkbook_(wb, y, m) {
           if (tFuerte && !sinNumeros) avisos.push('«' + v.name.trim() + '» tiene series o repeticiones en su fila; se toma como título (hoja ' + sh.name + ' fila ' + rr + ')');
           if (v.name && (tFuerte || sinNumeros) && (esSeccion_(v.name) || (!otros && v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20))) {
             seccion = tipoSeccion_(v.name) || 'otra';
+            subPlyo = /^(pliometri|saltos|potencia)/.test(sinAcentos_(v.name).replace(/[^a-z]/g, ''));   // lo de debajo es pliometría
             if (seccion === 'p') hayPrincipal = true;
             continue;
           }
@@ -714,7 +715,7 @@ function parseWorkbook_(wb, y, m) {
           if (trasHueco && v.series === '' && v.reps === '') continue;
           if (!v.name) { if (v.series !== '' || v.reps !== '') sinNombre++; continue; }
           ejercicios.push({ name: v.name.replace(/\s+/g, ' '), series: v.series, repsTxt: String(v.reps).trim(),
-            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: seccion === 'p', act: seccion === 'act' });
+            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: seccion === 'p', act: seccion === 'act', plyo: subPlyo && seccion !== 'act' });
         }
         // Activación + parte principal; si el bloque no tiene «P. PRINCIPAL», se importa entero (y se avisa)
         if (hayPrincipal) {
@@ -790,6 +791,13 @@ function valorDe_(v, letra, letras) {
 
 // Sesiones -> filas de «programacion» (22 columnas + Origen)
 // "Sentadilla + plancha" -> ["Sentadilla", "plancha"]; los paréntesis se quitan ("A + (B + C)" -> A, B, C)
+// Ejercicio de pliometría por el nombre (saltos, pogos, drop jump, multisaltos, vallas, frenadas, lanzamientos de balón…)
+function esPlyo_(name) {
+  const n = ' ' + sinAcentos_(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  if (/ drop set /.test(n)) return false;
+  return / (salto|saltos|jump|jumps|pogo|pogos|drop|bound|bounds|bounding|multisalto|multisaltos|abalakov|cmj|sj|comba|valla|vallas|hop|hops|patinador|skater|frenada|frenadas|snap|tuck|pliometri[a-z]*|rebote|rebotes|slam|ball|balon|lanzamiento|lanzamientos|throw|catch|shoot) /.test(n);
+}
+
 function partesBiserie_(name) {
   return String(name).split('+').map(function (x) { return x.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim(); })
     .filter(function (x) { return x; });
@@ -848,7 +856,7 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const r = PROG_HEADERS.map(function () { return ''; });
       r[PC.apodo] = apodo; r[PC.fecha] = s.fecha; r[PC.sesion] = s.sesion; r[PC.tipo] = e.act ? 'Activación' : 'Fuerza';
       r[PC.ejercicio] = nombre;
-      r[PC.unilateral] = !!e.unilateral; r[PC.plyo] = !!e.plyo;
+      r[PC.unilateral] = !!e.unilateral; r[PC.plyo] = !e.act && (!!e.plyo || esPlyo_(nombre));
       r[PC.series] = series && series >= 1 && series <= 20 ? series : 1;
       const repsTxt = repsP ? repsP[k] : e.repsTxt;
       const reps = primerNumero_(repsTxt, false);
