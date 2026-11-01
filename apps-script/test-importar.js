@@ -123,12 +123,13 @@ console.log('· Plantilla de 4 tablas');
   eq(res.sesiones.map(s => s.fecha + ' ' + s.sesion + ': ' + s.ejercicios.map(e => e.name || e.aer.type).join(',')), ['2026-11-02 Pierna: Puente,Sentadilla,Bici'], 'tabla con día; vacía e incompleta fuera');
   ok(res.avisos.some(a => /sesión 2: falta el día/.test(a)), 'aviso: tabla con ejercicios sin día');
 }
-console.log('· Bloque concurrente: no se importa');
+console.log('· Bloque concurrente');
 {
   const cells = { A2: 'LUNES', A3: 'Sesión', A4: 'EJERCICIOS', B4: 'SERIES', C4: 'REPETICIONES', D4: 'PESO', E4: 'RPE', F4: 'OBSERVACIONES',
-    A5: 'P. PRINCIPAL', A6: 'Sentadilla', B6: 3, C6: 5, A7: 'Etto concurrente', A8: 'Bici', B8: 1, C8: '10 min', A9: 'Burpees', B9: 3, C9: 10 };
+    A5: 'P. PRINCIPAL', A6: 'Sentadilla', B6: 3, C6: 5, A7: 'Etto concurrente', A8: 'Bici', B8: 3, C8: "1'", A9: 'Remo con barra', B9: 3, C9: 8, D9: 40,
+    A10: 'Bici', B10: 3, C10: "2'", A11: 'Floor press', B11: 3, C11: 10, D11: 20, A12: 'Remo ergómetro', B12: 3, C12: "1'" };
   const res = X.parseWorkbook_([{ name: '05-09', cells: cells }], 2026, 10);
-  eq(res.sesiones[0].ejercicios.map(e => e.name), ['Sentadilla'], 'lo del bloque concurrente se queda fuera');
+  eq(res.sesiones[0].ejercicios.map(e => e.name + ':' + e.series), ['Sentadilla:3', 'Remo con barra:3', 'Floor press:3'], 'concurrente: la fuerza se importa y la bici y el remo ergómetro no');
 }
 console.log('· Aeróbico con tiempo y zona en Observaciones');
 {

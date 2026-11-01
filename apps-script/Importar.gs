@@ -350,7 +350,7 @@ function esSeccion_(name) {
 function tipoSeccion_(name) {
   const k = sinAcentos_(name).replace(/[^a-z]/g, '');
   if (!k) return '';
-  // Bloque de entrenamiento concurrente (bici, remo ergómetro…): se registra aparte como aeróbico, no se importa
+  // Bloque de entrenamiento concurrente: la fuerza se importa; la bici, el remo ergómetro… se registran aparte como aeróbico
   if (/concurrente/.test(k)) return 'conc';
   if (k === 'pp' || k === 'ppal' || /^(parteprincipal|pprincipal|principal|bloqueprincipal)/.test(k)) return 'p';
   // Subapartados de la parte principal (Fuerza, Potencia, Pliometría…): cuentan como parte principal
@@ -503,8 +503,8 @@ function parseLista_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
     const ps = {};
     Object.keys(pesos).forEach(function (l) { const v = at(r, pesos[l]); if (v !== '') ps[l] = String(v); });
     if (bloque) sesiones[k].etiquetas = true;
-    const ts = tipoSeccion_(bloque), parte = !bloque ? 'p' : ts === 'p' || ts === 'act' || ts === 'aer' ? ts : '';
-    if (!parte) continue;                              // vuelta a la calma, accesorios…: se quedan en el Excel
+    const ts = tipoSeccion_(bloque), parte = !bloque ? 'p' : ts === 'conc' ? (esCardio_(name) ? '' : 'p') : ts === 'p' || ts === 'act' || ts === 'aer' ? ts : '';
+    if (!parte) continue;                              // vuelta a la calma, accesorios, cardio del concurrente…: se quedan en el Excel
     if (parte === 'aer') {
       sesiones[k].ejercicios.push({ aer: { type: name.replace(/\s+/g, ' '), minutos: col.min ? at(r, col.min) : '', zona: col.zona ? txt(r, col.zona) : '',
         intervalos: col.iv ? txt(r, col.iv) : '' } });
@@ -713,12 +713,12 @@ function parseWorkbook_(wb, y, m) {
             if (seccion === 'p') hayPrincipal = true;
             continue;
           }
-          if (seccion === 'conc') continue;           // concurrente: lo registra aparte como aeróbico
+          if (seccion === 'conc' && esCardio_(v.name)) continue;   // concurrente: la parte aeróbica se registra aparte
           // Después de un hueco, solo cuentan las filas con series o repeticiones (no las notas sueltas de abajo)
           if (trasHueco && v.series === '' && v.reps === '') continue;
           if (!v.name) { if (v.series !== '' || v.reps !== '') sinNombre++; continue; }
           ejercicios.push({ name: v.name.replace(/\s+/g, ' '), series: v.series, repsTxt: String(v.reps).trim(),
-            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: seccion === 'p', act: seccion === 'act', plyo: subPlyo && seccion !== 'act' });
+            pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: seccion === 'p' || seccion === 'conc', act: seccion === 'act', plyo: subPlyo && seccion !== 'act' });
         }
         // Activación + parte principal; si el bloque no tiene «P. PRINCIPAL», se importa entero (y se avisa)
         if (hayPrincipal) {
@@ -796,6 +796,13 @@ function valorDe_(v, letra, letras) {
 // "Sentadilla + plancha" -> ["Sentadilla", "plancha"]; los paréntesis se quitan ("A + (B + C)" -> A, B, C)
 // Ejercicio de pliometría por el nombre (saltos, pogos, drop jump, multisaltos, vallas, frenadas, lanzamientos de balón…)
 const FUERZA_EN_ACTIVACION = /nordic/;
+
+// Máquina o ejercicio aeróbico dentro de un bloque concurrente (bici, remo ergómetro, cinta…). «Remo con barra» no lo es
+function esCardio_(name) {
+  const n = ' ' + sinAcentos_(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  return / (bici|bicicleta|bike|airbike|assault|spinning|ergometro|remoergometro|rower|skierg|ski erg|cinta|eliptica|carrera|correr|trote|run|running|sprint|sprints) /.test(n) ||
+    / remo (erg|ergo|ergometro|concept|maquina) /.test(n);
+}
 
 function esPlyo_(name) {
   const n = ' ' + sinAcentos_(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
