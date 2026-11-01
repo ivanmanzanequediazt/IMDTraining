@@ -707,20 +707,20 @@ const musclesOf=e=>fixLegacyM(e.muscles,e.name)||(l=>l&&Object.keys(l.muscles||{
 // Series y kg por grupo: principal cuenta 1 y secundario 0,5 (recuento fraccional)
 // Serie efectiva: RPE ≥ 7 o RIR ≤ 3. Sin RPE ni RIR anotado se cuenta como serie de trabajo
 function setEff(s){if(s.rpe!=null&&s.rpe!=='')return +s.rpe>=7;if(s.rir!=null&&s.rir!=='')return +s.rir<=3;return true}
-function exEffSets(e){if(e.act||e.plyo)return 0;const sd={I:0,D:0};let n=0;
+function exEffSets(e){if(e.act)return 0;const sd={I:0,D:0};let n=0;
   for(const s of e.sets||[]){if(!(+s.reps>0)||!setEff(s))continue;if(e.unilateral&&s.side in sd)sd[s.side]++;else n++}
   return n+(e.unilateral?Math.max(sd.I,sd.D):0)}
 // Carga de fuerza de una sesión: series efectivas y volumen relativo (repeticiones × %1RM estimado de cada ejercicio)
-function strengthLoad(st,rms){let eff=0,rel=0;
-  for(const e of st.exercises||[]){if(e.act||e.plyo)continue;eff+=exEffSets(e);const rm=rms&&rms.get(exKey(e));if(!rm)continue;
+function strengthLoad(st,rms){let eff=0,rel=0,cont=0;
+  for(const e of st.exercises||[]){if(e.act)continue;eff+=exEffSets(e);if(e.plyo){for(const s of e.sets||[])if(+s.reps>0)cont+=+s.reps;continue}const rm=rms&&rms.get(exKey(e));if(!rm)continue;
     for(const s of e.sets||[]){const r=+s.reps,kg=+s.kg;if(r>0&&kg>0)rel+=r*Math.min(1.2,kg/rm)/(e.unilateral?2:1)}}
-  return {eff,rel:Math.round(rel)}}
+  return {eff,rel:Math.round(rel),cont}}
 const rmMap=uid=>new Map(exerciseRecords(uid).filter(r=>r.rm?.v).map(r=>[r.key,r.rm.v]));
 function strengthItems(uid,kind){const rms=kind==='rel'?rmMap(uid):null;return stOf(uid).map(st=>({t:st.startTime,load:strengthLoad(st,rms)[kind]}))}
 function muscleVolume(sessions){
   const out={},un={sets:0,kg:0,eff:0};for(const [g] of MG)out[g]={sets:0,setsD:0,kg:0,kgD:0,eff:0,effD:0};
   for(const st of sessions){const k=strengthStats(st);
-    st.exercises.forEach((e,i)=>{const x=k.ex[i];if(!x||!x.sets||x.plyo)return;const m=musclesOf(e),gs=Object.keys(m).filter(g=>out[g]);
+    st.exercises.forEach((e,i)=>{const x=k.ex[i];if(!x||!x.sets||e.act)return;const m=musclesOf(e),gs=Object.keys(m).filter(g=>out[g]);
       const ef=exEffSets(e);if(!gs.length){un.sets+=x.sets;un.kg+=x.vol;un.eff+=ef;return}
       for(const g of gs){const f=m[g]==='p'?1:0.5;out[g].sets+=x.sets*f;out[g].kg+=x.vol*f;out[g].eff+=ef*f;if(m[g]==='p'){out[g].setsD+=x.sets;out[g].kgD+=x.vol;out[g].effD+=ef}}})}
   return {groups:out,unassigned:un}}
@@ -1321,7 +1321,7 @@ const perioKey=p=>'perio:'+(p.cloudId||'local-'+p.id);
 const perioOf=p=>p&&(S.exercises||[]).find(x=>x.id===perioKey(p)&&!x.deleted)||null;
 const dsOfMs=t=>dsOf(t);
 // UA por semana (lunes en ms -> suma)
-const PERIO_METRICS=[['srpe','Carga sRPE (UA)','UA'],['eff','Series efectivas','series'],['rel','Volumen relativo','vol. rel.']];
+const PERIO_METRICS=[['srpe','Carga sRPE (UA)','UA'],['eff','Series efectivas','series'],['rel','Volumen relativo','vol. rel.'],['cont','Contactos de pliometría','contactos']];
 const perioUnit=k=>(PERIO_METRICS.find(m=>m[0]===k)||PERIO_METRICS[0])[2];
 function weekLoads(uid,metric='srpe'){const m=new Map();for(const it of (metric==='srpe'?loadItems(uid):strengthItems(uid,metric))){if(!it.load)continue;const w=weekStart(it.t);m.set(w,(m.get(w)||0)+it.load)}return m}
 function perioBaseSuggest(uid,startMs,metric){const wl=weekLoads(uid,metric),vals=[1,2,3,4].map(i=>{const d=new Date(startMs);d.setDate(d.getDate()-7*i);return wl.get(weekStart(d.getTime()))||0}).filter(v=>v>0);
@@ -1370,7 +1370,7 @@ V.perio=()=>{const p=prof(S.arg);if(!p)return'';const d=S.perioDraft;if(!d)retur
       <span class="hint num pr-ua" id="prua${i}">${d.base?Math.round(d.base*w.f/100)+' '+u:''}</span></div>`}).join('')}</div></section>`:''}
   <button class="btn primary wide" data-act="perioSave">Guardar plan</button>
   ${perioOf(p)?`<button class="btn danger wide" data-act="perioDel">Quitar la periodización</button>`:''}
-  ${info('sRPE (UA) = RPE de la sesión × minutos, sumando fuerza y aeróbico. Series efectivas = series de fuerza con RPE ≥ 7 o RIR ≤ 3. Volumen relativo = repeticiones × % del 1RM. El aviso salta cuando la semana se aleja más de un 10–15 % del objetivo. Descarga: 50–70 % de la referencia; carga: 105–120 %.','Cómo funciona')}`};
+  ${info('sRPE (UA) = RPE de la sesión × minutos, sumando fuerza y aeróbico. Series efectivas = series de fuerza y pliometría con RPE ≥ 7 o RIR ≤ 3. Contactos = apoyos de pliometría. Volumen relativo = repeticiones × % del 1RM. El aviso salta cuando la semana se aleja más de un 10–15 % del objetivo. Descarga: 50–70 % de la referencia; carga: 105–120 %.','Cómo funciona')}`};
 /* ===== Batería de ejercicios: pantallas ===== */
 function libChips(){const mv=S.exmov||'',mg=S.exmg||'';
   return `<div class="chips-f lib-f" role="radiogroup" aria-label="Movimiento"><button type="button" role="radio" aria-checked="${!mv}" class="fchip ${mv?'':'on'}" data-act="exMov" data-v="">Todos</button>${MOV.map(([k,l])=>`<button type="button" role="radio" aria-checked="${mv===k}" class="fchip ${mv===k?'on':''}" data-act="exMov" data-v="${k}">${l}</button>`).join('')}</div>
@@ -1637,7 +1637,7 @@ V.profile=()=>{
           <button type="button" data-act="stLoadKind" data-v="eff" class="${sk==='eff'?'on':''}" aria-checked="${sk==='eff'}" role="radio">Series efectivas</button>
           <button type="button" data-act="stLoadKind" data-v="rel" class="${sk==='rel'?'on':''}" aria-checked="${sk==='rel'}" role="radio">Volumen relativo</button></div>
         <canvas id="efv" style="height:150px" role="img" aria-label="Carga de fuerza por semana"></canvas>
-        ${info(sk==='eff'?'Series efectivas: series con RPE 7 o más (o RIR 3 o menos). Las series sin RPE ni RIR anotado cuentan como series de trabajo. No cuentan la activación ni la pliometría; en unilaterales, cada par izquierda-derecha es una serie.':'Volumen relativo: suma de repeticiones × % del 1RM estimado de cada ejercicio (5 repeticiones al 80 % = 4). Así pesa más una serie pesada que una ligera y se pueden comparar ejercicios distintos. Solo cuentan los ejercicios con 1RM estimado (con kg anotados).','Cómo se calcula')}</div>`})()}
+        ${info(sk==='eff'?'Series efectivas: series con RPE 7 o más (o RIR 3 o menos). Las series sin RPE ni RIR anotado cuentan como series de trabajo. Cuentan también las de pliometría; la activación no. En unilaterales, cada par izquierda-derecha es una serie.':'Volumen relativo: suma de repeticiones × % del 1RM estimado de cada ejercicio (5 repeticiones al 80 % = 4). Así pesa más una serie pesada que una ligera y se pueden comparar ejercicios distintos. Solo cuentan los ejercicios con 1RM estimado (con kg anotados).','Cómo se calcula')}</div>`})()}
       <div class="card"><div class="sec-h"><span class="lbl">Volumen-carga por ${view==='week'?'semana':'mes'} · kg</span></div>
         <div class="seg two" role="radiogroup" aria-label="Agrupar por">
           <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
@@ -1910,7 +1910,7 @@ function mgCard(uid){
     <div class="mg-list">${rows}</div>
     ${cur.unassigned.sets?`<span class="hint">${fmt(cur.unassigned[met])} ${met==='kg'?'kg':'series'} sin grupo asignado. Asígnalo en la sesión para que cuente.</span>`:''}
     <div class="acwr-key"><span><i style="background:var(--accent)"></i>Principal</span><span><i style="background:var(--accent);opacity:.4"></i>Secundario (½)</span></div>
-    ${info('Recuento fraccional: cada serie suma 1 al grupo principal del ejercicio y 0,5 a los secundarios. En unilaterales cuenta una serie por cada par izquierda-derecha. Los grupos de cada ejercicio se asignan en el registro de la sesión.')}
+    ${info('Recuento fraccional: cada serie suma 1 al grupo principal del ejercicio y 0,5 a los secundarios. Las series de pliometría cuentan en series (no en kg). En unilaterales cuenta una serie por cada par izquierda-derecha. Los grupos de cada ejercicio se asignan en el registro de la sesión.')}
   </div>`}
 const stTotHTML=t=>stat(fmtKg(t.vol),'Kg totales')+stat(t.sets,'Series fuerza')+(t.contacts?stat(t.contacts,'Contactos'):'')+(t.rir!=null?stat(dec(t.rir,1),'RIR medio'):'')+(t.rpe!=null||t.rir==null?stat(t.rpe!=null?dec(t.rpe,1):'—','RPE medio'):'');
 let stSaveT=null;
