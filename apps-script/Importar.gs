@@ -16,8 +16,6 @@
  */
 
 const FUENTES_TAB = 'fuentes';
-// La columna RPE de los Excel solo se usa desde esta fecha (los de octubre de 2026 la llevaban con otro uso)
-const RPE_EXCEL_DESDE = '2026-11-01';
 const FUENTES_HEADERS = ['Apodo', 'Mes', 'Enlace', 'Importar', 'Estado', 'Última importación'];
 const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -861,7 +859,7 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const pesoTxt = pesoP ? pesoP[k] : (k === 0 ? peso.txt : '');
       const kg = pesoTxt === '' ? null : primerNumero_(pesoTxt, true);
       if (kg !== null && kg > 0 && kg <= 1000 && !e.plyo) r[PC.kg] = kg;
-      if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '' && s.fecha >= RPE_EXCEL_DESDE) r[PC.rpe] = rpeN;
+      if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '') r[PC.rpe] = rpeN;
       r[PC.origen] = origen;
       filas.push(r);
     });

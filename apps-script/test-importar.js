@@ -25,7 +25,7 @@ eq([X.primerNumero_("17'5 lado", true), X.primerNumero_('50 kg', true), X.primer
   [17.5, 50, null, 4, 3], 'números en texto');
 
 { const so = { fecha: '2026-10-06', sesion: 'X', ejercicios: [{ name: 'Press', series: 3, repsTxt: '6', pesoTxt: '20', rpe: 8, obs: '' }] };
-  eq(X.filasDeSesion_('Pepe', so, 'excel:x')[0][X.PC.rpe], '', 'la columna RPE de octubre de 2026 no se usa'); }
+  eq(X.filasDeSesion_('Pepe', so, 'excel:x')[0][X.PC.rpe], 8, 'RPE de cada ejercicio'); }
 eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
   [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
 eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra'], 'subapartados de la parte principal');
