@@ -245,7 +245,8 @@ function publish_(prog, tz, now) {
       if (!propia && !(sm && sm.deleted)) {            // si se borró a mano en la app, no se vuelve a crear
         const prev = sm ? readRecord_(sm, meta).data : null;
         const ses = sesionDesdePlan_(d, sid, cid, prev);
-        if (!prev || JSON.stringify(prev.exercises) !== JSON.stringify(ses.exercises) || prev.startTime !== ses.startTime || prev.type !== ses.type) {
+        if (!prev || JSON.stringify(prev.exercises) !== JSON.stringify(ses.exercises) || prev.startTime !== ses.startTime || prev.type !== ses.type ||
+            prev.durationMin !== ses.durationMin || prev.rpePost !== ses.rpePost) {
           meta.strength[sid] = writeRecord_(writer, sm || null, { store: 'strength', id: sid, userId: cid, updatedAt: now, deleted: false },
             sm ? sm.author : 'coach', clock.next(), JSON.stringify(ses));
           changed = true;
@@ -628,8 +629,14 @@ function buildPlan_(g, id, cid, existing, now) {
 
 // Plan con fecha pasada -> sesión de fuerza realizada (formato de la app). Conserva lo que se haya añadido luego
 // en la app (duración, RPE pre/post, notas).
+// Sesiones de octubre de 2026 pasadas desde los Excel: sin RPE de sesión ni duración anotados, se ponen RPE 8 y 60 min
+const OCTUBRE_2026 = { desde: '2026-10-01', hasta: '2026-11-01', rpe: 8, min: 60 };
+
 function sesionDesdePlan_(plan, sid, cid, prev) {
   const nn = function (v) { return v === undefined || v === '' ? null : v; };
+  const oct = plan.date >= OCTUBRE_2026.desde && plan.date < OCTUBRE_2026.hasta;
+  const dur = prev && nn(prev.durationMin) !== null ? prev.durationMin : oct ? OCTUBRE_2026.min : null;
+  const rpePost = prev && nn(prev.rpePost) !== null ? prev.rpePost : oct ? OCTUBRE_2026.rpe : null;
   const t = Date.parse(plan.date + 'T12:00:00Z');
   const exercises = (plan.exercises || []).map(function (e) {
     if (e.act) {
@@ -655,8 +662,8 @@ function sesionDesdePlan_(plan, sid, cid, prev) {
     return ex;
   });
   return { id: sid, userId: cid, kind: 'strength', type: plan.title || 'Fuerza', startTime: t, endTime: t,
-    durationMin: prev ? nn(prev.durationMin) : null, rpePre: prev ? nn(prev.rpePre) : null, rpePost: prev ? nn(prev.rpePost) : null,
-    rpePostTime: prev ? nn(prev.rpePostTime) : null, notes: prev ? (prev.notes || '') : (plan.notes || ''),
+    durationMin: dur, rpePre: prev ? nn(prev.rpePre) : null, rpePost: rpePost,
+    rpePostTime: prev && nn(prev.rpePostTime) !== null ? prev.rpePostTime : rpePost !== null ? t : null, notes: prev ? (prev.notes || '') : (plan.notes || ''),
     status: 'done', planId: plan.id, src: 'hoja', exercises: exercises };
 }
 

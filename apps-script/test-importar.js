@@ -24,6 +24,8 @@ eq(X.mesDeNombre_('PEPE_OCTUBRE.xlsx').m, 10, 'sin año');
 eq([X.primerNumero_("17'5 lado", true), X.primerNumero_('50 kg', true), X.primerNumero_('poner lastre', true), X.primerNumero_('4-6rep', false), X.primerNumero_("3 x 4''", false)],
   [17.5, 50, null, 4, 3], 'números en texto');
 
+{ const so = { fecha: '2026-10-06', sesion: 'X', ejercicios: [{ name: 'Press', series: 3, repsTxt: '6', pesoTxt: '20', rpe: 8, obs: '' }] };
+  eq(X.filasDeSesion_('Pepe', so, 'excel:x')[0][X.PC.rpe], '', 'la columna RPE de octubre de 2026 no se usa'); }
 eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
   [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
 eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra'], 'subapartados de la parte principal');
@@ -56,7 +58,7 @@ console.log('· Archivo compartido (O: Olga, S: Sergio)');
   eq(['O: 25 S: 12', 'O:25kg / S:12kg', 's: 12 o: 25', "O: 17'5 lado S: 10", 'O 25', '20', 'S: 12'].map(x => X.valorDe_(x, 'O', L).txt),
      ['25', '25kg', '25', "17'5 lado", 'O 25', '20', ''], 'peso de Olga');
   eq(X.valorDe_('O: 25 S: 12', 'S', L).txt, '12', 'peso de Sergio');
-  const s = { fecha: '2026-10-06', sesion: 'Pierna', ejercicios: [
+  const s = { fecha: '2026-11-06', sesion: 'Pierna', ejercicios: [
     { name: 'Sentadilla', series: 3, repsTxt: '8', pesoTxt: 'O: 25 S: 12', rpe: 8, obs: '' },
     { name: 'Remo', series: 3, repsTxt: '10', pesoTxt: '20', rpe: 'O: 8 S: 7', obs: '' },
     { name: 'Press', series: 3, repsTxt: '10', pesoTxt: "O: 17'5 lado S: 10", rpe: '', obs: '' }] };
@@ -69,7 +71,7 @@ console.log('· Biseries');
 {
   eq(X.partesBiserie_('Remo barra + PM unipodal kb contralateral '), ['Remo barra', 'PM unipodal kb contralateral'], 'biserie');
   eq(X.partesBiserie_('Ext tronco pica + (Plancha comando + Rot cubanas disco)'), ['Ext tronco pica', 'Plancha comando', 'Rot cubanas disco'], 'triserie con paréntesis');
-  const s = { fecha: '2026-10-06', sesion: 'T', ejercicios: [
+  const s = { fecha: '2026-11-06', sesion: 'T', ejercicios: [
     { name: 'Remo barra + PM unipodal', series: 3, repsTxt: '4-6rep / 6-8rep', pesoTxt: '40 / 12', rpe: 8, obs: '' },
     { name: 'Press inclinado + remo mentón', series: 3, repsTxt: '8, 12', pesoTxt: '20', rpe: '', obs: '' },
     { name: 'Sentadilla + plancha', series: 2, repsTxt: '6', pesoTxt: 'O: 50 S: 30', rpe: '', obs: '' }] };
@@ -135,7 +137,7 @@ console.log('· Títulos de sección con palabras de más');
 console.log('· Reimportar conserva ids y marca para borrar lo que ya no está');
 {
   const s1 = { fecha: '2026-10-06', sesion: 'Tracc', ejercicios: [{ name: 'Remo', series: 3, repsTxt: '8', pesoTxt: '', rpe: '', obs: '' }] };
-  const s2 = { fecha: '2026-10-08', sesion: 'Empuje', ejercicios: [{ name: 'Press', series: 3, repsTxt: '6-8rep', pesoTxt: "17'5 lado", rpe: 8, obs: '' }] };
+  const s2 = { fecha: '2026-11-08', sesion: 'Empuje', ejercicios: [{ name: 'Press', series: 3, repsTxt: '6-8rep', pesoTxt: "17'5 lado", rpe: 8, obs: '' }] };
   const vals = [];
   [s1, s2].forEach(s => X.filasDeSesion_('Pepe', s, 'excel:A').forEach(r => vals.push(r)));
   vals.forEach((r, i) => { r[X.PC.id] = i === 0 ? 'hA' : 'hB'; r[X.PC.estado] = '✓ Publicado · Pendiente'; });

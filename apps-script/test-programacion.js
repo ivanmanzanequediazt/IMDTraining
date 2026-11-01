@@ -328,6 +328,19 @@ test('Fechas pasadas: se registran como sesión realizada', () => {
   eq([sd2.exercises[1].sets[0].kg, sd2.durationMin, sd2.rpePost], [85, 60, 7], 'cambio del Excel sin perder duración y RPE');
 });
 
+test('Octubre de 2026: RPE de sesión 8 y 60 minutos si no hay nada anotado', () => {
+  const { ss, api } = load();
+  ss.sheets.deportistas.data.push(['d1', 'DG']);
+  setProg(ss, [
+    { apodo: 'DG', fecha: D('2026-10-05'), sesion: 'Pierna', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 3, reps: 5, kg: 80 },
+    { apodo: 'DG', fecha: D('2026-09-28'), sesion: 'Torso', tipo: 'Fuerza', ejercicio: 'Press', series: 3, reps: 5, kg: 40 },
+  ]);
+  api.publicarProgramacion();
+  const st = JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'pull', since: 0 }) } })).records.filter(r => r.store === 'strength');
+  const oct = st.find(r => r.data.type === 'Pierna').data, sep = st.find(r => r.data.type === 'Torso').data;
+  eq([oct.rpePost, oct.durationMin], [8, 60], 'octubre: RPE 8 y 60 min');
+  eq([sep.rpePost, sep.durationMin], [null, null], 'fuera de octubre: sin valores por defecto');
+});
 
 test('Batería de ejercicios: solo el entrenador, y solo si la app la pide', () => {
   const { api } = load();
