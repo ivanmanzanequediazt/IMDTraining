@@ -797,10 +797,10 @@ function valorDe_(v, letra, letras) {
 // Ejercicio de pliometría por el nombre (saltos, pogos, drop jump, multisaltos, vallas, frenadas, lanzamientos de balón…)
 const FUERZA_EN_ACTIVACION = /nordic/;
 
-// Máquina o ejercicio aeróbico dentro de un bloque concurrente (bici, remo ergómetro, cinta…). «Remo con barra» no lo es
+// Máquina o ejercicio aeróbico dentro de un bloque concurrente (bici, remo ergómetro, cinta, comba…). «Remo con barra» no lo es
 function esCardio_(name) {
   const n = ' ' + sinAcentos_(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
-  return / (bici|bicicleta|bike|airbike|assault|spinning|ergometro|remoergometro|rower|skierg|ski erg|cinta|eliptica|carrera|correr|trote|run|running|sprint|sprints) /.test(n) ||
+  return / (bici|bicicleta|bike|airbike|assault|spinning|ergometro|remoergometro|rower|skierg|ski erg|cinta|eliptica|carrera|correr|trote|run|running|sprint|sprints|comba|cuerda) /.test(n) ||
     / remo (erg|ergo|ergometro|concept|maquina) /.test(n);
 }
 
