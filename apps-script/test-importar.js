@@ -9,7 +9,7 @@ const dir = __dirname;
 const ctx = { console, Utilities: { formatDate: d => d.toISOString().slice(0, 10) } };
 vm.createContext(ctx);
 const src = ['Code.gs', 'Programacion.gs', 'Importar.gs'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') +
-  '\n;this.__ = {fechaExcel_, partesBiserie_, parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS};';
+  '\n;this.__ = {fechaExcel_, partesBiserie_, parseQuienes_, valorDe_, readXlsx_, parseWorkbook_, mesDeNombre_, filasDeSesion_, planImportacion_, primerNumero_, buildPlan_, parseRows_, groupSessions_, PC, PROG_COLS, repartir_, tipoSeccion_};';
 vm.runInContext(src, ctx);
 const X = ctx.__;
 
@@ -24,6 +24,9 @@ eq(X.mesDeNombre_('PEPE_OCTUBRE.xlsx').m, 10, 'sin año');
 eq([X.primerNumero_("17'5 lado", true), X.primerNumero_('50 kg', true), X.primerNumero_('poner lastre', true), X.primerNumero_('4-6rep', false), X.primerNumero_("3 x 4''", false)],
   [17.5, 50, null, 4, 3], 'números en texto');
 
+eq([X.repartir_('40 y 10', 2), X.repartir_('10 y 2,5', 2), X.repartir_('8, 5', 2), X.repartir_('8 rep / 6rep', 2), X.repartir_('2,5', 2)],
+  [['40', '10'], ['10', '2,5'], ['8', '5'], ['8 rep', '6rep'], null], 'reparto de biseries (« y », coma decimal)');
+eq(['Fuerza', 'POTENCIA', 'Pliometría', 'P. PRINCIPAL', 'Core', 'Vuelta a la calma'].map(X.tipoSeccion_), ['p', 'p', 'p', 'p', 'otra', 'otra'], 'subapartados de la parte principal');
 const fx = process.argv[2];
 if (fx && fs.existsSync(fx)) {
   console.log('· Excel de ejemplo: ' + path.basename(fx));

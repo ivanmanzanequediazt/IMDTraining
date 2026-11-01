@@ -351,9 +351,11 @@ function tipoSeccion_(name) {
   const k = sinAcentos_(name).replace(/[^a-z]/g, '');
   if (!k) return '';
   if (k === 'pp' || k === 'ppal' || /^(parteprincipal|pprincipal|principal|bloqueprincipal)/.test(k)) return 'p';
+  // Subapartados de la parte principal (Fuerza, Potencia, Pliometría…): cuentan como parte principal
+  if (/^(fuerza|potencia|pliometria|pliometrico|saltos|velocidad|lanzamientos|deceleracion)$/.test(k)) return 'p';
   if (/^(activacion|movilidad|calentamiento|warmup)/.test(k)) return 'act';
   if (/^(aerobico|cardio)/.test(k)) return 'aer';
-  if (k === 'core' || k === 'fuerza' || k === 'potencia' || k === 'pliometria' ||
+  if (k === 'core' ||
       /^(vueltaalacalma|enfriamiento|estiramientos|accesorios|complementarios|finisher|readaptacion)/.test(k)) return 'otra';
   return '';
 }
@@ -700,14 +702,17 @@ function parseWorkbook_(wb, y, m) {
           if (v.name && (diaDe_(v.name) >= 0 || sinAcentos_(v.name).replace(/[^a-z]/g, '') === 'ejercicios')) break;
           // Título de sección: sin series ni repeticiones y con nombre de sección (o en MAYÚSCULAS y corto)
           const sinNumeros = v.series === '' && v.reps === '';
-          if (v.name && sinNumeros && (esSeccion_(v.name) || (!otros && v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20))) {
+          // «P. PRINCIPAL» o «ACTIVACIÓN» son siempre título, aunque en su fila se hayan quedado series o repeticiones
+          const tFuerte = v.name && /^(p|act)$/.test(tipoSeccion_(v.name)) && v.name.length <= 24;
+          if (tFuerte && !sinNumeros) avisos.push('«' + v.name.trim() + '» tiene series o repeticiones en su fila; se toma como título (hoja ' + sh.name + ' fila ' + rr + ')');
+          if (v.name && (tFuerte || sinNumeros) && (esSeccion_(v.name) || (!otros && v.name === v.name.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(v.name) && v.name.length <= 20))) {
             seccion = tipoSeccion_(v.name) || 'otra';
             if (seccion === 'p') hayPrincipal = true;
             continue;
           }
           // Después de un hueco, solo cuentan las filas con series o repeticiones (no las notas sueltas de abajo)
           if (trasHueco && v.series === '' && v.reps === '') continue;
-          if (!v.name) { sinNombre++; continue; }
+          if (!v.name) { if (v.series !== '' || v.reps !== '') sinNombre++; continue; }
           ejercicios.push({ name: v.name.replace(/\s+/g, ' '), series: v.series, repsTxt: String(v.reps).trim(),
             pesoTxt: String(v.peso).trim(), rpe: v.rpe, obs: v.obs, principal: seccion === 'p', act: seccion === 'act' });
         }
@@ -790,10 +795,11 @@ function partesBiserie_(name) {
     .filter(function (x) { return x; });
 }
 
-// "8 rep / 6-8rep" o "8, 12" -> una parte por ejercicio de la biserie (si cuadra el número de partes; si no, null)
+// "8 rep / 6-8rep", "8, 12" o "40 y 10" -> una parte por ejercicio de la biserie (si cuadra el número de partes; si no, null)
 function repartir_(txt, n) {
   if (n < 2 || !txt) return null;
-  const p = String(txt).split(/\s*[\/,;]\s*/).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+  // Separadores: «/», «;», « y » o una coma que no sea decimal («10 y 2,5» = 10 | 2,5; «8, 5» = 8 | 5)
+  const p = String(txt).split(/\s*(?:[\/;]|\s+y\s+|,(?!\d))\s*/i).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
   return p.length === n ? p : null;
 }
 
