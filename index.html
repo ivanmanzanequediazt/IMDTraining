@@ -645,7 +645,10 @@ function oneRM(w,r,key='brzycki'){
 // Identidad de un ejercicio: nombre + variante, sin distinguir mayúsculas, tildes ni espacios de más
 const normTxt=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 // Unilateral forma parte de la identidad: no se compara con la versión bilateral
-const exKey=e=>normTxt(e.name)+'|'+normTxt(e.variant)+(e.unilateral?'|u':'');
+const exKey=e=>normTxt(exName(e))+'|'+varKey(e.variant)+(e.unilateral?'|u':'');
+// La variante sin lo que añade la importación (biserie, core, repeticiones…) para no separar el mismo ejercicio
+const varKey=v=>String(v||'').split('·').map(x=>normTxt(x)).filter(x=>x&&!/^(biserie|triserie|circuito|core)$/.test(x)&&!/\d/.test(x)).join(' ');
+const exName=e=>{const c=libCanon(e.name);return c?c.name:(e.name||'').trim()};
 const exLabel=e=>(e.name||'').trim()+(normTxt(e.variant)?' · '+e.variant.trim():'')+(e.unilateral?' · unilateral':'');
 const SIDE={I:'Izq.',D:'Der.'};
 // Pliometría: cada serie guarda contactos (apoyos/saltos; en unilaterales, por pierna), intensidad (1 baja · 2 media · 3 alta) y RPE
@@ -755,6 +758,7 @@ function libMatch(name){const ex=libFind(name);if(ex&&Object.keys(ex.muscles||{}
   return best}
 function deriveMuscles(e,man){const n=normTxt(e.name);if(!n)return {};
   if(man&&man.get(n))return {...man.get(n)};const cv=coreByVar(e);if(cv)return cv;
+  const cn=libCanon(e.name);if(cn&&Object.keys(cn.muscles||{}).length)return {...cn.muscles};
   const lm=libMatch(e.name);if(lm&&lm.n>=2)return {...lm.l.muscles};
   const sg=suggestMuscles(e.name);if(sg&&Object.keys(sg).length)return sg;
   return lm?{...lm.l.muscles}:{}}
@@ -978,9 +982,21 @@ function libAll(){const own=new Map((S.exercises||[]).map(x=>[x.id,x]));
   for(const x of own.values())if(!x.id.startsWith('b-')&&!x.kind)out.push(fx(x));
   return out.filter(x=>!x.hidden&&x.name).sort((a,b)=>a.name.localeCompare(b.name,'es'))}
 function libFind(name){const n=normTxt(name);if(!n)return null;return libAll().find(x=>normTxt(x.name)===n)||null}
+// Ejercicio de la batería al que corresponde un nombre escrito de otra forma: mismo nombre, un alias guardado
+// («Es el mismo que…») o las mismas palabras con abreviaturas («Press landmine unilat.» = «Press landmine unilateral»)
+const CANON_STOP=new Set(['de','del','la','el','las','los','con','a','al','en','y','o']);
+const canonToks=name=>normTxt(String(name||'').replace(/\bpm\b/ig,'peso muerto')).split(/[^a-z0-9]+/).filter(t=>t&&!CANON_STOP.has(t)).map(t=>t.length>4?t.replace(/(es|s)$/,''):t);
+let canonCache=new Map(),canonKey='';
+function libCanon(name){const n=normTxt(name);if(!n)return null;
+  const key=(S.exercises||[]).length+'|'+(S.exercises||[]).reduce((a,x)=>a+(x.updatedAt||0),0);if(key!==canonKey){canonKey=key;canonCache=new Map()}
+  if(canonCache.has(n))return canonCache.get(n);
+  const all=libAll();let r=all.find(x=>normTxt(x.name)===n)||all.find(x=>(x.aliases||[]).some(a=>normTxt(a)===n))||null;
+  if(!r){const et=canonToks(name);if(et.length){const same=(a,b)=>a===b||(a.length>=3&&b.startsWith(a))||(b.length>=3&&a.startsWith(b));
+    r=all.find(x=>{const lt=canonToks(x.name);return lt.length===et.length&&et.every(t=>lt.some(l=>same(t,l)))&&lt.every(l=>et.some(t=>same(t,l)))})||null}}
+  canonCache.set(n,r);return r}
 const libById=id=>libAll().find(x=>x.id===id)||null;
 // Cómo se hace un ejercicio: lo que trae el entrenamiento (el entrenador lo copia al programarlo) o la batería
-function exHow(e){const own=e&&e.how;if(own&&own.cues?.length)return own;const l=libFind(e?.name);return l&&l.cues.length?{cues:l.cues}:null}
+function exHow(e){const own=e&&e.how;if(own&&own.cues?.length)return own;const l=libCanon(e?.name);return l&&l.cues.length?{cues:l.cues}:null}
 function libFilter(list){const q=normTxt(S.exq||''),mv=S.exmov||'',mg=S.exmg||'';
   return list.filter(x=>(!q||normTxt(x.name).includes(q))&&(!mv||x.mov===mv)&&(!mg||x.muscles?.[mg]))}
 
@@ -1086,7 +1102,7 @@ const DB={db:null,mem:null,
     await this.putRaw(s,s==='tracks'?{id,deleted:true,dirty:1,synced:1,updatedAt:Date.now()}:{...v,deleted:true,dirty:1,updatedAt:Date.now()});Sync.schedule()}
 };
 const SYNC_STORES=['profiles','sessions','tracks','strength','tests','plans','wellness','exercises'];
-const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','uni','cues','hidden','kind','metric','start','base','model','weeks'];
+const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','uni','cues','hidden','aliases','kind','metric','start','base','model','weeks'];
 
 /* ================= Estado ================= */
 const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],wellness:[],exercises:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
@@ -1478,7 +1494,21 @@ function sinGrupo(){const m=new Map();
     for(const e of st.exercises||[]){if(e.act||!normTxt(e.name)||!(e.sets||[]).some(x=>+x.reps>0))continue;
       if(Object.keys(musclesOf(e,man)).length)continue;const k=normTxt(e.name),c=m.get(k);if(c)c.n++;else m.set(k,{name:e.name.trim(),n:1})}}
   return [...m.values()].sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name,'es'))}
-V.exlib=()=>{const sg=sinGrupo();return (sg.length?`<details class="card sg-card"${S.sgOpen?' open':''}><summary><span class="lbl">Sin grupo muscular</span> <span class="tag pend">${sg.length}</span></summary>
+// Ejercicios de las sesiones y de lo programado que no corresponden a ninguno de la batería
+function noEnBateria(){const m=new Map(),add=(e)=>{if(e.act||!normTxt(e.name)||libCanon(e.name))return;const k=normTxt(e.name),c=m.get(k);if(c)c.n++;else m.set(k,{name:e.name.trim(),n:1})};
+  for(const st of S.strength)if(!st.example&&!prof(st.userId)?.example)for(const e of st.exercises||[])add(e);
+  for(const pl of S.plans)if(pl.kind!=='hr'&&!pl.example&&!prof(pl.userId)?.example)for(const e of pl.exercises||[])add(e);
+  return [...m.values()].sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name,'es'))}
+function openExUnknown(name){S.modalKind='exunk';S.exUnk=name;const mm=deriveMuscles({name}),gs=MG.filter(([g])=>mm[g]).map(([,,sh])=>sh);
+  $('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exUnkT"><div class="sec-h"><h2 id="exUnkT">${esc(name)}</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
+    <span class="hint">No está en la batería.${gs.length?` Ahora cuenta en: ${gs.join(', ')}.`:' Ahora no cuenta en ningún grupo muscular.'}</span>
+    <button class="btn wide" data-act="exUnkSame">${ic('copy','sm')}Es el mismo que uno de la batería…</button>
+    <span class="hint">Por ejemplo, «Press landmine unilat.» es «Press landmine a una mano». Desde ese momento cuentan como el mismo ejercicio (récords, progresión, volumen e indicaciones).</span>
+    <button class="btn primary wide" data-act="exUnkNew">${ic('plus')}Añadir como ejercicio nuevo</button></div>`;
+  $('#modal').hidden=false;document.body.classList.add('modal-open')}
+V.exlib=()=>{const sg=sinGrupo(),nb=noEnBateria();return (nb.length?`<details class="card sg-card"${S.nbOpen?' open':''} data-nb="1"><summary><span class="lbl">No están en la batería</span> <span class="tag pend">${nb.length}</span></summary>
+    <span class="hint">Ejercicios de tus sesiones o de lo que has programado con un nombre que no está en la batería. Dile a la app si es uno que ya existe (escrito de otra forma) o añádelo como nuevo.</span>
+    <div class="list">${nb.slice(0,60).map(x=>`<button class="item" data-act="exUnknown" data-n="${esc(x.name)}"><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${x.n} ${x.n===1?'vez':'veces'}</span></span>${ic('chev','sm')}</button>`).join('')}</div></details>`:'')+(sg.length?`<details class="card sg-card"${S.sgOpen?' open':''}><summary><span class="lbl">Sin grupo muscular</span> <span class="tag pend">${sg.length}</span></summary>
     <span class="hint">Ejercicios de tus sesiones que no cuentan en ningún grupo. Toca uno, marca sus grupos y guárdalo: se aplica a todas las sesiones donde aparezca.</span>
     <div class="list">${sg.slice(0,40).map(x=>`<button class="item" data-act="exNewFrom" data-n="${esc(x.name)}"><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${x.n} ${x.n===1?'vez':'veces'}</span></span>${ic('chev','sm')}</button>`).join('')}</div></details>`:'')+`<div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
   <div class="sec-h"><span class="hint num" id="libCount">${libFilter(libAll()).length} ejercicios</span><button class="btn small primary" data-act="exNew">${ic('plus')}Nuevo ejercicio</button></div>
@@ -1486,6 +1516,7 @@ V.exlib=()=>{const sg=sinGrupo();return (sg.length?`<details class="card sg-card
   ${info('La batería base viene con la app. Lo que cambies o añadas se guarda en tu hoja de Google y sale igual en tu móvil y en tu ordenador. Al programar, elige los ejercicios de aquí: el cliente verá sus indicaciones al tocar «Cómo se hace».','Cómo funciona')}`};
 V.exedit=()=>{const x=S.exDraft;if(!x)return'<div class="empty">Ejercicio no encontrado.</div>';const m=x.muscles||{};
   return `<div class="card"><div class="field"><label for="exName">Nombre</label><input id="exName" data-xf="name" value="${esc(x.name||'')}" placeholder="Nombre del ejercicio"></div>
+    ${(x.aliases||[]).length?`<span class="hint">También se reconoce como: ${x.aliases.map(esc).join(' · ')}</span>`:''}
     <label class="uni"><input type="checkbox" id="exUni"${x.uni?' checked':''}> Unilateral</label>
     <div class="field"><label for="exMovSel">Movimiento</label><select id="exMovSel" data-xf="mov"><option value="">—</option>${MOV.map(([k,l])=>`<option value="${k}"${x.mov===k?' selected':''}>${l}</option>`).join('')}</select></div>
     <span class="lbl">Grupos musculares</span><span class="hint">Toca para cambiar: principal → secundario (½) → nada.</span>
@@ -1495,12 +1526,12 @@ V.exedit=()=>{const x=S.exDraft;if(!x)return'<div class="empty">Ejercicio no enc
   <button class="btn primary wide" data-act="exSave">Guardar</button>
   ${S.arg?`<div class="row">${x.base&&x.edited?`<button class="btn" data-act="exReset">Volver al original</button>`:''}<button class="btn danger" data-act="exDel">${x.base?'Quitar de la batería':'Borrar ejercicio'}</button></div>`:''}`};
 // Elegir de la batería al programar (part = act | main)
-function openExPicker(part){S.modalKind='expick';S.exPart=part;S.exq='';S.exmg='';S.exmov=part==='act'?'mob':'';
-  $('#modal').innerHTML=`<div class="modal-card lib-pick" role="dialog" aria-modal="true" aria-labelledby="exPickT"><div class="sec-h"><h2 id="exPickT">${part==='act'?'Añadir a activación':'Añadir a parte principal'}</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
+function openExPicker(part){S.modalKind='expick';S.exPart=part;S.exq='';S.exmg='';S.exmov=part==='act'?'mob':'';if(part==='alias'){const t=canonToks(S.exUnk||'');S.exq=t[0]||'';S.exmov=''}
+  $('#modal').innerHTML=`<div class="modal-card lib-pick" role="dialog" aria-modal="true" aria-labelledby="exPickT"><div class="sec-h"><h2 id="exPickT">${part==='alias'?'¿Cuál es «'+esc(S.exUnk||'')+'»?':part==='act'?'Añadir a activación':'Añadir a parte principal'}</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
     <div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
-    <div id="libList" class="lib-scroll">${libListHTML('exPick')}</div></div>`;
+    <div id="libList" class="lib-scroll">${libListHTML(part==='alias'?'exAliasPick':'exPick')}</div></div>`;
   $('#modal').hidden=false;document.body.classList.add('modal-open');setTimeout(centerLibChips,0)}
-function refreshLibList(){const l=$('#libList');if(!l)return;l.innerHTML=libListHTML(S.modalKind==='expick'?'exPick':'exOpen');const c=$('#libChips');if(c)c.innerHTML=libChips();const n=$('#libCount');if(n)n.textContent=libFilter(libAll()).length+' ejercicios';centerLibChips()}
+function refreshLibList(){const l=$('#libList');if(!l)return;l.innerHTML=libListHTML(S.modalKind==='expick'?(S.exPart==='alias'?'exAliasPick':'exPick'):'exOpen');const c=$('#libChips');if(c)c.innerHTML=libChips();const n=$('#libCount');if(n)n.textContent=libFilter(libAll()).length+' ejercicios';centerLibChips()}
 function centerLibChips(){document.querySelectorAll('.lib-f').forEach(r=>{const c=r.querySelector('.fchip.on');if(c)r.scrollLeft=c.offsetLeft-r.offsetLeft-(r.clientWidth-c.clientWidth)/2})}
 // «Cómo se hace»: animación e indicaciones de un ejercicio
 function openExHow(name,how){if(!how)return;S.modalKind='exhow';
@@ -1603,8 +1634,8 @@ function updZprev(){const box=$('#zprev');if(!box)return;const f=readForm(),e=va
 // Por ejercicio (nombre + variante + unilateral): mayor peso, más repeticiones en una serie y mayor 1RM estimado
 function exerciseRecords(uid){const map=new Map(),fk=rmKey();
   for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime))for(const e of st.exercises){if(!normTxt(e.name)||e.plyo)continue;const k=exKey(e);
-    let r=map.get(k);if(!r){r={key:k,name:e.name.trim(),variant:(e.variant||'').trim(),uni:!!e.unilateral,muscles:{},n:0,first:st.startTime,last:0,kg:null,rep:null,rm:null};map.set(k,r)}
-    r.muscles=musclesOf(e);r.name=e.name.trim();r.variant=(e.variant||'').trim();r.n++;r.last=st.startTime;
+    let r=map.get(k);if(!r){r={key:k,name:exName(e),variant:(e.variant||'').trim(),uni:!!e.unilateral,muscles:{},n:0,first:st.startTime,last:0,kg:null,rep:null,rm:null};map.set(k,r)}
+    r.muscles=musclesOf(e);r.name=exName(e);r.variant=varKey(e.variant)?(e.variant||'').trim():'';r.n++;r.last=st.startTime;
     for(const s of e.sets||[]){const rp=+s.reps,kg=+s.kg||0;if(!(rp>0))continue;
       if(!r.kg||kg>r.kg.kg||(kg===r.kg.kg&&rp>r.kg.reps))r.kg={kg,reps:rp,t:st.startTime,side:s.side};
       if(!r.rep||rp>r.rep.reps||(rp===r.rep.reps&&kg>r.rep.kg))r.rep={kg,reps:rp,t:st.startTime,side:s.side};
@@ -3119,12 +3150,18 @@ const A={
   exMov(_,b){S.exmov=b.dataset.v;refreshLibList()},
   exMg(_,b){S.exmg=b.dataset.v;refreshLibList()},
   exOpen(id){const x=libById(id);if(!x)return;S.exDraft=JSON.parse(JSON.stringify(x));S.exDelArm=false;go('exedit',id)},
+  exUnknown(_,b){openExUnknown(b.dataset.n)},
+  exUnkSame(){openExPicker('alias')},
+  exUnkNew(){const name=S.exUnk;closeModal();S.exDraft={name,mov:'',muscles:deriveMuscles({name}),cues:[]};S.exDelArm=false;S.nbOpen=true;go('exedit',null)},
+  async exAliasPick(id){const x=libById(id),name=S.exUnk;if(!x||!name)return;const own=(S.exercises||[]).find(r=>r.id===id);
+    const rec=own?{...own,aliases:[...new Set([...(own.aliases||[]),name])]}:x.base?{id,aliases:[name]}:{...x,aliases:[...new Set([...(x.aliases||[]),name])]};
+    delete rec.base;delete rec.edited;delete rec.dirty;delete rec.synced;await DB.put('exercises',rec);S.exercises=await DB.all('exercises');closeModal();S.nbOpen=true;render();toast(`«${name}» = ${x.name}`)},
   exNewFrom(_,b){S.exDraft={name:b.dataset.n,mov:'',muscles:{},cues:[]};S.exDelArm=false;S.sgOpen=true;go('exedit',null)},
   exNew(){S.exDraft={name:S.exq||'',mov:S.exmov||'',muscles:S.exmg?{[S.exmg]:'p'}:{},cues:[]};S.exDelArm=false;go('exedit',null)},
   exMgT(_,b){const m=S.exDraft.muscles||(S.exDraft.muscles={}),g=b.dataset.g;m[g]=!m[g]?'p':m[g]==='p'?'s':undefined;if(!m[g])delete m[g];const y=scrollY;render();scrollTo(0,y)},
   async exSave(){const x=S.exDraft,name=(x.name||'').trim();if(!name){toast('Ponle un nombre al ejercicio');return}
     const dup=libAll().find(o=>normTxt(o.name)===normTxt(name)&&o.id!==S.arg);if(dup){toast('Ya hay un ejercicio con ese nombre');return}
-    const rec={id:S.arg||'x'+uid(),name,mov:x.mov||'',uni:!!$('#exUni')?.checked,muscles:{...(x.muscles||{})},cues:(x.cues||[]).map(c=>c.trim()).filter(c=>c),hidden:false};
+    const rec={id:S.arg||'x'+uid(),name,aliases:x.aliases||[],mov:x.mov||'',uni:!!$('#exUni')?.checked,muscles:{...(x.muscles||{})},cues:(x.cues||[]).map(c=>c.trim()).filter(c=>c),hidden:false};
     await DB.put('exercises',rec);S.exercises=await DB.all('exercises');back();toast('Ejercicio guardado')},
   async exDel(_,b){if(!S.exDelArm){S.exDelArm=true;b.textContent='Pulsa otra vez para confirmar';return}
     const x=S.exDraft;if(x.base)await DB.put('exercises',{id:S.arg,name:x.name,hidden:true});else await DB.del('exercises',S.arg);
@@ -3369,6 +3406,7 @@ document.addEventListener('input',e=>{const el=e.target;if(el.id==='libSearch'){
     if(k==='cues')x.cues=el.value.split('\n');else x[k]=el.value}});
 document.addEventListener('change',e=>{const el=e.target;if(el.dataset?.xf&&S.view==='exedit'&&S.exDraft&&el.tagName==='SELECT')S.exDraft[el.dataset.xf]=el.value});
 // Desplegable «Grupos musculares»: sigue abierto al marcar un grupo; solo se cierra al tocar su título
+document.addEventListener('toggle',e=>{const d=e.target;if(d instanceof HTMLElement&&d.classList.contains('sg-card')){if(d.dataset.nb)S.nbOpen=d.open;else S.sgOpen=d.open}});
 document.addEventListener('toggle',e=>{const d=e.target;if(!(d instanceof HTMLElement)||d.dataset.mgf==null||S.view!=='strength')return;
   S.mgOpen=S.mgOpen||new Set();const k=S.arg+':'+d.dataset.mgf;if(d.open)S.mgOpen.add(k);else S.mgOpen.delete(k)},true);
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){A.wClose?.();return}actClick(e)});
