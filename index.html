@@ -974,7 +974,7 @@ const BASE_EX=[
  ['mb-lateral','Lanzamiento lateral de pie','mb','core:p,shoulders:s','u','De lado a la pared|Gira los hombros respecto a la cadera para cargar|Lanza cruzando el cuerpo con el balón cerca del abdomen'],
  ['mb-pase-lateral-rodillas','Pase lateral de rodillas','mb','core:p','u','De rodillas y de lado a la dirección del lanzamiento|Gira los hombros para cargar|Lanza cruzando el cuerpo'],
  ['mb-pase-cabeza-rodillas','Pase por encima de la cabeza de rodillas','mb','shoulders:p,core:s,back:s','','De rodillas sobre una superficie blanda|Lleva el balón detrás de la cabeza|Pásalo con fuerza manteniendo el tronco firme'],
-].map(([id,name,mov,mg,u,cues])=>({id:'b-'+id,name,mov,muscles:Object.fromEntries(mg?mg.split(',').map(x=>x.split(':')):[]),uni:u==='u',cues:cues?cues.split('|'):[],base:true}));
+].map(([id,name,mov,mg,u,cues])=>({id:'b-'+id,name,mov,muscles:Object.fromEntries(mg?mg.split(',').map(x=>x.split(':')):[]),uni:u==='u',plyo:mov==='plyo',act:mov==='mob'||mov==='scap',cues:cues?cues.split('|'):[],base:true}));
 // Batería completa: la base con los cambios del entrenador (S.exercises) encima; los ocultos no salen
 function libAll(){const own=new Map((S.exercises||[]).map(x=>[x.id,x]));
   const fx=x=>x.muscles?{...x,muscles:fixLegacyM(x.muscles,x.name)}:x;
@@ -998,7 +998,7 @@ const libById=id=>libAll().find(x=>x.id===id)||null;
 // Cómo se hace un ejercicio: lo que trae el entrenamiento (el entrenador lo copia al programarlo) o la batería
 function exHow(e){const own=e&&e.how;if(own&&own.cues?.length)return own;const l=libCanon(e?.name);return l&&l.cues.length?{cues:l.cues}:null}
 function libFilter(list){const q=normTxt(S.exq||''),mv=S.exmov||'',mg=S.exmg||'';
-  return list.filter(x=>(!q||normTxt(x.name).includes(q))&&(!mv||x.mov===mv)&&(!mg||x.muscles?.[mg]))}
+  return list.filter(x=>(!q||normTxt(x.name).includes(q))&&(!mv||(mv==='act'?x.act:mv==='plyo'?x.plyo||x.mov==='plyo':x.mov===mv))&&(!mg||x.muscles?.[mg]))}
 
 /* ===== Test: cálculos ===== */
 function linreg(xs,ys){const n=xs.length;if(n<2)return null;
@@ -1102,7 +1102,7 @@ const DB={db:null,mem:null,
     await this.putRaw(s,s==='tracks'?{id,deleted:true,dirty:1,synced:1,updatedAt:Date.now()}:{...v,deleted:true,dirty:1,updatedAt:Date.now()});Sync.schedule()}
 };
 const SYNC_STORES=['profiles','sessions','tracks','strength','tests','plans','wellness','exercises'];
-const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','uni','cues','hidden','aliases','kind','metric','start','base','model','weeks'];
+const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','uni','plyo','act','cues','hidden','aliases','kind','metric','start','base','model','weeks'];
 
 /* ================= Estado ================= */
 const S={profiles:[],sessions:[],strength:[],tests:[],plans:[],wellness:[],exercises:[],view:'home',arg:null,stack:[],form:{},rec:null,memOnly:false};
@@ -1482,10 +1482,10 @@ V.perio=()=>{const p=prof(S.arg);if(!p)return'';const d=S.perioDraft;if(!d)retur
   ${info('sRPE (UA) = RPE de la sesión × minutos, sumando fuerza y aeróbico. Carga de fuerza = repeticiones × % del 1RM de cada serie. Carga de pliometría = contactos × intensidad (1, 2 o 3). El aviso salta cuando la semana se aleja más de un 10–15 % del objetivo. Descarga: 50–70 % de la referencia; carga: 105–120 %.','Cómo funciona')}`};
 /* ===== Batería de ejercicios: pantallas ===== */
 function libChips(){const mv=S.exmov||'',mg=S.exmg||'';
-  return `<div class="chips-f lib-f" role="radiogroup" aria-label="Movimiento"><button type="button" role="radio" aria-checked="${!mv}" class="fchip ${mv?'':'on'}" data-act="exMov" data-v="">Todos</button>${MOV.map(([k,l])=>`<button type="button" role="radio" aria-checked="${mv===k}" class="fchip ${mv===k?'on':''}" data-act="exMov" data-v="${k}">${l}</button>`).join('')}</div>
+  return `<div class="chips-f lib-f" role="radiogroup" aria-label="Movimiento"><button type="button" role="radio" aria-checked="${!mv}" class="fchip ${mv?'':'on'}" data-act="exMov" data-v="">Todos</button><button type="button" role="radio" aria-checked="${mv==='act'}" class="fchip ${mv==='act'?'on':''}" data-act="exMov" data-v="act">Activación</button>${MOV.map(([k,l])=>`<button type="button" role="radio" aria-checked="${mv===k}" class="fchip ${mv===k?'on':''}" data-act="exMov" data-v="${k}">${l}</button>`).join('')}</div>
   <div class="chips-f lib-f" role="radiogroup" aria-label="Grupo muscular"><button type="button" role="radio" aria-checked="${!mg}" class="fchip ${mg?'':'on'}" data-act="exMg" data-v="">Todos los grupos</button>${MG.map(([k,,sh])=>`<button type="button" role="radio" aria-checked="${mg===k}" class="fchip ${mg===k?'on':''}" data-act="exMg" data-v="${k}">${sh}</button>`).join('')}</div>`}
 function libItem(x,act){const gs=MG.filter(([g])=>x.muscles?.[g]).map(([g,,sh])=>sh+(x.muscles[g]==='s'?' ½':''));
-  return `<button class="item" data-act="${act}" data-id="${x.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${esc(movLabel(x.mov)||'Sin movimiento')}${x.uni?' · unilateral':''}${gs.length?' · '+gs.join(', '):''}</span></span>${x.edited||!x.base?`<span class="tag">${x.base?'Editado':'Tuyo'}</span>`:''}${ic('chev','sm')}</button>`}
+  return `<button class="item" data-act="${act}" data-id="${x.id}"><span class="kind st">${ic('dumbbell')}</span><span class="grow"><span class="t">${esc(x.name)}</span><span class="s">${esc(movLabel(x.mov)||'Sin movimiento')}${x.uni?' · unilateral':''}${x.plyo&&x.mov!=='plyo'?' · pliometría':''}${x.act?' · activación':''}${gs.length?' · '+gs.join(', '):''}</span></span>${x.edited||!x.base?`<span class="tag">${x.base?'Editado':'Tuyo'}</span>`:''}${ic('chev','sm')}</button>`}
 function libListHTML(act){const list=libFilter(libAll());
   return list.length?`<div class="list">${list.map(x=>libItem(x,act)).join('')}</div>`:`<div class="empty small">No hay ejercicios con ese filtro.</div>`}
 // Ejercicios de las sesiones registradas que no tienen ningún grupo muscular (para asignarlo una vez en la batería)
@@ -1494,6 +1494,14 @@ function sinGrupo(){const m=new Map();
     for(const e of st.exercises||[]){if(e.act||!normTxt(e.name)||!(e.sets||[]).some(x=>+x.reps>0))continue;
       if(Object.keys(musclesOf(e,man)).length)continue;const k=normTxt(e.name),c=m.get(k);if(c)c.n++;else m.set(k,{name:e.name.trim(),n:1})}}
   return [...m.values()].sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name,'es'))}
+// Ejercicios marcados como pliometría en la batería: los ya registrados o programados con ese nombre pasan a contar como pliometría
+async function applyLibFlags(){if(isClient())return;
+  for(const st of S.strength){if(st.example)continue;let ch=false;
+    for(const e of st.exercises||[])if(!e.act&&!e.plyo&&libCanon(e.name)?.plyo){e.plyo=true;ch=true}
+    if(ch)await DB.put('strength',st)}
+  for(const pl of S.plans){if(pl.example||pl.kind==='hr'||pl.status==='done')continue;let ch=false;
+    for(const e of pl.exercises||[])if(!e.act&&!e.plyo&&libCanon(e.name)?.plyo){e.plyo=true;ch=true}
+    if(ch)await DB.put('plans',pl)}}
 // Ejercicios de las sesiones y de lo programado que no corresponden a ninguno de la batería
 function noEnBateria(){const m=new Map(),add=(e)=>{if(e.act||!normTxt(e.name)||libCanon(e.name))return;const k=normTxt(e.name),c=m.get(k);if(c)c.n++;else m.set(k,{name:e.name.trim(),n:1})};
   for(const st of S.strength)if(!st.example&&!prof(st.userId)?.example)for(const e of st.exercises||[])add(e);
@@ -1517,7 +1525,8 @@ V.exlib=()=>{const sg=sinGrupo(),nb=noEnBateria();return (nb.length?`<details cl
 V.exedit=()=>{const x=S.exDraft;if(!x)return'<div class="empty">Ejercicio no encontrado.</div>';const m=x.muscles||{};
   return `<div class="card"><div class="field"><label for="exName">Nombre</label><input id="exName" data-xf="name" value="${esc(x.name||'')}" placeholder="Nombre del ejercicio"></div>
     ${(x.aliases||[]).length?`<span class="hint">También se reconoce como: ${x.aliases.map(esc).join(' · ')}</span>`:''}
-    <label class="uni"><input type="checkbox" id="exUni"${x.uni?' checked':''}> Unilateral</label>
+    <div class="ex-var"><label class="uni"><input type="checkbox" id="exUni"${x.uni?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" id="exPlyo"${x.plyo?' checked':''}> Pliometría</label><label class="uni"><input type="checkbox" id="exAct"${x.act?' checked':''}> Activación</label></div>
+    <span class="hint">Pliometría: cuenta por contactos e intensidad. Activación: sale primero al añadir ejercicios a la activación.</span>
     <div class="field"><label for="exMovSel">Movimiento</label><select id="exMovSel" data-xf="mov"><option value="">—</option>${MOV.map(([k,l])=>`<option value="${k}"${x.mov===k?' selected':''}>${l}</option>`).join('')}</select></div>
     <span class="lbl">Grupos musculares</span><span class="hint">Toca para cambiar: principal → secundario (½) → nada.</span>
     <div class="mg" role="group" aria-label="Grupos musculares">${MG.map(([g,,sh])=>`<button type="button" class="mg-c ${m[g]||''}" data-act="exMgT" data-g="${g}" aria-pressed="${!!m[g]}">${sh}${m[g]==='s'?' ½':''}</button>`).join('')}</div></div>
@@ -1526,7 +1535,7 @@ V.exedit=()=>{const x=S.exDraft;if(!x)return'<div class="empty">Ejercicio no enc
   <button class="btn primary wide" data-act="exSave">Guardar</button>
   ${S.arg?`<div class="row">${x.base&&x.edited?`<button class="btn" data-act="exReset">Volver al original</button>`:''}<button class="btn danger" data-act="exDel">${x.base?'Quitar de la batería':'Borrar ejercicio'}</button></div>`:''}`};
 // Elegir de la batería al programar (part = act | main)
-function openExPicker(part){S.modalKind='expick';S.exPart=part;S.exq='';S.exmg='';S.exmov=part==='act'?'mob':'';if(part==='alias'){const t=canonToks(S.exUnk||'');S.exq=t[0]||'';S.exmov=''}
+function openExPicker(part){S.modalKind='expick';S.exPart=part;S.exq='';S.exmg='';S.exmov=part==='act'?'act':'';if(part==='alias'){const t=canonToks(S.exUnk||'');S.exq=t[0]||'';S.exmov=''}
   $('#modal').innerHTML=`<div class="modal-card lib-pick" role="dialog" aria-modal="true" aria-labelledby="exPickT"><div class="sec-h"><h2 id="exPickT">${part==='alias'?'¿Cuál es «'+esc(S.exUnk||'')+'»?':part==='act'?'Añadir a activación':'Añadir a parte principal'}</h2><button class="icon-btn" data-act="wClose" aria-label="Cerrar">×</button></div>
     <div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
     <div id="libList" class="lib-scroll">${libListHTML(part==='alias'?'exAliasPick':'exPick')}</div></div>`;
@@ -3155,21 +3164,21 @@ const A={
   exUnkNew(){const name=S.exUnk;closeModal();S.exDraft={name,mov:'',muscles:deriveMuscles({name}),cues:[]};S.exDelArm=false;S.nbOpen=true;go('exedit',null)},
   async exAliasPick(id){const x=libById(id),name=S.exUnk;if(!x||!name)return;const own=(S.exercises||[]).find(r=>r.id===id);
     const rec=own?{...own,aliases:[...new Set([...(own.aliases||[]),name])]}:x.base?{id,aliases:[name]}:{...x,aliases:[...new Set([...(x.aliases||[]),name])]};
-    delete rec.base;delete rec.edited;delete rec.dirty;delete rec.synced;await DB.put('exercises',rec);S.exercises=await DB.all('exercises');closeModal();S.nbOpen=true;render();toast(`«${name}» = ${x.name}`)},
+    delete rec.base;delete rec.edited;delete rec.dirty;delete rec.synced;await DB.put('exercises',rec);S.exercises=await DB.all('exercises');await applyLibFlags();closeModal();S.nbOpen=true;render();toast(`«${name}» = ${x.name}`)},
   exNewFrom(_,b){S.exDraft={name:b.dataset.n,mov:'',muscles:{},cues:[]};S.exDelArm=false;S.sgOpen=true;go('exedit',null)},
   exNew(){S.exDraft={name:S.exq||'',mov:S.exmov||'',muscles:S.exmg?{[S.exmg]:'p'}:{},cues:[]};S.exDelArm=false;go('exedit',null)},
   exMgT(_,b){const m=S.exDraft.muscles||(S.exDraft.muscles={}),g=b.dataset.g;m[g]=!m[g]?'p':m[g]==='p'?'s':undefined;if(!m[g])delete m[g];const y=scrollY;render();scrollTo(0,y)},
   async exSave(){const x=S.exDraft,name=(x.name||'').trim();if(!name){toast('Ponle un nombre al ejercicio');return}
     const dup=libAll().find(o=>normTxt(o.name)===normTxt(name)&&o.id!==S.arg);if(dup){toast('Ya hay un ejercicio con ese nombre');return}
-    const rec={id:S.arg||'x'+uid(),name,aliases:x.aliases||[],mov:x.mov||'',uni:!!$('#exUni')?.checked,muscles:{...(x.muscles||{})},cues:(x.cues||[]).map(c=>c.trim()).filter(c=>c),hidden:false};
-    await DB.put('exercises',rec);S.exercises=await DB.all('exercises');back();toast('Ejercicio guardado')},
+    const rec={id:S.arg||'x'+uid(),name,aliases:x.aliases||[],mov:x.mov||'',uni:!!$('#exUni')?.checked,plyo:!!$('#exPlyo')?.checked,act:!!$('#exAct')?.checked,muscles:{...(x.muscles||{})},cues:(x.cues||[]).map(c=>c.trim()).filter(c=>c),hidden:false};
+    await DB.put('exercises',rec);S.exercises=await DB.all('exercises');await applyLibFlags();back();toast('Ejercicio guardado')},
   async exDel(_,b){if(!S.exDelArm){S.exDelArm=true;b.textContent='Pulsa otra vez para confirmar';return}
     const x=S.exDraft;if(x.base)await DB.put('exercises',{id:S.arg,name:x.name,hidden:true});else await DB.del('exercises',S.arg);
     S.exercises=await DB.all('exercises');back();toast(x.base?'Quitado de la batería':'Ejercicio borrado')},
   async exReset(){await DB.del('exercises',S.arg);S.exercises=await DB.all('exercises');back();toast('Vuelve a estar como el original')},
   exPickOpen(_,b){openExPicker(b.dataset.v)},
   async exPick(id){const pl=planById(S.arg),x=libById(id);if(!pl||!x)return;const act=S.exPart==='act';
-    pl.exercises.push(act?{name:x.name,variant:'',act:true,sets:[]}:{name:x.name,variant:'',unilateral:!!x.uni,plyo:x.mov==='plyo',sets:[defSet(pl.userId)]});
+    pl.exercises.push(act?{name:x.name,variant:'',act:true,sets:[]}:{name:x.name,variant:'',unilateral:!!x.uni,plyo:!!x.plyo,sets:[defSet(pl.userId)]});
     await savePlan(pl);closeModal();render();toast('Añadido: '+x.name);const n=document.querySelectorAll(`.pl-part[data-part="${act?'act':'main'}"] .card.ex`);n[n.length-1]?.scrollIntoView({block:'center'})},
   exHowOpen(_,b){const src=b.dataset.src,i=+b.dataset.i,list=src==='st'?stById(S.arg)?.exercises:planById(S.arg)?.exercises,e=list?.[i];if(e)openExHow(e.name,exHow(e))},
   async plMoveEx(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i];if(!e)return;e.act=!e.act;if(e.act){e.plyo=false}else if(!(e.sets||[]).length)e.sets=[defSet(pl.userId)];await savePlan(pl);render();toast(e.act?'Pasado a activación':'Pasado a parte principal')},
@@ -3779,7 +3788,7 @@ async function syncResend(id){const p=prof(id);if(!p?.cloudId)return;
 /* ================= Arranque ================= */
 async function loadAll(){S.profiles=await DB.all('profiles');S.sessions=await DB.all('sessions');S.strength=await DB.all('strength');S.tests=await DB.all('tests');S.plans=await DB.all('plans');S.wellness=await DB.all('wellness');S.exercises=await DB.all('exercises')}
 (async()=>{
-  await DB.open();await loadAll();
+  await DB.open();await loadAll();try{await applyLibFlags()}catch(e){}
   try{navigator.storage?.persist?.()}catch(e){}
   for(const st of S.strength.filter(x=>x.status==='open'&&stEmpty(x)))dropDraft(st.id);
   // Enlace con datos o petición de envío
