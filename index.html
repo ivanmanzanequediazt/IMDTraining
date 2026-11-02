@@ -471,7 +471,11 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
 .act-list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
 .pl-part{display:flex;flex-direction:column;gap:10px;margin:14px 0 6px}
 .perio-ch{display:block;width:100%;margin-top:6px}
-.perio-pl{gap:8px}.perio-pl b{font-size:15px}
+.perio-pl{gap:8px}.perio-pl>b{font-size:15px}
+.pp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.pp-stats>div{border:1px solid var(--line);border-radius:12px;padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;min-width:0;text-align:center}
+.pp-stats b{font:700 22px var(--mono);line-height:1}
+.pp-stats span{font:600 12px var(--body);color:var(--muted);line-height:1.2;min-height:2.4em;display:flex;align-items:center;justify-content:center;text-wrap:balance;overflow-wrap:anywhere;max-width:100%}
 .pr-list{display:flex;flex-direction:column;gap:6px}
 .pr-row{display:grid;grid-template-columns:42px minmax(0,1fr) 82px 58px;gap:6px;align-items:center;font-size:14px}.pr-d,.pr-ua{white-space:nowrap;font-size:12.5px}
 .pr-pct{display:flex;align-items:center;gap:3px}.pr-pct input{width:58px;min-width:0;padding-left:4px;padding-right:6px;text-align:right}.pr-row select{padding-left:8px;padding-right:4px}
@@ -1438,7 +1442,7 @@ function perioPlanHTML(pl){const p=prof(pl.userId),pr=perioOf(p);if(!pr||!pl.dat
       :`Faltan unas ${Math.round(need)} ${uu} para el objetivo${add?`: añade unas ${add} ${nm} (o sube peso o repeticiones)`:''}.`]}
   else rec=['down',`Te pasas un ${Math.round((ratio-1)*100)} %${perSet?`: quita unas ${Math.max(1,Math.round(-need/perSet))} ${nm} o baja el peso un ${Math.min(30,Math.round((ratio-1)*100))} %`:''}.`];
   return `<div class="card perio-pl">${head}${deload}
-    <div class="stats">${stat(Math.round(w.real),'Hecho')}${stat(Math.round(otros),'Resto semana')}${stat(Math.round(este),'Esta sesión')}</div>
+    <div class="pp-stats">${[[w.real,'Hecho'],[otros,'Resto de la semana'],[este,'Esta sesión']].map(([v,l])=>`<div><b class="num">${Math.round(v)}</b><span>${l}</span></div>`).join('')}</div>
     <div class="note ${rec[0]==='down'?'':rec[0]==='up'?'ok':'info'} slim">${ic(rec[0]==='down'?'down':rec[0]==='up'?'up':'info')}<span class="hint">${rec[1]}</span></div></div>`}
 V.perio=()=>{const p=prof(S.arg);if(!p)return'';const d=S.perioDraft;if(!d)return'';const ws=d.weeks||[],u=perioUnit(d.metric),sug=perioBaseSuggest(p.id,new Date(d.start+'T12:00:00').getTime(),d.metric);
   return `<div class="card"><div class="field"><label for="prMetric">Medir con</label><select id="prMetric" data-prf="metric">${PERIO_METRICS.map(([k,l])=>`<option value="${k}"${(d.metric||'srpe')===k?' selected':''}>${l}</option>`).join('')}</select></div>
