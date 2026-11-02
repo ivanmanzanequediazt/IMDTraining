@@ -1531,7 +1531,7 @@ function openExPicker(part){S.modalKind='expick';S.exPart=part;S.exq='';S.exmg='
     <div class="field lib-q"><input id="libSearch" type="search" placeholder="Buscar ejercicio…" value="${esc(S.exq||'')}" aria-label="Buscar ejercicio" autocomplete="off"></div><div id="libChips">${libChips()}</div>
     <div id="libList" class="lib-scroll">${libListHTML(part==='alias'?'exAliasPick':'exPick')}</div></div>`;
   $('#modal').hidden=false;document.body.classList.add('modal-open');setTimeout(centerLibChips,0)}
-function refreshLibList(){const l=$('#libList');if(!l)return;l.innerHTML=libListHTML(S.modalKind==='expick'?(S.exPart==='alias'?'exAliasPick':'exPick'):'exOpen');const c=$('#libChips');if(c)c.innerHTML=libChips();const n=$('#libCount');if(n)n.textContent=libFilter(libAll()).length+' ejercicios';centerLibChips()}
+function refreshLibList(){const R=S.modalKind==='expick'&&!$('#modal').hidden?$('#modal'):$('#app'),q=x=>R.querySelector(x);const l=q('#libList');if(!l)return;l.innerHTML=libListHTML(S.modalKind==='expick'?(S.exPart==='alias'?'exAliasPick':'exPick'):'exOpen');const c=q('#libChips');if(c)c.innerHTML=libChips();const n=q('#libCount');if(n)n.textContent=libFilter(libAll()).length+' ejercicios';centerLibChips()}
 function centerLibChips(){document.querySelectorAll('.lib-f').forEach(r=>{const c=r.querySelector('.fchip.on');if(c)r.scrollLeft=c.offsetLeft-r.offsetLeft-(r.clientWidth-c.clientWidth)/2})}
 // «Cómo se hace»: animación e indicaciones de un ejercicio
 function openExHow(name,how){if(!how)return;S.modalKind='exhow';
@@ -2241,7 +2241,7 @@ function wellStatus(uid,w){if(!w)return null;const sc=wellScore(w),prev=wellOf(u
   return {sc,...st}}
 // Ventana emergente
 function openWell(uid){const w=wellDay(uid,todayStr());S.wellFor=uid;S.wDraft=w?{...w}:{};renderWell();$('#modal').hidden=false;document.body.classList.add('modal-open')}
-function closeModal(){$('#modal').hidden=true;$('#modal').innerHTML='';document.body.classList.remove('modal-open');S.wellFor=null;S.modalKind=null;S.syncEdit=false}
+function closeModal(){if(S.modalKind==='expick'){S.exq='';S.exmov='';S.exmg='';if(S.view==='exlib')setTimeout(()=>{if(S.view==='exlib'&&$('#modal').hidden)render()})}$('#modal').hidden=true;$('#modal').innerHTML='';document.body.classList.remove('modal-open');S.wellFor=null;S.modalKind=null;S.syncEdit=false}
 function renderWell(){const d=S.wDraft,p=prof(S.wellFor),done=WELL_Q.every(([k])=>d[k]),cl=isClient();S.modalKind='well';
   const live=BLE.bpm&&Date.now()-BLE.last<5000&&hasSource();
   $('#modal').innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="wTitle">
