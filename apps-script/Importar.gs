@@ -354,10 +354,10 @@ function tipoSeccion_(name) {
   if (/concurrente/.test(k)) return 'conc';
   if (k === 'pp' || k === 'ppal' || /^(parteprincipal|pprincipal|principal|bloqueprincipal)/.test(k)) return 'p';
   // Subapartados de la parte principal (Fuerza, Potencia, Pliometría…): cuentan como parte principal
-  if (/^(fuerza|potencia|pliometria|pliometrico|saltos|velocidad|lanzamientos|deceleracion)$/.test(k)) return 'p';
-  if (/^(activacion|movilidad|calentamiento|warmup)/.test(k)) return 'act';
+  if (/^(fuerza|potencia|pliometria|pliometrico|saltos|velocidad|lanzamientos|deceleracion|estructura)$/.test(k)) return 'p';
+  if (/^(activacion|movilidad|calentamiento|warmup|prehab)/.test(k)) return 'act';
   if (/^act[a-z]{0,6}cion$/.test(k)) return 'act';   // erratas: «ACTICVACIÓN», «ACTIVCION»…
-  if (/^(aerobico|cardio)/.test(k)) return 'aer';
+  if (/^(aerobico|cardio|ssee)/.test(k)) return 'aer';
   if (k === 'core' ||
       /^(vueltaalacalma|enfriamiento|estiramientos|accesorios|complementarios|finisher|readaptacion)/.test(k)) return 'otra';
   return '';
@@ -514,7 +514,7 @@ function parseLista_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
     const si = function (c) { return c ? /^(si|s|x|1|true)$/.test(sinAcentos_(txt(r, c)).replace(/[^a-z0-9]/g, '')) : false; };
     sesiones[k].ejercicios.push({ name: name.replace(/\s+/g, ' '), series: at(r, col.series || 0), repsTxt: col.reps ? txt(r, col.reps) : '',
       nota: col.nota ? txt(r, col.nota) : '', pesoTxt: col.peso ? txt(r, col.peso) : '', pesos: Object.keys(pesos).length ? ps : null,
-      rpe: col.rpe ? at(r, col.rpe) : '', obs: col.obs ? txt(r, col.obs) : '', unilateral: si(col.uni), plyo: si(col.plyo), act: parte === 'act' });
+      rpe: col.rpe ? at(r, col.rpe) : '', obs: col.obs ? txt(r, col.obs) : '', unilateral: si(col.uni), plyo: si(col.plyo) || /^pliometr/.test(sinAcentos_(bloque)), act: parte === 'act' });
   }
   if (haySin) avisos.push('hoja ' + hoja + ': hay ejercicios sin día (pon el día en la primera fila de cada sesión)');
   if (!orden.length) return;
@@ -621,7 +621,7 @@ function parseTablas_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
       const si = function (c) { return c ? /^(si|s|x|1|true)$/.test(sinAcentos_(txt(r, c)).replace(/[^a-z0-9]/g, '')) : false; };
       ejercicios.push({ name: name.replace(/\s+/g, ' '), series: col.series ? at(r, col.series) : '', repsTxt: col.reps ? txt(r, col.reps) : '',
         nota: col.nota ? txt(r, col.nota) : '', pesoTxt: col.peso ? txt(r, col.peso) : '', pesos: Object.keys(pesos).length ? ps : null,
-        rpe: col.rpe ? at(r, col.rpe) : '', obs: col.obs ? txt(r, col.obs) : '', unilateral: si(col.uni), plyo: si(col.plyo), act: parte === 'act' });
+        rpe: col.rpe ? at(r, col.rpe) : '', obs: col.obs ? txt(r, col.obs) : '', unilateral: si(col.uni), plyo: si(col.plyo) || /^pliometr/.test(sinAcentos_(bloque)), act: parte === 'act' });
     }
     if (!ejercicios.length) return;                     // tabla vacía: ese día no hay sesión
     const etiq = 'hoja ' + hoja + ' sesión ' + (n + 1);
