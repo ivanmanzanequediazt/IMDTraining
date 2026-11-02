@@ -1922,7 +1922,7 @@ V.strength=()=>{
     <div class="ex-h"><span class="ex-n">${num}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
       <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label></div>${howBtn(e,`data-src="st" data-i="${i}"`)}
-    ${e.plyo?'':isClient()?`<details class="mg-fold"><summary>Grupos musculares</summary>${mgChips(e,i)}</details>`:mgChips(e,i)}
+    ${e.plyo?'':isClient()?`<details class="mg-fold" data-mgf="${i}"${S.mgOpen?.has(st.id+':'+i)?' open':''}><summary>Grupos musculares</summary>${mgChips(e,i)}</details>`:mgChips(e,i)}
     ${e.plan?`<span class="hint num plan-hint">${ic('clock','sm')} Programado: ${e.plyo?plyoSetsText(e.plan,e.unilateral):planSetsText(e.plan,e.unilateral)}</span>`:''}${prevHint(prev,e)}${(()=>{const r=!e.plyo&&recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
     <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':'Kg'}</span><span>${em==='rir'?'RIR':'RPE'}</span><span></span></div>
     ${e.sets.map((s,j)=>`<div class="set${e.unilateral?' side-'+s.side:''}"><span class="set-n">${e.unilateral?`${Math.floor(j/2)+1}<small>${s.side}</small>`:j+1}</span>
@@ -3368,6 +3368,9 @@ document.addEventListener('input',e=>{const el=e.target;if(el.id==='libSearch'){
   if(el.dataset?.xf&&S.view==='exedit'&&S.exDraft){const k=el.dataset.xf,x=S.exDraft;
     if(k==='cues')x.cues=el.value.split('\n');else x[k]=el.value}});
 document.addEventListener('change',e=>{const el=e.target;if(el.dataset?.xf&&S.view==='exedit'&&S.exDraft&&el.tagName==='SELECT')S.exDraft[el.dataset.xf]=el.value});
+// Desplegable «Grupos musculares»: sigue abierto al marcar un grupo; solo se cierra al tocar su título
+document.addEventListener('toggle',e=>{const d=e.target;if(!(d instanceof HTMLElement)||d.dataset.mgf==null||S.view!=='strength')return;
+  S.mgOpen=S.mgOpen||new Set();const k=S.arg+':'+d.dataset.mgf;if(d.open)S.mgOpen.add(k);else S.mgOpen.delete(k)},true);
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){A.wClose?.();return}actClick(e)});
 $('#restBar').addEventListener('click',actClick);
 $('#meBtn').addEventListener('click',()=>switchMode());
