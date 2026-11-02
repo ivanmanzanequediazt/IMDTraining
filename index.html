@@ -471,6 +471,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
 .act-list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
 .pl-part{display:flex;flex-direction:column;gap:10px;margin:14px 0 6px}
 .perio-ch{display:block;width:100%;margin-top:6px}
+.perio-pl{gap:8px}.perio-pl b{font-size:15px}
 .pr-list{display:flex;flex-direction:column;gap:6px}
 .pr-row{display:grid;grid-template-columns:42px minmax(0,1fr) 82px 58px;gap:6px;align-items:center;font-size:14px}.pr-d,.pr-ua{white-space:nowrap;font-size:12.5px}
 .pr-pct{display:flex;align-items:center;gap:3px}.pr-pct input{width:58px;min-width:0;padding-left:4px;padding-right:6px;text-align:right}.pr-row select{padding-left:8px;padding-right:4px}
@@ -1412,6 +1413,33 @@ function perioCard(p){const pr=perioOf(p);
     ${adv.map(([k,t])=>`<div class="note ${k==='down'?'warn':k==='up'?'ok':'info'} slim">${ic(k==='down'?'down':k==='up'?'up':'info')}<span class="hint">${t}</span></div>`).join('')}
     ${!cur&&ws.length&&ws[0].ms>Date.now()?`<span class="hint">El plan empieza la semana del ${new Date(ws[0].ms).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}.</span>`:''}
     ${perioChart(ws)}</div>`}
+// Carga estimada de un entrenamiento programado (misma fórmula que la real): fuerza = reps × %1RM (del % o los kg y el 1RM estimado,
+// o del RPE/RIR objetivo); pliometría = contactos × intensidad
+function planLoadEst(pl,rms){let rel=0,plyo=0,sets=0,plSets=0;if(pl.kind==='hr')return {rel,plyo,sets,plSets};
+  for(const e of pl.exercises||[]){if(e.act||!normTxt(e.name))continue;const rm=e.load==='pct'?null:rms.get(exKey(e));
+    for(const x of e.sets||[]){const r=+x.reps;if(!(r>0))continue;
+      if(e.plyo){plyo+=r*plyoW(x);plSets++;continue}
+      const pct=e.load==='pct'&&+x.pct>0?Math.min(1.2,x.pct/100):setPct({reps:r,kg:x.kg,rpe:x.rpe,rir:x.rir},rm);rel+=r*pct;sets++}}
+  return {rel,plyo,sets,plSets}}
+function perioPlanHTML(pl){const p=prof(pl.userId),pr=perioOf(p);if(!pr||!pl.date||pl.kind==='hr')return'';
+  const ms=weekStart(new Date(pl.date+'T12:00:00').getTime()),w=perioWeeks(pr,p.id).find(x=>x.ms===ms);if(!w)return'';
+  const m=perioMetric(pr.metric),u=perioUnit(m),tipo=(PERIO_TYPES.find(t=>t[0]===w.k)||[,''])[1];
+  const head=`<span class="lbl">Periodización · semana del ${new Date(ms).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span><b>${tipo}${w.target!=null?` · objetivo ${w.target} ${m==='srpe'?u:'de carga'}`:''}</b>`;
+  const deload=w.k==='deload'?`<span class="hint warnTxt">Semana de descarga (${w.f} %): menos series o menos peso que en las semanas de carga.</span>`:'';
+  if(m==='srpe'||w.target==null)return `<div class="card perio-pl">${head}${deload}<span class="hint">${m==='srpe'?`Esta periodización se mide en sRPE (RPE × minutos): solo se sabe al terminar. Lleva ${w.real} UA esta semana.`:'Pon la carga de referencia en la periodización para ver cuánto programar.'}</span></div>`;
+  const rms=rmMap(p.id),k=m==='plyo'?'plyo':'rel';
+  const otros=S.plans.filter(x=>x.userId===pl.userId&&x.id!==pl.id&&x.status!=='done'&&x.date&&weekStart(new Date(x.date+'T12:00:00').getTime())===ms).reduce((a,x)=>a+planLoadEst(x,rms)[k],0);
+  const est=planLoadEst(pl,rms),este=est[k],tot=Math.round(w.real+otros+este),need=w.target-tot,ratio=tot/w.target;
+  const nSets=k==='plyo'?est.plSets:est.sets,perSet=nSets?este/nSets:0,nm=k==='plyo'?'series de pliometría':'series';
+  const uu=m==='plyo'?'de carga de pliometría':'de carga';let rec;
+  if(Math.abs(need)<=w.target*.1)rec=['ok',`Vas bien: ${tot} de ${w.target} ${uu} (${Math.round(ratio*100)} %).`];
+  else if(need>0){const add=perSet?Math.max(1,Math.round(need/perSet)):0;
+    rec=['up',add>Math.max(4,nSets)?`Faltan unas ${Math.round(need)} ${uu} para el objetivo de la semana: es mucho para una sola sesión. Repártelo entre las sesiones que quedan (unas ${add} ${nm} más en total) o sube peso y repeticiones.`
+      :`Faltan unas ${Math.round(need)} ${uu} para el objetivo${add?`: añade unas ${add} ${nm} (o sube peso o repeticiones)`:''}.`]}
+  else rec=['down',`Te pasas un ${Math.round((ratio-1)*100)} %${perSet?`: quita unas ${Math.max(1,Math.round(-need/perSet))} ${nm} o baja el peso un ${Math.min(30,Math.round((ratio-1)*100))} %`:''}.`];
+  return `<div class="card perio-pl">${head}${deload}
+    <div class="stats">${stat(Math.round(w.real),'Hecho')}${stat(Math.round(otros),'Resto semana')}${stat(Math.round(este),'Esta sesión')}</div>
+    <div class="note ${rec[0]==='down'?'':rec[0]==='up'?'ok':'info'} slim">${ic(rec[0]==='down'?'down':rec[0]==='up'?'up':'info')}<span class="hint">${rec[1]}</span></div></div>`}
 V.perio=()=>{const p=prof(S.arg);if(!p)return'';const d=S.perioDraft;if(!d)return'';const ws=d.weeks||[],u=perioUnit(d.metric),sug=perioBaseSuggest(p.id,new Date(d.start+'T12:00:00').getTime(),d.metric);
   return `<div class="card"><div class="field"><label for="prMetric">Medir con</label><select id="prMetric" data-prf="metric">${PERIO_METRICS.map(([k,l])=>`<option value="${k}"${(d.metric||'srpe')===k?' selected':''}>${l}</option>`).join('')}</select></div>
     <div class="g2"><div class="field"><label for="prStart">Empieza la semana del</label><input id="prStart" type="date" data-prf="start" value="${d.start}"></div>
@@ -2527,7 +2555,7 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
         <div class="field"><label for="plMin">Minutos</label><input id="plMin" type="number" inputmode="numeric" data-pf="hr.minutes" value="${h2.minutes??''}"></div>
         <div class="field"><label for="plZone">Zona</label><select id="plZone" data-pf="hr.zone">${[1,2,3,4,5].map(z=>`<option value="${z}"${+h2.zone===z?' selected':''}>Z${z}</option>`).join('')}</select></div></div>
         ${p?`<span class="hint num">Z${h2.zone} para ${esc(p.name)}: ${(()=>{const lim=zoneLimits(p),z=+h2.zone;return `${lim[z-1]}–${z<5?lim[z]-1:p.hrMax} ppm`})()}</span>`:''}</div>`}
-    else{const prev=stOf(pl.userId).slice(0,12),em=effMode(pl.userId);h+=effSeg(pl.userId);
+    else{const prev=stOf(pl.userId).slice(0,12),em=effMode(pl.userId);h+=`<div id="plPerio">${perioPlanHTML(pl)}</div>`+effSeg(pl.userId);
       if(prev.length)h+=`<div class="field"><label for="plCopy">Copiar ejercicios de una sesión anterior</label><select id="plCopy"><option value="">Elegir sesión…</option>${prev.map(x=>`<option value="${x.id}">${esc(x.type)} · ${fmtDate(x.startTime)}</option>`).join('')}</select></div>`;
       const exCard=(e,i,n)=>`<div class="card ex"><div class="ex-h"><span class="ex-n">${n}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${n}"><button class="icon-btn" data-act="plMoveEx" data-i="${i}" aria-label="Pasar a activación" title="Pasar a activación">↑</button><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
         <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
@@ -2594,7 +2622,7 @@ $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;con
       if(ex.load==='pct'){const rm=planRM(pl.userId,ex);x.kg=rm&&x.pct?roundKg(rm*x.pct/100):null;const h=$('#plrm'+el.dataset.pe);if(h&&rm)h.textContent=`1RM est. ${fmtKg(rm)} kg → ${pctKgText(ex,rm)}`}}
     else ex[el.dataset.pk]=el.value}
   else return;
-  savePlanSoon(pl);const t=$('#plTot');if(t)t.textContent=planSummary(pl)});
+  savePlanSoon(pl);const t=$('#plTot');if(t)t.textContent=planSummary(pl);const pp=$('#plPerio');if(pp)pp.innerHTML=perioPlanHTML(pl)});
 $('#app').addEventListener('change',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
   if(el.dataset.pk==='unilateral'){pl.exercises[+el.dataset.pe].unilateral=el.checked;savePlan(pl).then(rerenderKeepFocus)}
   if(el.dataset.pk==='act'){pl.exercises[+el.dataset.pe].act=el.checked;savePlan(pl).then(rerenderKeepFocus)}
