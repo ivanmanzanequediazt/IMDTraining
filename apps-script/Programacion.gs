@@ -603,7 +603,7 @@ function buildPlan_(g, id, cid, existing, now) {
       }
       for (let k = 0; k < (r.series === null ? 1 : r.series); k++) {
         const s = { reps: r.reps };
-        if (r.plyo) s.int = r.int;
+        if (r.plyo) { s.int = r.int; if (r.kg !== null && r.kg > 0) { s.kg = r.kg; ex.plyoKg = true; } }   // pliometría con lastre
         else { s.kg = pct !== null ? null : r.kg; if (pct !== null) s.pct = pct; }
         s.rpe = r.rpe;
         s.rir = r.rir;
@@ -647,7 +647,7 @@ function sesionDesdePlan_(plan, sid, cid, prev) {
       const o = { reps: nn(x.reps) };
       if (lado) o.side = lado;
       if (e.plyo) o.int = nn(x.int);
-      o.kg = e.plyo ? null : nn(x.kg);
+      o.kg = e.plyo && !e.plyoKg ? null : nn(x.kg);
       o.rpe = nn(x.rpe);
       o.rir = nn(x.rir);
       return o;
@@ -659,6 +659,7 @@ function sesionDesdePlan_(plan, sid, cid, prev) {
     });
     const ex = { name: e.name, variant: e.variant || '', unilateral: !!e.unilateral, sets: sets };
     if (e.plyo) ex.plyo = true;
+    if (e.plyoKg) ex.plyoKg = true;
     return ex;
   });
   return { id: sid, userId: cid, kind: 'strength', type: plan.title || 'Fuerza', startTime: t, endTime: t,

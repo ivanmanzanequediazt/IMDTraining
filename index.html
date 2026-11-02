@@ -779,11 +779,11 @@ function setPct(s,rm){const r=+s.reps,kg=+s.kg;if(rm&&kg>0)return Math.min(1.2,k
 const PLYO_W={1:1,2:2,3:3};
 // Intensidad: la marcada; si no, por el RPE (< 4 baja, 4–6 media, > 6 alta); sin nada, media
 const plyoW=s=>PLYO_W[+s.int]||(s.rpe!=null&&s.rpe!==''?(+s.rpe<4?1:+s.rpe<=6?2:3):2);
-function exLoad(e,rms){let rel=0,plyo=0;if(e.act)return {rel,plyo};
-  if(e.plyo){for(const s of e.sets||[])if(+s.reps>0)plyo+=(+s.reps)*plyoW(s);return {rel,plyo}}
+function exLoad(e,rms,bw){let rel=0,plyo=0;if(e.act)return {rel,plyo};
+  if(e.plyo){for(const s of e.sets||[])if(+s.reps>0)plyo+=(+s.reps)*plyoW(s)*(e.plyoKg&&+s.kg>0&&bw?1+(+s.kg)/bw:1);return {rel,plyo}}
   const rm=rms&&rms.get(exKey(e));for(const s of e.sets||[]){const r=+s.reps;if(r>0)rel+=r*setPct(s,rm)/(e.unilateral?2:1)}
   return {rel,plyo}}
-function strengthLoad(st,rms){let rel=0,plyo=0;for(const e of st.exercises||[]){const l=exLoad(e,rms);rel+=l.rel;plyo+=l.plyo}return {rel:Math.round(rel),plyo:Math.round(plyo)}}
+function strengthLoad(st,rms){let rel=0,plyo=0;const bw=+(prof(st.userId)?.weight)||0;for(const e of st.exercises||[]){const l=exLoad(e,rms,bw);rel+=l.rel;plyo+=l.plyo}return {rel:Math.round(rel),plyo:Math.round(plyo)}}
 const rmMap=uid=>new Map(exerciseRecords(uid).filter(r=>r.rm?.v).map(r=>[r.key,r.rm.v]));
 function strengthItems(uid,kind){const rms=rmMap(uid);return stOf(uid).map(st=>({t:st.startTime,load:strengthLoad(st,rms)[kind]}))}
 function muscleVolume(sessions){const rms=sessions.length?rmMap(sessions[0].userId):null,man=sessions.length?manualMuscleMap(sessions[0].userId):null;
@@ -1439,10 +1439,10 @@ function perioCard(p){const pr=perioOf(p);
     ${perioChart(ws)}</div>`}
 // Carga estimada de un entrenamiento programado (misma fórmula que la real): fuerza = reps × %1RM (del % o los kg y el 1RM estimado,
 // o del RPE/RIR objetivo); pliometría = contactos × intensidad
-function planLoadEst(pl,rms){let rel=0,plyo=0,sets=0,plSets=0;if(pl.kind==='hr')return {rel,plyo,sets,plSets};
+function planLoadEst(pl,rms){let rel=0,plyo=0,sets=0,plSets=0;const bwP=+(prof(pl.userId)?.weight)||0;if(pl.kind==='hr')return {rel,plyo,sets,plSets};
   for(const e of pl.exercises||[]){if(e.act||!normTxt(e.name))continue;const rm=e.load==='pct'?null:rms.get(exKey(e));
     for(const x of e.sets||[]){const r=+x.reps;if(!(r>0))continue;
-      if(e.plyo){plyo+=r*plyoW(x);plSets++;continue}
+      if(e.plyo){plyo+=r*plyoW(x)*(e.plyoKg&&+x.kg>0&&bwP?1+(+x.kg)/bwP:1);plSets++;continue}
       const pct=e.load==='pct'&&+x.pct>0?Math.min(1.2,x.pct/100):setPct({reps:r,kg:x.kg,rpe:x.rpe,rir:x.rir},rm);rel+=r*pct;sets++}}
   return {rel,plyo,sets,plSets}}
 function perioPlanHTML(pl){const p=prof(pl.userId),pr=perioOf(p);if(!pr||!pl.date||pl.kind==='hr')return'';
@@ -1642,7 +1642,7 @@ function updZprev(){const box=$('#zprev');if(!box)return;const f=readForm(),e=va
 /* ===== Récords ===== */
 // Por ejercicio (nombre + variante + unilateral): mayor peso, más repeticiones en una serie y mayor 1RM estimado
 function exerciseRecords(uid){const map=new Map(),fk=rmKey();
-  for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime))for(const e of st.exercises){if(!normTxt(e.name)||e.plyo)continue;const k=exKey(e);
+  for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime))for(const e of st.exercises){if(!normTxt(e.name)||(e.plyo&&!e.plyoKg))continue;const k=exKey(e);
     let r=map.get(k);if(!r){r={key:k,name:exName(e),variant:(e.variant||'').trim(),uni:!!e.unilateral,muscles:{},n:0,first:st.startTime,last:0,kg:null,rep:null,rm:null};map.set(k,r)}
     r.muscles=musclesOf(e);r.name=exName(e);r.variant=varKey(e.variant)?(e.variant||'').trim():'';r.n++;r.last=st.startTime;
     for(const s of e.sets||[]){const rp=+s.reps,kg=+s.kg||0;if(!(rp>0))continue;
@@ -1661,7 +1661,7 @@ function recRow(r){const wk=Date.now()-7*864e5,isNew=r.n>1&&[r.kg,r.rep,r.rm].so
     </div></div>`}
 // Progresión de un ejercicio sesión a sesión
 function exerciseHistory(uid,key){const fk=rmKey(),out=[];
-  for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime)){const i=st.exercises.findIndex(e=>exKey(e)===key&&!e.plyo);if(i<0)continue;
+  for(const st of [...stOf(uid)].sort((a,b)=>a.startTime-b.startTime)){const i=st.exercises.findIndex(e=>exKey(e)===key&&(!e.plyo||e.plyoKg));if(i<0)continue;
     const e=st.exercises[i],k=strengthStats({exercises:[e]},fk).ex[0];if(!k.sets)continue;
     out.push({id:st.id,t:st.startTime,rm:k.e1rm,top:k.top,vol:k.vol,sets:k.sets,reps:k.reps,rpe:k.rpe,rir:k.rir,rmSet:k.rmSet})}
   return out}
@@ -1778,7 +1778,7 @@ V.profile=()=>{
           <button type="button" data-act="stLoadKind" data-v="rel" class="${sk==='rel'?'on':''}" aria-checked="${sk==='rel'}" role="radio">Fuerza</button>
           <button type="button" data-act="stLoadKind" data-v="plyo" class="${sk==='plyo'?'on':''}" aria-checked="${sk==='plyo'}" role="radio">Pliometría</button></div>
         <canvas id="efv" style="height:150px" role="img" aria-label="Carga por semana"></canvas>
-        ${info(sk==='rel'?'Carga de fuerza (volumen relativo): cada serie suma repeticiones × % del 1RM. 5 repeticiones al 80 % = 4; 5 al 50 % = 2,5. El % sale de los kg y el 1RM estimado del ejercicio; si no hay, se estima con las repeticiones y el RPE o RIR de la serie, y si tampoco hay, se toma un 60 %. Cuenta igual una serie explosiva con RPE bajo que una cerca del fallo: lo que pesa es la intensidad y las repeticiones.':'Carga de pliometría: contactos × intensidad (baja ×1, media ×2, alta ×3). Sin intensidad marcada se usa el RPE (menos de 4 baja, 4–6 media, más de 6 alta); sin nada, media. 30 saltos de intensidad alta = 90.','Cómo se calcula')}</div>`})()}
+        ${info(sk==='rel'?'Carga de fuerza (volumen relativo): cada serie suma repeticiones × % del 1RM. 5 repeticiones al 80 % = 4; 5 al 50 % = 2,5. El % sale de los kg y el 1RM estimado del ejercicio; si no hay, se estima con las repeticiones y el RPE o RIR de la serie, y si tampoco hay, se toma un 60 %. Cuenta igual una serie explosiva con RPE bajo que una cerca del fallo: lo que pesa es la intensidad y las repeticiones.':'Carga de pliometría: contactos × intensidad (baja ×1, media ×2, alta ×3), y con lastre × (1 + kg / peso corporal). Sin intensidad marcada se usa el RPE (menos de 4 baja, 4–6 media, más de 6 alta); sin nada, media. 30 saltos de intensidad alta = 90.','Cómo se calcula')}</div>`})()}
       <div class="card"><div class="sec-h"><span class="lbl">Volumen-carga por ${view==='week'?'semana':'mes'} · kg</span></div>
         <div class="seg two" role="radiogroup" aria-label="Agrupar por">
           <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
@@ -1961,14 +1961,14 @@ V.strength=()=>{
     h+=`<div class="card ex">
     <div class="ex-h"><span class="ex-n">${num}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
-      <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label></div>${howBtn(e,`data-src="st" data-i="${i}"`)}
+      <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label>${e.plyo?`<label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyoKg"${e.plyoKg?' checked':''}> Con carga</label>`:''}</div>${howBtn(e,`data-src="st" data-i="${i}"`)}
     ${e.plyo?'':isClient()?`<details class="mg-fold" data-mgf="${i}"${S.mgOpen?.has(st.id+':'+i)?' open':''}><summary>Grupos musculares</summary>${mgChips(e,i)}</details>`:mgChips(e,i)}
     ${e.plan?`<span class="hint num plan-hint">${ic('clock','sm')} Programado: ${e.plyo?plyoSetsText(e.plan,e.unilateral):planSetsText(e.plan,e.unilateral)}</span>`:''}${prevHint(prev,e)}${(()=>{const r=!e.plyo&&recs.get(exKey(e));return r&&r.kg?`<span class="hint num rec-hint">${ic('trophy','sm')} Récord: ${r.kg.kg?fmtKg(r.kg.kg)+' kg × '+r.kg.reps:r.rep.reps+' reps'}${r.rm?' · 1RM est. '+fmtKg(r.rm.v)+' kg':''}</span>`:''})()}
-    <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':'Kg'}</span><span>${em==='rir'?'RIR':'RPE'}</span><span></span></div>
+    <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':'Kg'}</span><span>${e.plyo&&e.plyoKg?'Kg':em==='rir'?'RIR':'RPE'}</span><span></span></div>
     ${e.sets.map((s,j)=>`<div class="set${e.unilateral?' side-'+s.side:''}"><span class="set-n">${e.unilateral?`${Math.floor(j/2)+1}<small>${s.side}</small>`:j+1}</span>
       <input type="number" inputmode="numeric" min="0" data-ex="${i}" data-set="${j}" data-f="reps" value="${s.reps??''}" aria-label="${e.plyo?'Contactos':'Repeticiones'} serie ${j+1}">
       ${e.plyo?`<select data-ex="${i}" data-set="${j}" data-f="int" aria-label="Intensidad serie ${j+1}">${intOpts(s.int)}</select>`:`<input type="number" inputmode="decimal" min="0" step="0.5" data-ex="${i}" data-set="${j}" data-f="kg" value="${s.kg??''}" aria-label="Kg serie ${j+1}">`}
-      ${em==='rir'?`<select data-ex="${i}" data-set="${j}" data-f="rir" aria-label="RIR serie ${j+1}">${rirOpts(s.rir)}</select>`:`<select data-ex="${i}" data-set="${j}" data-f="rpe" aria-label="RPE serie ${j+1}">${rpeOpts(s.rpe)}</select>`}
+      ${e.plyo&&e.plyoKg?`<input type="number" inputmode="decimal" min="0" step="0.5" data-ex="${i}" data-set="${j}" data-f="kg" value="${s.kg??''}" aria-label="Kg serie ${j+1}">`:em==='rir'?`<select data-ex="${i}" data-set="${j}" data-f="rir" aria-label="RIR serie ${j+1}">${rirOpts(s.rir)}</select>`:`<select data-ex="${i}" data-set="${j}" data-f="rpe" aria-label="RPE serie ${j+1}">${rpeOpts(s.rpe)}</select>`}
       ${e.unilateral&&s.side==='D'?'<span></span>':`<button class="icon-btn" data-act="stDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${e.unilateral?Math.floor(j/2)+1+' (ambos lados)':j+1}">×</button>`}</div>`).join('')}
     </div>
     <div class="ex-f"><button class="btn small" data-act="stAddSet" data-i="${i}">+ Serie</button><span class="hint num" id="exs${i}">${exSummary(k)}</span></div>${e.unilateral?`<span class="hint">I = izquierda · D = derecha. «+ Serie» añade una serie para cada lado.</span>`:''}${e.plyo?`<span class="hint">Contactos = apoyos con el suelo (cada salto o bote cuenta 1; en unilaterales, por pierna). Intensidad: baja (botes, comba, saltos en el sitio) · media (saltos a cajón, CMJ, saltos horizontales) · alta (drop jumps, multisaltos, unilaterales, con lastre).</span>`:''}</div>`});
@@ -2108,7 +2108,7 @@ $('#app').addEventListener('input',e=>{
     if(f==='startTime'){const t=new Date(el.value).getTime();if(!isNaN(t))st.startTime=t}else st[f]=el.value;
     saveStSoon(st);return}
   if(el.dataset.ex==null)return;const ex=st.exercises[+el.dataset.ex];if(!ex)return;
-  if(el.dataset.f==='unilateral'||el.dataset.f==='plyo')return; // se gestiona en 'change'
+  if(el.dataset.f==='unilateral'||el.dataset.f==='plyo'||el.dataset.f==='plyoKg')return; // se gestiona en 'change'
   if(el.dataset.f==='name'||el.dataset.f==='variant')ex[el.dataset.f]=el.value;
   else{const s=ex.sets[+el.dataset.set];const v=el.value;s[el.dataset.f]=v===''?null:+v;
     // Anotar el RPE de una serie = serie terminada: empieza el descanso (en unilaterales, al anotar el lado derecho)
@@ -2123,6 +2123,7 @@ $('#app').addEventListener('change',e=>{
     else{ex.unilateral=false;ex.sets=ex.sets.filter(x=>x.side!=='D').map(({side,...x})=>x)}
     if(!ex.sets.length)ex.sets=ex.unilateral?[{side:'I',reps:null,kg:null,rpe:null},{side:'D',reps:null,kg:null,rpe:null}]:[{reps:null,kg:null,rpe:null}];
     saveSt(st).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
+  if(S.view==='strength'&&e.target.dataset.f==='plyoKg'){const st=stById(S.arg),ex=st.exercises[+e.target.dataset.ex];ex.plyoKg=e.target.checked;if(!ex.plyoKg)for(const x of ex.sets)x.kg=null;saveSt(st).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
   if(S.view==='strength'&&e.target.dataset.f==='plyo'){const st=stById(S.arg),ex=st.exercises[+e.target.dataset.ex];ex.plyo=e.target.checked;ex.plyoAuto=false;saveSt(st).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
   if(S.view==='strength'&&(e.target.dataset.f==='name'||e.target.dataset.f==='variant')){const st=stById(S.arg),ex=st.exercises[+e.target.dataset.ex];
     if(ex&&e.target.dataset.f==='name'&&(ex.plyo==null||ex.plyoAuto)){ex.plyo=isPlyoName(ex.name);ex.plyoAuto=true}DB.put('strength',st).then(rerenderKeepFocus)}
@@ -2606,14 +2607,14 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
     else{const prev=stOf(pl.userId).slice(0,12),em=effMode(pl.userId);h+=`<div id="plPerio">${perioPlanHTML(pl)}</div>`+effSeg(pl.userId);
       if(prev.length)h+=`<div class="field"><label for="plCopy">Copiar ejercicios de una sesión anterior</label><select id="plCopy"><option value="">Elegir sesión…</option>${prev.map(x=>`<option value="${x.id}">${esc(x.type)} · ${fmtDate(x.startTime)}</option>`).join('')}</select></div>`;
       const exCard=(e,i,n)=>`<div class="card ex"><div class="ex-h"><span class="ex-n">${n}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${n}"><button class="icon-btn" data-act="plMoveEx" data-i="${i}" aria-label="Pasar a activación" title="Pasar a activación">↑</button><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
-        <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyo"${e.plyo?' checked':''}> Pliometría</label></div>
+        <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyo"${e.plyo?' checked':''}> Pliometría</label>${e.plyo?`<label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyoKg"${e.plyoKg?' checked':''}> Con carga</label>`:''}</div>
         ${e.plyo?'':(()=>{const pct=e.load==='pct',rm=planRM(pl.userId,e);return `<div class="load-row"><span class="lbl">Carga</span><div class="seg two mini" role="radiogroup" aria-label="Unidad de carga"><button type="button" role="radio" aria-checked="${!pct}" class="${pct?'':'on'}" data-act="plLoad" data-i="${i}" data-v="kg">Kg</button><button type="button" role="radio" aria-checked="${pct}" class="${pct?'on':''}" data-act="plLoad" data-i="${i}" data-v="pct">%1RM</button></div>
           <span class="hint num" id="plrm${i}">${pct?(rm?`1RM est. ${fmtKg(rm)} kg → ${pctKgText(e,rm)}`:'Sin 1RM estimado de este ejercicio: se usarán los kg que calcule su app si tiene registros'):(rm?`1RM est. ${fmtKg(rm)} kg`:'')}</span></div>`})()}
-        <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':e.load==='pct'?'%1RM':'Kg'}</span><span>${em==='rir'?'RIR obj.':'RPE obj.'}</span><span></span></div>
+        <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':e.load==='pct'?'%1RM':'Kg'}</span><span>${e.plyo&&e.plyoKg?'Kg':em==='rir'?'RIR obj.':'RPE obj.'}</span><span></span></div>
         ${e.sets.map((x,j)=>`<div class="set"><span class="set-n">${j+1}</span>
           <input type="number" inputmode="numeric" min="0" data-pe="${i}" data-ps="${j}" data-pk="reps" value="${x.reps??''}" aria-label="Repeticiones serie ${j+1}">
           ${e.plyo?`<select data-pe="${i}" data-ps="${j}" data-pk="int" aria-label="Intensidad serie ${j+1}">${intOpts(x.int)}</select>`:e.load==='pct'?`<input type="number" inputmode="decimal" min="0" max="120" step="2.5" data-pe="${i}" data-ps="${j}" data-pk="pct" value="${x.pct??''}" placeholder="%" aria-label="Porcentaje del 1RM serie ${j+1}">`:`<input type="number" inputmode="decimal" min="0" step="0.5" data-pe="${i}" data-ps="${j}" data-pk="kg" value="${x.kg??''}" placeholder="—" aria-label="Kg serie ${j+1}">`}
-          ${em==='rir'?`<select data-pe="${i}" data-ps="${j}" data-pk="rir" aria-label="RIR objetivo serie ${j+1}">${rirOpts(x.rir)}</select>`:`<select data-pe="${i}" data-ps="${j}" data-pk="rpe" aria-label="RPE objetivo serie ${j+1}">${rpeOpts(x.rpe)}</select>`}
+          ${e.plyo&&e.plyoKg?`<input type="number" inputmode="decimal" min="0" step="0.5" data-pe="${i}" data-ps="${j}" data-pk="kg" value="${x.kg??''}" placeholder="—" aria-label="Kg serie ${j+1}">`:em==='rir'?`<select data-pe="${i}" data-ps="${j}" data-pk="rir" aria-label="RIR objetivo serie ${j+1}">${rirOpts(x.rir)}</select>`:`<select data-pe="${i}" data-ps="${j}" data-pk="rpe" aria-label="RPE objetivo serie ${j+1}">${rpeOpts(x.rpe)}</select>`}
           <button class="icon-btn" data-act="plDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${j+1}">×</button></div>`).join('')}</div>
         <div class="ex-f"><button class="btn small" data-act="plAddSet" data-i="${i}">+ Serie</button><span class="hint num">${e.plyo?(k=>k.contacts?k.contacts*(e.unilateral?2:1)+' contactos'+(e.unilateral?' (las dos piernas)':''):'')(strengthStats({exercises:[e]}).ex[0]):''}${e.unilateral&&!e.plyo?'Cada serie se hace con los dos lados':''}</span></div></div>`;
       const actCard=(e,i,n)=>`<div class="card ex act-ex"><div class="ex-h"><span class="ex-n">${n}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Ejercicio de activación" aria-label="Activación ${n}"><button class="icon-btn" data-act="plMoveEx" data-i="${i}" aria-label="Pasar a parte principal" title="Pasar a parte principal">↓</button><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio de activación ${n}">×</button></div>
@@ -2646,9 +2647,9 @@ function planActHTML(pl){const a=(pl.exercises||[]).map((e,oi)=>[e,oi]).filter((
 async function startPlan(pl){const p=prof(pl.userId);if(!p){toast('No se encuentra el perfil de este entrenamiento');return}
   if(pl.kind==='hr'){if(S.rec){toast('Ya hay una sesión grabándose');return}S.form={type:pl.hr?.type||pl.title,planId:pl.id};go('pre',p.id,{keepForm:true});return}
   const cur=pl.doneId&&stById(pl.doneId);if(pl.status==='inprogress'&&cur&&cur.status==='open'){go('strength',cur.id);return}
-  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)).map(e=>e.act?{name:e.name.trim(),variant:(e.variant||'').trim(),act:true,done:false,plan:(e.sets||[]).map(x=>({reps:x.reps??null,kg:x.kg??null})),sets:[]}:e.plyo?{name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,plyo:true,plyoAuto:false,
-    plan:e.sets.map(x=>({reps:x.reps??null,int:x.int??null,rpe:x.rpe??null,rir:x.rir??null})),
-    sets:e.unilateral?e.sets.flatMap(x=>[{side:'I',reps:x.reps??null,int:x.int??null,kg:null,rpe:null},{side:'D',reps:x.reps??null,int:x.int??null,kg:null,rpe:null}]):e.sets.map(x=>({reps:x.reps??null,int:x.int??null,kg:null,rpe:null}))}:({name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,
+  const ex=(pl.exercises||[]).filter(e=>normTxt(e.name)).map(e=>e.act?{name:e.name.trim(),variant:(e.variant||'').trim(),act:true,done:false,plan:(e.sets||[]).map(x=>({reps:x.reps??null,kg:x.kg??null})),sets:[]}:e.plyo?{name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,plyo:true,plyoAuto:false,...(e.plyoKg?{plyoKg:true}:{}),
+    plan:e.sets.map(x=>({reps:x.reps??null,int:x.int??null,kg:e.plyoKg?x.kg??null:null,rpe:x.rpe??null,rir:x.rir??null})),
+    sets:e.unilateral?e.sets.flatMap(x=>[{side:'I',reps:x.reps??null,int:x.int??null,kg:e.plyoKg?x.kg??null:null,rpe:null},{side:'D',reps:x.reps??null,int:x.int??null,kg:e.plyoKg?x.kg??null:null,rpe:null}]):e.sets.map(x=>({reps:x.reps??null,int:x.int??null,kg:e.plyoKg?x.kg??null:null,rpe:null}))}:({name:e.name.trim(),variant:(e.variant||'').trim(),unilateral:!!e.unilateral,
     ...(e.muscles?{muscles:{...e.muscles},mAuto:false}:{}),plan:e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),pct:e.load==='pct'?x.pct??null:null,rpe:x.rpe??null,rir:x.rir??null})),
     sets:e.unilateral?e.sets.flatMap(x=>{const k=planKg(p.id,e,x);return [{side:'I',reps:x.reps??null,kg:k,rpe:null},{side:'D',reps:x.reps??null,kg:k,rpe:null}]}):e.sets.map(x=>({reps:x.reps??null,kg:planKg(p.id,e,x),rpe:null}))}));
   (pl.exercises||[]).filter(e=>normTxt(e.name)).forEach((e,i)=>{if(e.how&&ex[i])ex[i].how=e.how});
@@ -2665,7 +2666,7 @@ $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;con
     if(k==='zone'){savePlan(pl).then(rerenderKeepFocus);return}const w=$('#plIvBar');if(w)w.innerHTML=ivBar(ivBlocks(pl.hr)||[])}
   else if(el.dataset.pf&&el.dataset.pf.startsWith('cardio.')){if(!pl.cardio)return;const k=el.dataset.pf.slice(7);pl.cardio[k]=k==='type'?el.value:(el.value===''?null:+el.value)}
   else if(el.dataset.pf){const f=el.dataset.pf;if(f.startsWith('hr.')){pl.hr=pl.hr||{};const k=f.slice(3);pl.hr[k]=k==='type'?el.value:(el.value===''?null:+el.value);if(k==='zone'){savePlanSoon(pl);const y=scrollY;render();scrollTo(0,y);return}}else pl[f]=el.value}
-  else if(el.dataset.pe!=null&&el.dataset.pk!=='unilateral'&&el.dataset.pk!=='plyo'&&el.dataset.pk!=='act'){const ex=pl.exercises[+el.dataset.pe];if(!ex)return;
+  else if(el.dataset.pe!=null&&el.dataset.pk!=='unilateral'&&el.dataset.pk!=='plyo'&&el.dataset.pk!=='plyoKg'&&el.dataset.pk!=='act'){const ex=pl.exercises[+el.dataset.pe];if(!ex)return;
     if(el.dataset.ps!=null){const x=ex.sets[+el.dataset.ps];x[el.dataset.pk]=el.value===''?null:+el.value;
       if(ex.load==='pct'){const rm=planRM(pl.userId,ex);x.kg=rm&&x.pct?roundKg(rm*x.pct/100):null;const h=$('#plrm'+el.dataset.pe);if(h&&rm)h.textContent=`1RM est. ${fmtKg(rm)} kg → ${pctKgText(ex,rm)}`}}
     else ex[el.dataset.pk]=el.value}
@@ -2674,6 +2675,7 @@ $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;con
 $('#app').addEventListener('change',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
   if(el.dataset.pk==='unilateral'){pl.exercises[+el.dataset.pe].unilateral=el.checked;savePlan(pl).then(rerenderKeepFocus)}
   if(el.dataset.pk==='act'){pl.exercises[+el.dataset.pe].act=el.checked;savePlan(pl).then(rerenderKeepFocus)}
+  if(el.dataset.pk==='plyoKg'){const ex=pl.exercises[+el.dataset.pe];ex.plyoKg=el.checked;if(!ex.plyoKg)for(const x of ex.sets)x.kg=null;savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
   if(el.dataset.pk==='plyo'){const ex=pl.exercises[+el.dataset.pe];ex.plyo=el.checked;ex.plyoAuto=false;if(ex.plyo)for(const x of ex.sets){x.kg=null;x.pct=null;if(x.reps>12)x.reps=8}savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y)})}
   if(el.dataset.pk==='name'){const ex=pl.exercises[+el.dataset.pe];if(ex&&(ex.plyo==null||ex.plyoAuto)&&isPlyoName(ex.name)!==!!ex.plyo){ex.plyo=isPlyoName(ex.name);ex.plyoAuto=true;savePlan(pl).then(rerenderKeepFocus)}}
   if(el.id==='plCopy'&&el.value){const st=stById(el.value);if(!st)return;pl.exercises=exercisesFromSession(st);if(!pl.title||pl.title==='Entrenamiento de fuerza')pl.title=st.type;

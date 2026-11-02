@@ -917,7 +917,7 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       // Peso: repartido si viene separado ("40 / 10"); si es uno solo, es del primer ejercicio de la biserie
       const pesoTxt = pesoP ? pesoP[k] : (k === 0 ? peso.txt : '');
       const kg = pesoTxt === '' ? null : primerNumero_(pesoTxt, true);
-      if (kg !== null && kg > 0 && kg <= 1000 && !e.plyo) r[PC.kg] = kg;
+      if (kg !== null && kg > 0 && kg <= 1000) r[PC.kg] = kg;   // también en pliometría (lastre)
       if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '') r[PC.rpe] = rpeN;
       r[PC.origen] = origen;
       // «6,4,3» con 3 series (un solo ejercicio): una fila por serie, que se juntan en el mismo ejercicio
