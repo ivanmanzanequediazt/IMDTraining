@@ -141,7 +141,8 @@ test('Primera publicación: deportistas, fuerza, pirámide, %1RM, pliometría, i
   eq(ids[5], '', 'fila vacía sin id');
   const P = Object.fromEntries(live(api).map(p => [p.data.title, p]));
   const f = P['Pierna A'];
-  eq([f.userId, f.author, f.data.kind, f.data.date, f.data.notes, f.data.status, f.data.src], ['d1', 'coach', 'strength', '2027-10-20', 'Calienta 10 min', 'pending', 'hoja'], 'cabecera del plan de fuerza');
+  eq([f.userId, f.author, f.data.kind, f.data.date, f.data.notes, f.data.status, f.data.src], ['d1', 'coach', 'strength', '2027-10-20', '', 'pending', 'hoja'], 'cabecera del plan de fuerza');
+  eq(f.data.exercises[0].note, 'Calienta 10 min', 'las notas de una fila son observaciones de su ejercicio');
   eq(f.data.exercises.map(e => e.name), ['Sentadilla', 'Peso muerto rumano', 'Zancada', 'Drop jump'], 'ejercicios en orden; pirámide juntada');
   eq(f.data.exercises[0].sets.map(s => s.reps + 'x' + s.kg + '@' + s.rpe), ['8x70@7', '8x70@7', '8x70@7', '5x80@8', '5x80@8'], 'pirámide');
   eq([f.data.exercises[1].load, f.data.exercises[1].sets[0]], ['pct', { reps: 10, kg: null, pct: 70, rpe: null, rir: 2 }], '%1RM');
@@ -171,7 +172,7 @@ test('Primera publicación: deportistas, fuerza, pirámide, %1RM, pliometría, i
   ss.sheets.programacion.data[1][COLS.indexOf('notas')] = 'Calienta 15 min';
   api.publicarProgramacion();
   const pf2 = live(api).find(p => p.data.title === 'Pierna A');
-  eq([pf2.data.notes, pf2.data.status, pf2.data.doneId, col(ss, 'estado')[0]], ['Calienta 15 min', 'done', 'S1', '✓ Publicado · Hecho'], 'cambio conserva el estado Hecho');
+  eq([pf2.data.exercises[0].note, pf2.data.status, pf2.data.doneId, col(ss, 'estado')[0]], ['Calienta 15 min', 'done', 'S1', '✓ Publicado · Hecho'], 'cambio conserva el estado Hecho');
 
   // H9: cambiar de deportista una sesión publicada
   const rid = col(ss, 'id')[7];

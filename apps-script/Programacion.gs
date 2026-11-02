@@ -138,7 +138,7 @@ function prepararProgramacion() {
     const e = function (o) { const r = PROG_HEADERS.map(function () { return ''; });
       Object.keys(o).forEach(function (k) { r[PC[k]] = o[k]; }); r[PC.unilateral] = !!o.unilateral; r[PC.plyo] = !!o.plyo; return r; };
     const rows = [
-      e({ apodo: 'Ejemplo', fecha: d(3), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 4, reps: 6, pct: 80, rir: 2, notas: 'Calienta 10 min' }),
+      e({ apodo: 'Ejemplo', fecha: d(3), sesion: 'Pierna A', tipo: 'Fuerza', ejercicio: 'Sentadilla', series: 4, reps: 6, pct: 80, rir: 2, notas: 'Bajar en 3 s' }),
       e({ ejercicio: 'Zancada', unilateral: true, series: 3, reps: 8, kg: 12, rpe: 7 }),
       e({ ejercicio: 'Drop jump', plyo: true, series: 3, reps: 6, int: 'Alta' }),
       e({ fecha: d(5), sesion: 'Series', tipo: 'Aeróbico', ejercicio: 'Carrera', intervalos: '10 Z2, 3 Z4, 2 Z1, 3 Z4, 10 Z2' }),
@@ -551,7 +551,8 @@ function buildPlan_(g, id, cid, existing, now) {
   const aer = g.rows.filter(function (r) { return r.kind === 'hr'; });
   if (aer.length > 1) return { ok: false, error: 'solo una fila de Aeróbico por sesión' };
   const fuerza = g.rows.filter(function (r) { return r.kind !== 'hr'; });
-  const notes = (g.rows.filter(function (r) { return r.notas; })[0] || {}).notas || '';
+  // Notas: las de una fila de ejercicio son observaciones de ese ejercicio; las del aeróbico, de la sesión
+  const notes = (aer.filter(function (r) { return r.notas; })[0] || {}).notas || '';
   const content = { title: g.sesion, kind: fuerza.length ? 'strength' : 'hr', date: g.fecha, notes: notes };
   let cardio = null;
   if (aer.length) {
@@ -593,6 +594,7 @@ function buildPlan_(g, id, cid, existing, now) {
         exs.push(last);
       }
       const ex = last.ex;
+      if (r.notas && (ex.note || '').split(' · ').indexOf(r.notas) < 0) ex.note = ex.note ? ex.note + ' · ' + r.notas : r.notas;
       if (!r.plyo) {
         const mode = pct !== null ? 'pct' : r.kg !== null ? 'kg' : null;
         if (mode) {
@@ -640,7 +642,7 @@ function sesionDesdePlan_(plan, sid, cid, prev) {
   const t = Date.parse(plan.date + 'T12:00:00Z');
   const exercises = (plan.exercises || []).map(function (e) {
     if (e.act) {
-      return { name: e.name, variant: e.variant || '', act: true, done: true,
+      return { name: e.name, variant: e.variant || '', note: e.note || '', act: true, done: true,
         plan: (e.sets || []).map(function (x) { return { reps: nn(x.reps), kg: nn(x.kg) }; }), sets: [] };
     }
     const una = function (x, lado) {
@@ -658,6 +660,7 @@ function sesionDesdePlan_(plan, sid, cid, prev) {
       if (e.unilateral) { sets.push(una(x, 'I')); sets.push(una(x, 'D')); } else sets.push(una(x));
     });
     const ex = { name: e.name, variant: e.variant || '', unilateral: !!e.unilateral, sets: sets };
+    if (e.note) ex.note = e.note;
     if (e.plyo) ex.plyo = true;
     if (e.plyoKg) ex.plyoKg = true;
     return ex;

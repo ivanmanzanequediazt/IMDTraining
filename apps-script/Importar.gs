@@ -849,7 +849,6 @@ function repartir_(txt, n) {
 }
 
 function filasDeSesion_(apodo, s, origen, letra, letras) {
-  const notas = [];
   const filas = [];
   s.ejercicios.forEach(function (e) {
     if (e.aer) {                                     // aeróbico al final de la sesión
@@ -873,8 +872,8 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
           if (mn) r[PC.minutos] = mn;
           if (z) r[PC.zona] = 'Z' + z[1];
         }
-        notas.push(r[PC.ejercicio] + ': ' + ob);
       }
+      if (ob) r[PC.notas] = ob;                       // notas de la sesión (el aeróbico no tiene ejercicios)
       r[PC.origen] = origen;
       filas.push(r);
       return;
@@ -918,6 +917,9 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       const pesoTxt = pesoP ? pesoP[k] : (k === 0 ? peso.txt : '');
       const kg = pesoTxt === '' ? null : primerNumero_(pesoTxt, true);
       if (kg !== null && kg > 0 && kg <= 1000) r[PC.kg] = kg;   // también en pliometría (lastre)
+      // Observaciones del Excel: van al propio ejercicio (y el texto del peso, «por lado», «poner lastre»…)
+      const obsEj = [pesoTxt && /[a-záéíóúñ]{2}/i.test(pesoTxt) ? pesoTxt : '', e.obs || ''].filter(function (x) { return x; }).join(' · ');
+      if (obsEj) r[PC.notas] = obsEj;
       if (rpeN !== null && rpeN >= 0 && rpeN <= 10 && rpe.txt !== '') r[PC.rpe] = rpeN;
       r[PC.origen] = origen;
       // «6,4,3» con 3 series (un solo ejercicio): una fila por serie, que se juntan en el mismo ejercicio
@@ -928,10 +930,7 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       }
       filas.push(r);
     });
-    if (peso.txt && /[a-záéíóúñ]{2}/i.test(peso.txt)) notas.push(e.name + ': ' + peso.txt);
-    if (e.obs) notas.push(e.name + ': ' + e.obs);
   });
-  if (notas.length && filas.length) filas[0][PC.notas] = notas.join(' · ');
   return filas;
 }
 

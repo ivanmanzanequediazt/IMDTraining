@@ -89,7 +89,7 @@ console.log('· Archivo compartido (O: Olga, S: Sergio)');
   const o = X.filasDeSesion_('Olga Ejemplo', s, 'excel:A#O', 'O', L), sa = X.filasDeSesion_('Sergio Ejemplo', s, 'excel:A#S', 'S', L);
   eq(o.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[25, 8], [20, 8], [17.5, '']], 'Olga: kg y RPE');
   eq(sa.map(r => [r[X.PC.kg], r[X.PC.rpe]]), [[12, 8], [20, 7], [10, '']], 'Sergio: kg y RPE');
-  eq([o[0][X.PC.notas], sa[0][X.PC.notas]], ["Press: 17'5 lado", ''], 'notas solo con lo suyo');
+  eq([o[2][X.PC.notas], sa[2][X.PC.notas]], ["17'5 lado", ''], 'notas solo con lo suyo, en su ejercicio');
 }
 console.log('· Biseries');
 {
@@ -162,7 +162,7 @@ console.log('· Aeróbico con tiempo y zona en Observaciones');
     const b = X.buildPlan_(g[0], 'i', 'd', null, 1);
     return b.ok ? [res.sesiones[0].sesion, b.data.cardio, b.data.notes] : b.error;
   };
-  eq(plan('20 min Z2 suave'), ['Entreno lunes', { type: 'Bicicleta', minutes: 20, zone: 2 }, 'Bicicleta: 20 min Z2 suave'], 'continuo (y nombre vacío no coge la etiqueta de RPE)');
+  eq(plan('20 min Z2 suave'), ['Entreno lunes', { type: 'Bicicleta', minutes: 20, zone: 2 }, '20 min Z2 suave'], 'continuo (y nombre vacío no coge la etiqueta de RPE)');
   eq(plan('10 Z2, 4x(3 Z4, 2 Z1)')[1].blocks.length, 9, 'intervalos');
   eq(plan('25 minutos en Z3')[1], { type: 'Bicicleta', minutes: 25, zone: 3 }, 'texto libre con minutos y zona');
   ok(/Minutos y Zona/.test(plan('a tope')), 'sin tiempo: error en Estado');
@@ -189,7 +189,7 @@ console.log('· Reimportar conserva ids y marca para borrar lo que ya no está')
   eq(plan.nuevas.map(r => [r[X.PC.sesion], r[X.PC.series], r[X.PC.id], r[X.PC.accion]]), [['Tracc', 4, 'hA', ''], ['Empuje', '', 'hB', 'Borrar']], 'id conservado y sesión quitada marcada para borrar');
   eq(plan.borrar, 1, 'una para borrar');
   const v2 = X.filasDeSesion_('Pepe', s2, 'excel:A')[0];
-  eq([v2[X.PC.reps], v2[X.PC.variante], v2[X.PC.kg], v2[X.PC.rpe], v2[X.PC.notas]], [6, '6-8rep', 17.5, 8, "Press: 17'5 lado"], 'texto de reps y peso');
+  eq([v2[X.PC.reps], v2[X.PC.variante], v2[X.PC.kg], v2[X.PC.rpe], v2[X.PC.notas]], [6, '6-8rep', 17.5, 8, "17'5 lado"], 'texto de reps y peso (nota en su ejercicio)');
 }
 
 console.log(`\n${passes} comprobaciones correctas, ${fails} fallos`);
