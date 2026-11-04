@@ -174,6 +174,22 @@ test('Primera publicación: deportistas, fuerza, pirámide, %1RM, pliometría, i
   const pf2 = live(api).find(p => p.data.title === 'Pierna A');
   eq([pf2.data.exercises[0].note, pf2.data.status, pf2.data.doneId, col(ss, 'estado')[0]], ['Calienta 15 min', 'done', 'S1', '✓ Publicado · Hecho'], 'cambio conserva el estado Hecho');
 
+  // Cambios hechos en la app (Iván añade un ejercicio y kilos): publicar sin tocar la hoja no los deshace
+  const pa = live(api).find(p => p.data.title === 'Pierna A');
+  const appData = JSON.parse(JSON.stringify(pa.data));
+  appData.exercises.push({ name: 'Zancada', variant: '', unilateral: true, sets: [{ reps: 8, kg: 12.5, rpe: 7 }] });
+  appData.exercises[0].sets[0].kg = 99;
+  const pa2 = JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'push', records: [{ store: 'plans', id: pa.id, userId: 'd1', updatedAt: Date.now() + 5, deleted: false, data: appData }] }) } }));
+  eq(pa2.accepted.length, 1, 'edición en la app aceptada');
+  api.publicarProgramacion();
+  const pa3 = live(api).find(p => p.data.title === 'Pierna A');
+  eq([pa3.data.exercises.length, pa3.data.exercises[0].sets[0].kg], [appData.exercises.length, 99], 'publicar sin cambios en la hoja mantiene lo editado en la app');
+  eq(/se mantiene lo editado en la app/.test(col(ss, 'estado')[0]), true, 'el estado lo explica');
+  ss.sheets.programacion.data[1][COLS.indexOf('notas')] = 'Bajar lento';
+  api.publicarProgramacion();
+  const pa4 = live(api).find(p => p.data.title === 'Pierna A');
+  eq([pa4.data.exercises.length, pa4.data.exercises[0].note], [appData.exercises.length - 1, 'Bajar lento'], 'si cambia la hoja, manda la hoja');
+
   // H9: cambiar de deportista una sesión publicada
   const rid = col(ss, 'id')[7];
   ss.sheets.programacion.data[8][0] = 'DG';

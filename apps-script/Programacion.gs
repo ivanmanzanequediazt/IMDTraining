@@ -255,7 +255,7 @@ function publish_(prog, tz, now) {
       }
     }
     if (!changed) {
-      setAll(g, 'Sin cambios · ' + (STATUS_TXT[existing.status] || 'Pendiente'), id);
+      setAll(g, (built.appEdited ? 'Sin cambios en la hoja (se mantiene lo editado en la app) · ' : 'Sin cambios · ') + (STATUS_TXT[existing.status] || 'Pendiente'), id);
       stats.same++;
       return;
     }
@@ -537,6 +537,12 @@ function parseIntervals_(text) {
 const DEFAULT_HR = { type: 'Carrera', minutes: 40, zone: 2 };
 
 // Lo que compara Publicar para saber si algo ha cambiado
+function hash_(txt) {
+  let h = 5381;
+  for (let i = 0; i < txt.length; i++) h = ((h * 33) ^ txt.charCodeAt(i)) >>> 0;
+  return h.toString(36) + ':' + txt.length;
+}
+
 function contentOf_(d) {
   return JSON.stringify({ title: d.title || '', kind: d.kind || 'strength', date: d.date || '', notes: d.notes || '',
     exercises: d.kind === 'hr' ? null : (d.exercises || []), hr: d.kind === 'hr' ? (d.hr || null) : null,
@@ -617,7 +623,11 @@ function buildPlan_(g, id, cid, existing, now) {
     content.cardio = cardio;                        // aeróbico al final de la sesión de fuerza (concurrente)
   }
 
-  const changed = !existing || contentOf_(existing) !== contentOf_(content);
+  // Huella de lo que dice la hoja. Si la hoja no ha cambiado desde la última publicación, no se toca el plan:
+  // así no se deshacen los cambios hechos después en la app (ejercicios, kilos…). Si la hoja sí cambia, manda la hoja.
+  const huella = hash_(contentOf_(content));
+  if (existing && existing.pubHash === huella) return { ok: true, data: existing, changed: false, appEdited: contentOf_(existing) !== contentOf_(content) };
+  const changed = !existing || contentOf_(existing) !== contentOf_(content) || existing.pubHash !== huella;
   const data = {};
   if (existing) Object.keys(existing).forEach(function (k) { data[k] = existing[k]; });
   Object.keys(content).forEach(function (k) { data[k] = content[k]; });
@@ -626,6 +636,7 @@ function buildPlan_(g, id, cid, existing, now) {
   data.status = existing && existing.status ? existing.status : 'pending';
   data.createdAt = existing && existing.createdAt ? existing.createdAt : now;
   data.src = 'hoja';
+  data.pubHash = huella;
   return { ok: true, data: data, changed: changed };
 }
 
