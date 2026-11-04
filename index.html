@@ -1650,7 +1650,8 @@ function exerciseRecords(uid){const map=new Map(),fk=rmKey();
       if(!r.kg||kg>r.kg.kg||(kg===r.kg.kg&&rp>r.kg.reps))r.kg={kg,reps:rp,t:st.startTime,side:s.side};
       if(!r.rep||rp>r.rep.reps||(rp===r.rep.reps&&kg>r.rep.kg))r.rep={kg,reps:rp,t:st.startTime,side:s.side};
       const est=kg>0?oneRM(kg,rp,fk):null;if(est&&(!r.rm||est>r.rm.v))r.rm={v:Math.round(est*2)/2,kg,reps:rp,t:st.startTime}}}
-  return [...map.values()]}
+  // Solo ejercicios con alguna serie anotada (sin repeticiones no hay récord; antes rompía la pestaña)
+  return [...map.values()].filter(r=>r.kg&&r.rep)}
 const sideTxt=s=>s?` (${s==='I'?'izq.':'der.'})`:'';
 function recRow(r){const wk=Date.now()-7*864e5,isNew=r.n>1&&[r.kg,r.rep,r.rm].some(x=>x&&x.t>=wk&&x.t>r.first);
   const bw=r.kg&&r.kg.kg===0;
