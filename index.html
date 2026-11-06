@@ -223,6 +223,13 @@ details.card>summary{cursor:pointer;font-weight:600;list-style-position:inside}
 .start span{font-size:13px;opacity:.85}
 .start:focus-visible,.kpi:focus-visible,.pcard:focus-visible,.action:focus-visible,.fchip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ld-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));grid-auto-flow:column;gap:8px;margin:4px 0 12px}
+.ld-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;text-align:left;padding:10px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+.ld-tile.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.ld-tile .ld-l{font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--muted)}.ld-tile.on .ld-l{color:var(--accent)}
+.ld-tile b{font:700 22px/1.05 var(--display);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ld-tile .ld-u{font-size:11px;color:var(--muted);line-height:1.2}
+.ld-tile .ld-d{font-size:12px;font-weight:700;color:var(--muted)}.ld-d.up{color:var(--z4)}.ld-d.dn{color:var(--z2)}
 .kpi{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;color:var(--ink);font:inherit;min-width:0}
 .kpi b{font:700 26px/1 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .kpi span{font-size:12px;color:var(--muted);line-height:1.25}
@@ -493,7 +500,8 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
 .cues{margin:4px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
 .how-btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:transparent;color:var(--accent);border-radius:999px;padding:4px 10px;font:600 12px var(--body);cursor:pointer;margin:6px 0 0}
 .rec-h .how-btn{margin:0 0 0 8px;vertical-align:middle;padding:2px 9px}
-.act-line{display:flex;align-items:center;gap:6px}.act-line .act-row{flex:1}.act-line .how-btn span,.act-row .how-btn span{display:none}.act-line .how-btn,.act-row .how-btn{margin:0;padding:6px}
+.ins-here{display:block;width:100%;margin:-4px 0 6px;padding:4px;border:1px dashed var(--line);border-radius:10px;background:none;color:var(--muted);font:600 12px var(--body);cursor:pointer;opacity:.75}.ins-here:hover,.ins-here:focus-visible{opacity:1;color:var(--accent);border-color:var(--accent)}
+.act-line{display:flex;align-items:center;gap:6px}.act-live .ex-name{flex:1 1 auto;min-width:0}.act-live .act-ind{flex:0 0 74px;padding:9px 6px;text-align:center}.act-box-btn{background:none;border:0;padding:4px;cursor:pointer;color:inherit}.act-box-btn.done .act-box{background:var(--accent);color:#fff;border-color:var(--accent)}.act-line .act-row{flex:1}.act-line .how-btn span,.act-row .how-btn span{display:none}.act-line .how-btn,.act-row .how-btn{margin:0;padding:6px}
 .pl-part .sec-h{align-items:baseline}
 .act-ex .ex-var input{flex:1}
 .act-row{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:10px;border-radius:12px;border:1px solid var(--line,rgba(127,127,127,.3));background:transparent;color:inherit;cursor:pointer;font:inherit}
@@ -1317,6 +1325,22 @@ function weekStart(t){const d=new Date(t);d.setHours(0,0,0,0);d.setDate(d.getDat
 // Fuentes de carga del perfil (aquí se sumará también la fuerza)
 const loadItems=uid=>allOf(uid).map(s=>({t:s.startTime,load:loadOfAny(s)}));
 const volItems=uid=>stOf(uid).map(s=>({t:s.startTime,load:strengthStats(s).vol}));
+// Carga de fuerza, pliometría y volumen-carga (kg): tres fichas con los últimos 7 días y el cambio respecto a los 7 anteriores; la elegida se ve en la gráfica
+const ST_LOADS=[['rel','Fuerza','carga'],['plyo','Pliometría','carga'],['kg','Volumen','kg']];
+function stLoadCard(uid,view){const sts=stOf(uid);if(!sts.length)return'';
+  const sk=ST_LOADS.some(x=>x[0]===lsGet('stLoadKind'))?lsGet('stLoadKind'):'rel',rms=rmMap(uid),now=Date.now(),d7=7*864e5;
+  const val=(k,s)=>k==='kg'?strengthStats(s).vol:strengthLoad(s,rms)[k];
+  const sum=(k,a,b)=>Math.round(sts.filter(s=>s.startTime>=a&&s.startTime<b).reduce((t,s)=>t+val(k,s),0));
+  const fmt=(k,v)=>k==='kg'?fmtKg(v):String(v);
+  const tiles=ST_LOADS.map(([k,l,u])=>{const c=sum(k,now-d7,now+1),pv=sum(k,now-2*d7,now-d7),dp=pv>0?Math.round((c-pv)/pv*100):null;
+    if(k==='plyo'&&!c&&!pv&&sk!=='plyo')return '';
+    return `<button type="button" class="ld-tile${sk===k?' on':''}" data-act="stLoadKind" data-v="${k}" aria-pressed="${sk===k}"><span class="ld-l">${l}</span><b class="num">${fmt(k,c)}</b><span class="ld-u">${u} · 7 días</span>${dp==null?'<span class="ld-d">—</span>':`<span class="ld-d ${dp>0?'up':dp<0?'dn':''}">${dp>0?'▲':dp<0?'▼':'='} ${Math.abs(dp)} %</span>`}</button>`}).join('');
+  const txt={rel:'Series × repeticiones × % del 1RM. Cuenta igual una serie explosiva ligera que una cerca del fallo: pesa la intensidad.',plyo:'Contactos × intensidad (baja ×1 · media ×2 · alta ×3), con lastre × (1 + kg / peso corporal).',kg:'Series × repeticiones × kg levantados. Va aparte: no entra en el ACWR.'};
+  return `<div class="card"><div class="sec-h"><span class="lbl">Carga de fuerza por ${view==='week'?'semana':'mes'}</span></div>
+    <div class="ld-tiles">${tiles}</div>
+    <canvas id="efv" style="height:150px" role="img" aria-label="${ST_LOADS.find(x=>x[0]===sk)[1]} por ${view==='week'?'semana':'mes'}"></canvas>
+    <span class="hint">${txt[sk]} ▲▼ = cambio frente a los 7 días anteriores.</span>
+    ${info(sk==='rel'?'Carga de fuerza (volumen relativo): cada serie suma repeticiones × % del 1RM. 5 repeticiones al 80 % = 4; 5 al 50 % = 2,5. El % sale de los kg y el 1RM estimado del ejercicio; si no hay, se estima con las repeticiones y el RPE o RIR de la serie, y si tampoco hay, se toma un 60 %. Cuenta igual una serie explosiva con RPE bajo que una cerca del fallo: lo que pesa es la intensidad y las repeticiones.':sk==='plyo'?'Carga de pliometría: contactos × intensidad (baja ×1, media ×2, alta ×3), y con lastre × (1 + kg / peso corporal). Sin intensidad marcada se usa el RPE (menos de 4 baja, 4–6 media, más de 6 alta); sin nada, media. 30 saltos de intensidad alta = 90.':'Volumen-carga = series × repeticiones × kg. Se muestra aparte y no entra en el ACWR; ahí cuenta el sRPE de cada sesión de fuerza.','Cómo se calcula')}</div>`}
 function loadBuckets(items,mode){
   const out=[];
   if(mode==='month'){const d=new Date();d.setDate(1);d.setHours(0,0,0,0);
@@ -1368,8 +1392,7 @@ function drawProfileCharts(){const id=S.arg;
   drawAcwr($('#acwr'),acwrSeries(dailyLoads(loadItems(id)),lsGet('acwrMethod')==='ewma'?'ewma':'ra'));
   drawBars($('#wk'),loadBuckets(loadItems(id),lsGet('loadView')==='month'?'month':'week'));
   drawBars($('#wkMini'),loadBuckets(loadItems(id),'week'));
-  drawBars($('#stv'),loadBuckets(volItems(id),lsGet('loadView')==='month'?'month':'week'));
-  if($('#efv'))drawBars($('#efv'),loadBuckets(strengthItems(id,lsGet('stLoadKind')==='plyo'?'plyo':'rel'),lsGet('loadView')==='month'?'month':'week'));
+  if($('#efv')){const k=lsGet('stLoadKind');drawBars($('#efv'),loadBuckets(k==='kg'?volItems(id):strengthItems(id,k==='plyo'?'plyo':'rel'),lsGet('loadView')==='month'?'month':'week'))}
   drawBars($('#plyv'),loadBuckets(stOf(id).map(s=>({t:s.startTime,load:strengthStats(s).contacts})),lsGet('loadView')==='month'?'month':'week'))}
 const fmtKg=k=>{k=Math.round((+k||0)*10)/10;return (Number.isInteger(k)?k.toLocaleString('es-ES'):k.toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1}))};
 
@@ -1763,6 +1786,7 @@ V.profile=()=>{
         <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
         <button type="button" data-act="loadView" data-v="month" class="${view==='month'?'on':''}" aria-checked="${view==='month'}" role="radio">Meses</button></div>
       <canvas id="wk" style="height:170px" role="img" aria-label="Carga sRPE por ${view==='week'?'semana':'mes'}"></canvas></div>
+    ${stLoadCard(p.id,view)}
     ${(()=>{const hs=sessOf(p.id).filter(x=>x.zoneMs);if(!hs.length)return'';const w7=Date.now()-7*864e5,t7=hs.filter(x=>x.startTime>=w7),tr=t7.reduce((a,x)=>a+trimp(x),0),sr=t7.reduce((a,x)=>a+(srpe(x)||0),0),wr=t7.filter(x=>srpe(x)!=null);
       const ratio=wr.length?wr.reduce((a,x)=>a+srpe(x),0)/Math.max(1,wr.reduce((a,x)=>a+trimp(x),0)):null;
       return `<div class="card"><div class="sec-h"><span class="lbl">TRIMP aeróbico por ${view==='week'?'semana':'mes'}</span></div>
@@ -1774,19 +1798,6 @@ V.profile=()=>{
     if(!sts.length)h+=`<div class="empty">Todavía no hay sesiones de fuerza.</div><button class="btn primary wide" data-act="newStrength">${ic('dumbbell')}Registrar una sesión de fuerza</button>`;
     else h+=`<div class="kpis">${kpi(fmtKg(v7.vol),'kg en 7 días','ptab','str')}${kpi(v7.sets,'series en 7 días','ptab','str')}${kpi(v7.rpe!=null?dec(v7.rpe,1):'—','RPE medio serie','ptab','str')}</div>
       ${mgCard(p.id)}
-      ${(()=>{const sk=lsGet('stLoadKind')==='plyo'?'plyo':'rel',rms=rmMap(p.id),w=sts.filter(s=>s.startTime>=wk7).map(s=>strengthLoad(s,rms)[sk]).reduce((a,b)=>a+b,0);
-        return `<div class="card"><div class="sec-h"><span class="lbl">Carga por ${view==='week'?'semana':'mes'}</span><b class="num">${w} <span class="hint">en 7 días</span></b></div>
-        <div class="seg two" role="radiogroup" aria-label="Tipo de carga">
-          <button type="button" data-act="stLoadKind" data-v="rel" class="${sk==='rel'?'on':''}" aria-checked="${sk==='rel'}" role="radio">Fuerza</button>
-          <button type="button" data-act="stLoadKind" data-v="plyo" class="${sk==='plyo'?'on':''}" aria-checked="${sk==='plyo'}" role="radio">Pliometría</button></div>
-        <canvas id="efv" style="height:150px" role="img" aria-label="Carga por semana"></canvas>
-        ${info(sk==='rel'?'Carga de fuerza (volumen relativo): cada serie suma repeticiones × % del 1RM. 5 repeticiones al 80 % = 4; 5 al 50 % = 2,5. El % sale de los kg y el 1RM estimado del ejercicio; si no hay, se estima con las repeticiones y el RPE o RIR de la serie, y si tampoco hay, se toma un 60 %. Cuenta igual una serie explosiva con RPE bajo que una cerca del fallo: lo que pesa es la intensidad y las repeticiones.':'Carga de pliometría: contactos × intensidad (baja ×1, media ×2, alta ×3), y con lastre × (1 + kg / peso corporal). Sin intensidad marcada se usa el RPE (menos de 4 baja, 4–6 media, más de 6 alta); sin nada, media. 30 saltos de intensidad alta = 90.','Cómo se calcula')}</div>`})()}
-      <div class="card"><div class="sec-h"><span class="lbl">Volumen-carga por ${view==='week'?'semana':'mes'} · kg</span></div>
-        <div class="seg two" role="radiogroup" aria-label="Agrupar por">
-          <button type="button" data-act="loadView" data-v="week" class="${view==='week'?'on':''}" aria-checked="${view==='week'}" role="radio">Semanas</button>
-          <button type="button" data-act="loadView" data-v="month" class="${view==='month'?'on':''}" aria-checked="${view==='month'}" role="radio">Meses</button></div>
-        <canvas id="stv" style="height:150px" role="img" aria-label="Volumen-carga de fuerza"></canvas>
-        ${info('Volumen-carga = series × repeticiones × kg. Se muestra aparte y no entra en el ACWR; ahí cuenta el sRPE de cada sesión de fuerza.')}</div>
       ${(()=>{const pts=sts.filter(s=>s.exercises.some(e=>e.plyo));if(!pts.length)return'';const p7=strengthStats({exercises:sts.filter(s=>s.startTime>=wk7).flatMap(s=>s.exercises)}),last=strengthStats(pts[0]);
         return `<div class="card"><div class="sec-h"><span class="lbl">Pliometría · contactos por ${view==='week'?'semana':'mes'}</span></div>
           <div class="stats">${stat(p7.contacts,'Contactos 7 días')}${stat(last.contacts,'Última sesión')}${stat(intTxt(p7.byInt)?Math.round(p7.byInt[3]/(p7.contacts||1)*100)+' %':'—','Alta intensidad 7 d')}</div>
@@ -1889,6 +1900,13 @@ V.post=()=>{const f=S.form;if(f.rpePost===undefined)f.rpePost=null;const s=S.ses
   <div class="card"><div class="field"><label for="snotes">Notas</label><textarea id="snotes" placeholder="Sensaciones, contenido de la sesión…">${esc(s.notes)}</textarea></div></div>
   <button class="btn primary wide" data-act="savePost">Guardar RPE</button>
   <div class="ctrls"><button class="btn" data-act="later">Anotar más tarde</button><button class="btn" data-act="remind">Avisarme en 30 min</button></div>`};
+// Corregir una sesión ya guardada: duración, RPE post e inicio (por si se apuntó mal)
+const fixCard=(k,s)=>{const min=k==='hr'?Math.round((s.activeMs||0)/60000):(s.durationMin||'');
+  return `<details class="card more"><summary>${ic('clock')} Corregir duración, RPE o fecha</summary>
+  <div class="g3"><div class="field"><label for="fxDur">Duración (min)</label><input id="fxDur" type="number" inputmode="numeric" min="1" max="600" value="${min}"></div>
+  <div class="field"><label for="fxRpe">RPE post</label><select id="fxRpe">${rpeOpts(s.rpePost)}</select></div>
+  <div class="field"><label for="fxStart">Inicio</label><input id="fxStart" type="datetime-local" value="${toLocalInput(s.startTime)}"></div></div>
+  <button class="btn primary wide" data-act="sesFix" data-k="${k}" data-id="${s.id}">Guardar cambios</button></details>`};
 V.summary=()=>{
   const s=S.sessions.find(x=>x.id===S.arg);if(!s)return'';const p=prof(s.userId),l=srpe(s);
   return `${s.rpePost!=null?sendNudge(s.userId):''}<div class="card"><div class="sec-h"><span class="lbl">${fmtDT(s.startTime)} · ${esc(p?.name||'')}</span>${s.example?'<span class="tag ex">Ejemplo</span>':''}</div>
@@ -1901,6 +1919,7 @@ V.summary=()=>{
   <div class="card"><span class="lbl">Tiempo en zonas</span>${zoneBars(s.zoneMs,s.noSignalMs)}<span class="hint num">Zonas aplicadas: ${s.zoneLimits.join(' · ')} ppm (FCmáx ${s.hrMax})</span></div>
   ${s.parentId?`<div class="note info slim">${ic('dumbbell')}<span class="hint">Parte aeróbica de una sesión de fuerza: el RPE y la carga (sRPE) van en esa sesión.</span><button class="btn small" data-act="openStrength" data-id="${s.parentId}">Ver la sesión</button></div>`:''}
   ${s.rpePost==null&&!s.parentId?`<section class="sec"><h3>Anotar RPE post</h3>${rpeScale('rpePost','post',S.form.rpePost??null)}<button class="btn primary wide" data-act="savePending">Guardar RPE</button></section>`:''}
+  ${s.parentId?'':fixCard('hr',s)}
   <div class="card"><div class="field"><label for="snotes2">Notas</label><textarea id="snotes2" data-act="notes">${esc(s.notes)}</textarea></div><span class="hint">${esc(s.deviceName)}</span></div>
   <div class="row">${athleteBtn('hr',s.id,s)}<button class="btn" data-act="exportSession">Exportar CSV de la sesión</button><button class="btn danger" data-act="delSession">Borrar sesión</button></div>`;
 };
@@ -1956,11 +1975,13 @@ V.strength=()=>{
   if(autoMuscles(st))saveStSoon(st);
   const recs=new Map(exerciseRecords(st.userId).map(r=>[r.key,r]));
   const acts=st.exercises.map((e,i)=>[e,i]).filter(([e])=>e.act);let num=0;
-  if(acts.length)h+=`<div class="card"><div class="sec-h"><span class="lbl">Activación</span><span class="hint num">${acts.filter(([e])=>e.done).length}/${acts.length}</span></div>
-    <div class="act-list">${acts.map(([e,i])=>`<div class="act-line"><button type="button" class="act-row${e.done?' done':''}" data-act="stActDone" data-i="${i}" aria-pressed="${!!e.done}"><span class="act-box" aria-hidden="true">${e.done?'✓':''}</span><span class="grow"><b>${esc(e.name)}</b>${e.variant||e.note||(e.plan||[]).length?`<span class="hint num">${[actPlanTxt(e.plan),esc(e.variant||''),esc(e.note||'')].filter(x=>x).join(' · ')}</span>`:''}</span></button>${howBtn(e,`data-src="st" data-i="${i}"`)}</div>`).join('')}</div>
-    <span class="hint">Márcalos al hacerlos. La activación no suma volumen ni carga.</span></div><span class="lbl sec-lbl">Parte principal</span>`;
+  const actRow=([e,i])=>e.live?`<div class="act-line act-live"><button type="button" class="act-box-btn${e.done?' done':''}" data-act="stActDone" data-i="${i}" aria-pressed="${!!e.done}" aria-label="Hecho"><span class="act-box" aria-hidden="true">${e.done?'✓':''}</span></button><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Ejercicio de activación" aria-label="Activación"><input class="act-ind" data-ex="${i}" data-f="variant" value="${esc(e.variant||'')}" placeholder="2×10…" aria-label="Indicación"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar activación">×</button></div>`:`<div class="act-line"><button type="button" class="act-row${e.done?' done':''}" data-act="stActDone" data-i="${i}" aria-pressed="${!!e.done}"><span class="act-box" aria-hidden="true">${e.done?'✓':''}</span><span class="grow"><b>${esc(e.name)}</b>${e.variant||e.note||(e.plan||[]).length?`<span class="hint num">${[actPlanTxt(e.plan),esc(e.variant||''),esc(e.note||'')].filter(x=>x).join(' · ')}</span>`:''}</span></button>${howBtn(e,`data-src="st" data-i="${i}"`)}</div>`;
+  h+=`<div class="card"><div class="sec-h"><span class="lbl">Activación</span>${acts.length?`<span class="hint num">${acts.filter(([e])=>e.done).length}/${acts.length}</span>`:''}</div>
+    ${acts.length?`<div class="act-list">${acts.map(actRow).join('')}</div>`:''}
+    <button class="btn small" data-act="stAddEx" data-v="act">+ Activación</button>
+    ${acts.length?'<span class="hint">Márcalos al hacerlos. La activación no suma volumen ni carga.</span>':''}</div><span class="lbl sec-lbl">Parte principal</span>`;
   st.exercises.forEach((e,i)=>{if(e.act)return;num++;const k=strengthStats({exercises:[e]}).ex[0],vars=variantsOf(st.userId,e.name);
-    h+=`<div class="card ex">
+    h+=`<button type="button" class="ins-here" data-act="stInsEx" data-i="${i}">＋ Añadir ejercicio aquí</button><div class="card ex">
     <div class="ex-h"><span class="ex-n">${num}</span><input class="ex-name" data-ex="${i}" data-f="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${i+1}"><button class="icon-btn" data-act="stDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
     <div class="ex-var"><input data-ex="${i}" data-f="variant" list="var${i}" value="${esc(e.variant||'')}" placeholder="Variante (opcional): de rodillas, de pie…" aria-label="Variante del ejercicio ${i+1}"><datalist id="var${i}">${vars.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
       <label class="uni"><input type="checkbox" data-ex="${i}" data-f="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyo"${e.plyo?' checked':''}> Pliometría</label>${e.plyo?`<label class="uni"><input type="checkbox" data-ex="${i}" data-f="plyoKg"${e.plyoKg?' checked':''}> Con carga</label>`:''}</div>${howBtn(e,`data-src="st" data-i="${i}"`)}
@@ -2099,6 +2120,7 @@ V.ssum=()=>{
   ${st.rpePost==null||!(st.durationMin>0)?`<section class="sec need-box" id="needBox"><h3>${st.rpePost==null?'Completa la sesión':'Falta la duración'}</h3><span class="hint">${st.rpePost==null?'Con la duración y el RPE se calcula la carga (sRPE).':`RPE post ${st.rpePost}: indica cuánto duró la sesión para calcular la sRPE.`}</span>
     ${st.durationMin>0?'':`<div class="field"><label for="stDur2">Duración (minutos)</label><input id="stDur2" type="number" inputmode="numeric" min="1" max="300" placeholder="min" value="${S.form.dur??''}" style="max-width:160px"><span class="hint">Tiempo total, descansos incluidos.</span></div>`}
     ${st.rpePost==null?rpeScale('rpePost','post',S.form.rpePost??null):''}<button class="btn primary wide" data-act="stSavePending">Guardar</button></section>`:''}
+  ${st.status!=='done'?'':fixCard('st',st)}
   <div class="card"><div class="field"><label for="stNotes2">Notas</label><textarea id="stNotes2">${esc(st.notes)}</textarea></div></div>
   <div class="row">${athleteBtn('st',st.id,st)}<button class="btn" data-act="stEdit">Editar sesión</button><button class="btn" data-act="stExport">Exportar CSV</button><button class="btn danger" data-act="stDel">Borrar sesión</button></div>`;
   return h;
@@ -2613,9 +2635,12 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
         ${p?`<span class="hint num">Z${h2.zone} para ${esc(p.name)}: ${(()=>{const lim=zoneLimits(p),z=+h2.zone;return `${lim[z-1]}–${z<5?lim[z]-1:p.hrMax} ppm`})()}</span>`:''}</div>`}
     else{const prev=stOf(pl.userId).slice(0,12),em=effMode(pl.userId);h+=`<div id="plPerio">${perioPlanHTML(pl)}</div>`+effSeg(pl.userId);
       if(prev.length)h+=`<div class="field"><label for="plCopy">Copiar ejercicios de una sesión anterior</label><select id="plCopy"><option value="">Elegir sesión…</option>${prev.map(x=>`<option value="${x.id}">${esc(x.type)} · ${fmtDate(x.startTime)}</option>`).join('')}</select></div>`;
-      const exCard=(e,i,n)=>`<div class="card ex"><div class="ex-h"><span class="ex-n">${n}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${n}"><button class="icon-btn" data-act="plMoveEx" data-i="${i}" aria-label="Pasar a activación" title="Pasar a activación">↑</button><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
+      const plPrev=lastTimes({userId:pl.userId,id:'',startTime:Infinity}); // lo que hizo la última vez cada ejercicio
+      const ins=(i,act)=>`<button type="button" class="ins-here" data-act="plInsEx" data-i="${i}">＋ Añadir ${act?'activación':'ejercicio'} aquí</button>`;
+      const exCard=(e,i,n)=>`${ins(i)}<div class="card ex"><div class="ex-h"><span class="ex-n">${n}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Nombre del ejercicio" aria-label="Ejercicio ${n}"><button class="icon-btn" data-act="plMoveEx" data-i="${i}" aria-label="Pasar a activación" title="Pasar a activación">↑</button><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio ${i+1}">×</button></div>
         <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Variante (opcional)" aria-label="Variante del ejercicio ${i+1}"><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="unilateral"${e.unilateral?' checked':''}> Unilateral</label><label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyo"${e.plyo?' checked':''}> Pliometría</label>${e.plyo?`<label class="uni"><input type="checkbox" data-pe="${i}" data-pk="plyoKg"${e.plyoKg?' checked':''}> Con carga</label>`:''}</div>
         <div class="ex-var ex-note"><input data-pe="${i}" data-pk="note" value="${esc(e.note||'')}" placeholder="Observaciones (opcional): tempo 3-1-1, pausa abajo…" aria-label="Observaciones del ejercicio ${n}"></div>
+        ${normTxt(e.name)?`<div class="pl-prev">${prevHint(plPrev,e)||'<span class="hint">Sin registros anteriores de este ejercicio.</span>'}</div>`:''}
         ${e.plyo?'':(()=>{const pct=e.load==='pct',rm=planRM(pl.userId,e);return `<div class="load-row"><span class="lbl">Carga</span><div class="seg two mini" role="radiogroup" aria-label="Unidad de carga"><button type="button" role="radio" aria-checked="${!pct}" class="${pct?'':'on'}" data-act="plLoad" data-i="${i}" data-v="kg">Kg</button><button type="button" role="radio" aria-checked="${pct}" class="${pct?'on':''}" data-act="plLoad" data-i="${i}" data-v="pct">%1RM</button></div>
           <span class="hint num" id="plrm${i}">${pct?(rm?`1RM est. ${fmtKg(rm)} kg → ${pctKgText(e,rm)}`:'Sin 1RM estimado de este ejercicio: se usarán los kg que calcule su app si tiene registros'):(rm?`1RM est. ${fmtKg(rm)} kg`:'')}</span></div>`})()}
         <div class="sets"><div class="set-h"><span>Serie</span><span>${e.plyo?'Contactos':'Reps'}</span><span>${e.plyo?'Intensidad':e.load==='pct'?'%1RM':'Kg'}</span><span>${e.plyo&&e.plyoKg?'Kg':em==='rir'?'RIR obj.':'RPE obj.'}</span><span></span></div>
@@ -2625,7 +2650,7 @@ V.plan=()=>{const pl=planById(S.arg);if(!pl)return'';const p=prof(pl.userId),cl=
           ${e.plyo&&e.plyoKg?`<input type="text" inputmode="decimal" autocomplete="off" data-pe="${i}" data-ps="${j}" data-pk="kg" value="${x.kg??''}" placeholder="—" aria-label="Kg serie ${j+1}">`:em==='rir'?`<select data-pe="${i}" data-ps="${j}" data-pk="rir" aria-label="RIR objetivo serie ${j+1}">${rirOpts(x.rir)}</select>`:`<select data-pe="${i}" data-ps="${j}" data-pk="rpe" aria-label="RPE objetivo serie ${j+1}">${rpeOpts(x.rpe)}</select>`}
           <button class="icon-btn" data-act="plDelSet" data-i="${i}" data-j="${j}" aria-label="Borrar serie ${j+1}">×</button></div>`).join('')}</div>
         <div class="ex-f"><button class="btn small" data-act="plAddSet" data-i="${i}">+ Serie</button><span class="hint num">${e.plyo?(k=>k.contacts?k.contacts*(e.unilateral?2:1)+' contactos'+(e.unilateral?' (las dos piernas)':''):'')(strengthStats({exercises:[e]}).ex[0]):''}${e.unilateral&&!e.plyo?'Cada serie se hace con los dos lados':''}</span></div></div>`;
-      const actCard=(e,i,n)=>`<div class="card ex act-ex"><div class="ex-h"><span class="ex-n">${n}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Ejercicio de activación" aria-label="Activación ${n}"><button class="icon-btn" data-act="plMoveEx" data-i="${i}" aria-label="Pasar a parte principal" title="Pasar a parte principal">↓</button><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio de activación ${n}">×</button></div>
+      const actCard=(e,i,n)=>`${ins(i,1)}<div class="card ex act-ex"><div class="ex-h"><span class="ex-n">${n}</span><input class="ex-name" data-pe="${i}" data-pk="name" list="exlist" value="${esc(e.name)}" placeholder="Ejercicio de activación" aria-label="Activación ${n}"><button class="icon-btn" data-act="plMoveEx" data-i="${i}" aria-label="Pasar a parte principal" title="Pasar a parte principal">↓</button><button class="icon-btn" data-act="plDelEx" data-i="${i}" aria-label="Quitar ejercicio de activación ${n}">×</button></div>
         <div class="ex-var"><input data-pe="${i}" data-pk="variant" value="${esc(e.variant||'')}" placeholder="Indicación (opcional): 2×10, 30 s por lado…" aria-label="Indicación de la activación ${n}"></div>
         <div class="ex-var ex-note"><input data-pe="${i}" data-pk="note" value="${esc(e.note||'')}" placeholder="Observaciones (opcional)" aria-label="Observaciones de la activación ${n}"></div></div>`;
       const idx=pl.exercises.map((e,i)=>[e,i]),actI=idx.filter(([e])=>e.act),mainI=idx.filter(([e])=>!e.act);
@@ -2684,6 +2709,7 @@ $('#app').addEventListener('input',e=>{if(S.view!=='plan'||isClient())return;con
 $('#app').addEventListener('change',e=>{if(S.view!=='plan'||isClient())return;const pl=planById(S.arg),el=e.target;if(!pl)return;
   if(el.dataset.pk==='unilateral'){pl.exercises[+el.dataset.pe].unilateral=el.checked;savePlan(pl).then(rerenderKeepFocus)}
   if(el.dataset.pk==='act'){pl.exercises[+el.dataset.pe].act=el.checked;savePlan(pl).then(rerenderKeepFocus)}
+  if((el.dataset.pk==='name'||el.dataset.pk==='variant')&&!pl.exercises[+el.dataset.pe]?.act)savePlan(pl).then(rerenderKeepFocus); // al cambiar el nombre: mostrar lo que hizo la última vez
   if(el.dataset.pk==='plyoKg'){const ex=pl.exercises[+el.dataset.pe];ex.plyoKg=el.checked;if(!ex.plyoKg)for(const x of ex.sets)x.kg=null;savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y)});return}
   if(el.dataset.pk==='plyo'){const ex=pl.exercises[+el.dataset.pe];ex.plyo=el.checked;ex.plyoAuto=false;if(ex.plyo)for(const x of ex.sets){x.kg=null;x.pct=null;if(x.reps>12)x.reps=8}savePlan(pl).then(()=>{const y=scrollY;render();scrollTo(0,y)})}
   if(el.dataset.pk==='name'){const ex=pl.exercises[+el.dataset.pe];if(ex&&(ex.plyo==null||ex.plyoAuto)&&isPlyoName(ex.name)!==!!ex.plyo){ex.plyo=isPlyoName(ex.name);ex.plyoAuto=true;savePlan(pl).then(rerenderKeepFocus)}}
@@ -3194,6 +3220,7 @@ const A={
     await savePlan(pl);closeModal();render();toast('Añadido: '+x.name);const n=document.querySelectorAll(`.pl-part[data-part="${act?'act':'main'}"] .card.ex`);n[n.length-1]?.scrollIntoView({block:'center'})},
   exHowOpen(_,b){const src=b.dataset.src,i=+b.dataset.i,list=src==='st'?stById(S.arg)?.exercises:planById(S.arg)?.exercises,e=list?.[i];if(e)openExHow(e.name,exHow(e))},
   async plMoveEx(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i];if(!e)return;e.act=!e.act;if(e.act){e.plyo=false}else if(!(e.sets||[]).length)e.sets=[defSet(pl.userId)];await savePlan(pl);render();toast(e.act?'Pasado a activación':'Pasado a parte principal')},
+  async plInsEx(_,b){const pl=planById(S.arg),i=+b.dataset.i,act=!!pl.exercises[i]?.act;pl.exercises.splice(i,0,act?{name:'',variant:'',act:true,sets:[]}:{name:'',variant:'',unilateral:false,sets:[defSet(pl.userId)]});await savePlan(pl);const y=scrollY;render();scrollTo(0,y);$(`[data-pe="${i}"][data-pk="name"]`)?.focus()},
   async plDelEx(_,b){const pl=planById(S.arg);pl.exercises.splice(+b.dataset.i,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plAddSet(_,b){const pl=planById(S.arg),e=pl.exercises[+b.dataset.i],l=e.sets[e.sets.length-1];e.sets.push(l?{...l}:defSet(pl.userId));await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
   async plDelSet(_,b){const pl=planById(S.arg);pl.exercises[+b.dataset.i].sets.splice(+b.dataset.j,1);await savePlan(pl);const y=scrollY;render();scrollTo(0,y)},
@@ -3323,7 +3350,9 @@ const A={
       rpePre:null,rpePost:null,rpePostTime:null,notes:'',status:'open',exercises:[{name:'',sets:[{reps:null,kg:null,rpe:null}]}]};
     await saveSt(st);go('strength',st.id);setTimeout(()=>$('.ex-name')?.focus(),60)},
   openStrength:id=>{const st=stById(id);go(st&&st.status==='open'?'strength':'ssum',id)},
-  async stAddEx(){const st=stById(S.arg);st.exercises.push({name:'',sets:[{reps:null,kg:null,rpe:null}]});await saveSt(st);render();
+  async stInsEx(_,b){const st=stById(S.arg),i=+b.dataset.i;st.exercises.splice(i,0,{name:'',sets:[{reps:null,kg:null,rpe:null}]});await saveSt(st);const y=scrollY;render();scrollTo(0,y);$(`[data-ex="${i}"][data-f="name"]`)?.focus()},
+  async stAddEx(_,b){const st=stById(S.arg);if(b?.dataset?.v==='act'){st.exercises.push({name:'',variant:'',act:true,live:true,done:false,sets:[]});await saveSt(st);const y=scrollY;render();scrollTo(0,y);const n=document.querySelectorAll('.act-live .ex-name');n[n.length-1]?.focus();return}
+    st.exercises.push({name:'',sets:[{reps:null,kg:null,rpe:null}]});await saveSt(st);render();
     const ins=document.querySelectorAll('.ex-name');ins[ins.length-1]?.focus();ins[ins.length-1]?.scrollIntoView({block:'center',behavior:'smooth'})},
   async stDelEx(_,b){const st=stById(S.arg),i=+b.dataset.i,e=st.exercises[i];
     if(e.sets.some(s=>s.reps!=null||s.kg!=null)&&!b.classList.contains('armed')){b.classList.add('armed');b.textContent='¿?';b.setAttribute('aria-label','Pulsa otra vez para quitar el ejercicio');setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='×'}},3000);return}
@@ -3352,6 +3381,13 @@ const A={
     if(S.form.rpePost==null){toast('Elige un valor o pulsa «Anotar más tarde»');return}
     st.durationMin=d;st.notes=$('#stNotes').value;st.rpePost=S.form.rpePost;st.rpePostTime=Date.now();await saveSt(st);go('ssum',st.id,{push:false});toast('RPE guardado')},
   async stLater(){const st=stById(S.arg),d=parseInt($('#stDur')?.value);if(!(d>0)&&!(st.durationMin>0)){toast('Anota al menos la duración: el RPE puede esperar');$('#stDur')?.focus();return}if(d>0)st.durationMin=d;st.notes=$('#stNotes')?.value??st.notes;await saveSt(st);go('ssum',st.id,{push:false})},
+  async sesFix(_,b){const k=b.dataset.k,s=k==='hr'?S.sessions.find(x=>x.id===b.dataset.id):stById(b.dataset.id);if(!s)return;
+    const d=parseInt($('#fxDur').value),r=$('#fxRpe').value,t=new Date($('#fxStart').value).getTime();
+    if(!(d>0&&d<=600)){toast('Escribe la duración en minutos');$('#fxDur').focus();return}
+    if(k==='hr'){s.activeMs=d*60000;s.endTime=(isNaN(t)?s.startTime:t)+d*60000}else{s.durationMin=d;if(s.endTime&&!isNaN(t))s.endTime=t+d*60000}
+    s.rpePost=r===''?null:+r;if(s.rpePost!=null&&!s.rpePostTime)s.rpePostTime=Date.now();if(!isNaN(t))s.startTime=t;
+    if(k==='hr'){await DB.put('sessions',s);upsertSession(s)}else await saveSt(s);
+    render();toast('Sesión corregida')},
   async stSavePending(){const st=stById(S.arg),di=$('#stDur2');
     if(di){const d=parseInt(di.value);if(!(d>0&&d<=300)){toast('Escribe la duración en minutos');di.focus();return}st.durationMin=d}
     if(st.rpePost==null){if(S.form.rpePost==null){toast('Elige el RPE de la sesión');return}st.rpePost=S.form.rpePost;st.rpePostTime=Date.now()}
