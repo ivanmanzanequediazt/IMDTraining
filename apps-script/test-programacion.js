@@ -343,6 +343,15 @@ test('Fechas pasadas: se registran como sesión realizada', () => {
   api.publicarProgramacion();
   const sd2 = JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'pull', since: 0 }) } })).records.find(r => r.store === 'strength').data;
   eq([sd2.exercises[1].sets[0].kg, sd2.durationMin, sd2.rpePost], [85, 60, 7], 'cambio del Excel sin perder duración y RPE');
+  // Se renombra la sesión en el Excel: el importador deja las filas nuevas sin id y una fila «Borrar» con el id viejo
+  const idViejo = col(ss, 'id')[0];
+  const pd = ss.sheets.programacion.data;
+  for (let r = 1; r <= 3; r++) { pd[r][COLS.indexOf('sesion')] = 'Pierna A'; pd[r][COLS.indexOf('id')] = ''; }
+  const borr = COLS.map(() => ''); borr[COLS.indexOf('apodo')] = 'DG'; borr[COLS.indexOf('fecha')] = pd[1][COLS.indexOf('fecha')]; borr[COLS.indexOf('sesion')] = 'Pierna';
+  borr[COLS.indexOf('ejercicio')] = '(quitada del Excel)'; borr[COLS.indexOf('accion')] = 'Borrar'; borr[COLS.indexOf('id')] = idViejo; pd.push(borr);
+  api.publicarProgramacion();
+  const vivas = JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'pull', since: 0 }) } })).records.filter(r => r.store === 'strength' && !r.deleted);
+  eq(vivas.map(r => r.data.type), ['Pierna A'], 'al renombrar no queda la sesión antigua repetida');
 });
 
 test('Octubre de 2026: RPE de sesión 8 y 60 minutos si no hay nada anotado', () => {

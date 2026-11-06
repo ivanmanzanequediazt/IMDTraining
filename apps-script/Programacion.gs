@@ -192,9 +192,17 @@ function publish_(prog, tz, now) {
     g.rows.forEach(function (r) { estados[r.row] = txt; ids[r.row] = id === undefined ? r.id : id; });
   };
   const live = function (id) { const m = id && meta.plans[id]; return m && !m.deleted ? m : null; };
+  // Al quitar un plan se quita también la sesión que se creó de él (fechas pasadas, id «x» + id del plan):
+  // si no, al renombrar o mover una sesión en el Excel quedaba la antigua repetida en «Sesiones».
+  const quitarSesionDe = function (planId) {
+    const sm = meta.strength['x' + planId];
+    if (sm && !sm.deleted) meta.strength['x' + planId] = writeRecord_(writer, sm, { store: 'strength', id: sm.id, userId: sm.userId, updatedAt: now, deleted: true },
+      sm.author, clock.next(), '');
+  };
   const tombstone = function (m) {
     meta.plans[m.id] = writeRecord_(writer, m, { store: 'plans', id: m.id, userId: m.userId, updatedAt: now, deleted: true },
       m.author, clock.next(), '');
+    quitarSesionDe(m.id);
   };
   const existingOf = function (m) { return m ? readRecord_(m, meta).data : null; };
 
@@ -274,6 +282,13 @@ function publish_(prog, tz, now) {
   groups.forEach(function (g) { g.rows.forEach(function (r) { if (ids[r.row]) used[ids[r.row]] = true; }); });
   rows.forEach(function (r) {
     if (r.id && !used[r.id]) { const m = live(r.id); if (m) { tombstone(m); stats.deleted++; } used[r.id] = true; }
+  });
+
+  // 3) Sesiones creadas de planes que ya no existen (duplicados de antes de este arreglo): se quitan
+  Object.keys(meta.strength).forEach(function (sid) {
+    if (sid.charAt(0) !== 'x') return;
+    const pm = meta.plans[sid.slice(1)];
+    if (!pm || pm.deleted) { if (!meta.strength[sid].deleted) { quitarSesionDe(sid.slice(1)); stats.deleted++; } }
   });
 
   clock.save();

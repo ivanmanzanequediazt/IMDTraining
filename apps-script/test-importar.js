@@ -188,6 +188,14 @@ console.log('· Reimportar conserva ids y marca para borrar lo que ya no está')
   eq(plan.borrarFilas, [0, 1], 'solo se rehacen las filas de este Excel');
   eq(plan.nuevas.map(r => [r[X.PC.sesion], r[X.PC.series], r[X.PC.id], r[X.PC.accion]]), [['Tracc', 4, 'hA', ''], ['Empuje', '', 'hB', 'Borrar']], 'id conservado y sesión quitada marcada para borrar');
   eq(plan.borrar, 1, 'una para borrar');
+  // La misma sesión importada antes desde otro enlace (vínculo copiado otra vez): se sustituye, no se duplica
+  { const viejo = X.filasDeSesion_('Pepe', s1b, 'excel:VIEJO'); viejo.forEach(r => { r[X.PC.id] = 'hV'; });
+    const viejo2 = X.filasDeSesion_('Pepe', s1b, 'excel:OTRO'); viejo2.forEach(r => { r[X.PC.id] = 'hW'; });
+    const p2 = X.planImportacion_(viejo.concat(viejo2), 'excel:NUEVO', 'Pepe', [s1b], d => d);
+    eq(p2.borrarFilas, [0, 1], 'quita las filas del enlace antiguo');
+    eq(p2.nuevas.map(r => [r[X.PC.id], r[X.PC.accion]]), [['hV', ''], ['hW', 'Borrar']], 'conserva un id y borra la copia repetida');
+    const ajena = X.filasDeSesion_('Pepe', { fecha: '2026-10-08', sesion: 'Otra', ejercicios: s1b.ejercicios }, 'excel:VIEJO');
+    eq(X.planImportacion_(ajena, 'excel:NUEVO', 'Pepe', [s1b], d => d).borrarFilas, [], 'no toca sesiones distintas de otros Excel'); }
   const v2 = X.filasDeSesion_('Pepe', s2, 'excel:A')[0];
   eq([v2[X.PC.reps], v2[X.PC.variante], v2[X.PC.kg], v2[X.PC.rpe], v2[X.PC.notas]], [6, '6-8rep', 17.5, 8, "17'5 lado"], 'texto de reps y peso (nota en su ejercicio)');
 }

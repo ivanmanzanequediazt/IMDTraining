@@ -949,17 +949,44 @@ function planImportacion_(vals, origen, apodo, sesiones, fmt, letra, letras) {
     if (!viejas[k]) viejas[k] = { id: '', borrada: yaBorrada, apodo: str_(v[PC.apodo]), fecha: f, sesion: str_(v[PC.sesion]) };
     if (id && !viejas[k].id) viejas[k].id = id;
   });
+  // La misma sesión importada antes desde OTRO enlace (se volvió a copiar el vínculo, se movió el archivo o la
+  // sesión está en dos Excel): se sustituye en vez de duplicarla.
+  const otras = {};           // clave -> [{i, id}]
+  vals.forEach(function (v, i) {
+    const o = String(v[PC.origen]);
+    if (o === origen || o.indexOf('excel:') !== 0 || norm_(v[PC.accion]) === 'borrar') return;
+    const k = key(v[PC.apodo], date_(v[PC.fecha], fmt), v[PC.sesion]);
+    (otras[k] = otras[k] || []).push({ i: i, id: str_(v[PC.id]) });
+  });
   const nuevas = [];
   const vistas = {};
+  const extra = [];           // ids publicados de las copias que sobran: se quitan de la app
   sesiones.forEach(function (s) {
     const k = key(apodo, s.fecha, s.sesion);
     vistas[k] = true;
     const filas = filasDeSesion_(apodo, s, origen, letra, letras);
     const old = viejas[k];
-    if (old && old.id) filas.forEach(function (r) { r[PC.id] = old.id; });
+    let id = old && old.id ? old.id : '';
+    (otras[k] || []).forEach(function (o) {
+      borrarFilas.push(o.i);
+      if (!o.id) return;
+      if (!id) id = o.id;
+      else if (o.id !== id && extra.indexOf(o.id) < 0) extra.push(o.id);
+    });
+    if (id) filas.forEach(function (r) { r[PC.id] = id; });
     filas.forEach(function (r) { nuevas.push(r); });
+    if (otras[k]) extra.forEach(function (x) { if (!extra[x + '|k']) extra[x + '|k'] = { apodo: apodo, fecha: s.fecha, sesion: s.sesion }; });
   });
   let borrar = 0;
+  extra.forEach(function (x) {
+    const o = extra[x + '|k'];
+    const r = PROG_HEADERS.map(function () { return ''; });
+    r[PC.apodo] = o.apodo; r[PC.fecha] = o.fecha; r[PC.sesion] = o.sesion; r[PC.ejercicio] = '(copia repetida)';
+    r[PC.unilateral] = false; r[PC.plyo] = false;
+    r[PC.accion] = 'Borrar'; r[PC.id] = x; r[PC.origen] = origen;
+    nuevas.push(r);
+    borrar++;
+  });
   Object.keys(viejas).forEach(function (k) {
     const o = viejas[k];
     if (vistas[k] || !o.id || o.borrada) return;      // sigue en el Excel, nunca se publicó o ya se quitó de la app
@@ -970,7 +997,7 @@ function planImportacion_(vals, origen, apodo, sesiones, fmt, letra, letras) {
     nuevas.push(r);
     borrar++;
   });
-  return { borrarFilas: borrarFilas, nuevas: nuevas, borrar: borrar };
+  return { borrarFilas: borrarFilas.filter(function (x, j, a) { return a.indexOf(x) === j; }), nuevas: nuevas, borrar: borrar };
 }
 
 if (typeof module !== 'undefined') module.exports = { fechaExcel_: fechaExcel_, partesBiserie_: partesBiserie_, parseQuienes_: parseQuienes_, valorDe_: valorDe_, readXlsx_: readXlsx_, parseWorkbook_: parseWorkbook_, mesDeNombre_: mesDeNombre_,
