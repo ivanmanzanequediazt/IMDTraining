@@ -90,7 +90,7 @@ function prepararProgramacion() {
   col('plyo').insertCheckboxes();
   col('int').setDataValidation(list(['Baja', 'Media', 'Alta']));
   col('zona').setDataValidation(list(['Z1', 'Z2', 'Z3', 'Z4', 'Z5']));
-  col('accion').setDataValidation(list(['Borrar']));
+  col('accion').setDataValidation(list(['Borrar', 'Rehacer']));
   ['sesion', 'ejercicio', 'variante', 'intervalos', 'notas'].forEach(function (k) { col(k).setNumberFormat('@'); });
   col('estado').setFontColor('#5f6368').setFontStyle('italic');
   col('id').setNumberFormat('@');
@@ -244,14 +244,17 @@ function publish_(prog, tz, now) {
     const built = buildPlan_(g, id, cid, existing, now);
     if (!built.ok) { setAll(g, 'Error: ' + built.error); stats.errors++; return; }
     let changed = built.changed;
+    let borradaApp = false;
     // Fecha ya pasada: se guarda como sesión realizada con lo del Excel (si el deportista no la registró él en la app)
     if (built.data.kind === 'strength' && built.data.date < hoy) {
       const sid = 'x' + id;
       const d = built.data;
       const propia = d.status === 'done' && d.doneId && d.doneId !== sid;
       const sm = meta.strength[sid];
-      if (!propia && !(sm && sm.deleted)) {            // si se borró a mano en la app, no se vuelve a crear
-        const prev = sm ? readRecord_(sm, meta).data : null;
+      // Si se borró a mano en la app, no se vuelve a crear… salvo que en Acción ponga «Rehacer»
+      if (!propia && sm && sm.deleted && !g.rehacer) borradaApp = true;
+      if (!propia && (!(sm && sm.deleted) || g.rehacer)) {
+        const prev = sm && !sm.deleted ? readRecord_(sm, meta).data : null;
         const ses = sesionDesdePlan_(d, sid, cid, prev);
         if (!prev || JSON.stringify(prev.exercises) !== JSON.stringify(ses.exercises) || prev.startTime !== ses.startTime || prev.type !== ses.type ||
             prev.durationMin !== ses.durationMin || prev.rpePost !== ses.rpePost) {
@@ -261,6 +264,11 @@ function publish_(prog, tz, now) {
         }
         if (d.status !== 'done' || d.doneId !== sid) { d.status = 'done'; d.doneId = sid; d.doneAt = ses.startTime; changed = true; }
       }
+    }
+    if (!changed && borradaApp) {
+      setAll(g, 'Sesión borrada en la app: no se vuelve a crear (pon «Rehacer» en Acción y publica para recuperarla)', id);
+      stats.same++;
+      return;
     }
     if (!changed) {
       setAll(g, (built.appEdited ? 'Sin cambios en la hoja (se mantiene lo editado en la app) · ' : 'Sin cambios · ') + (STATUS_TXT[existing.status] || 'Pendiente'), id);
@@ -273,7 +281,8 @@ function publish_(prog, tz, now) {
       old ? old.author : 'coach', clock.next(), data);
     meta.plans[id].cached = { store: 'plans', id: id, userId: cid, author: meta.plans[id].author, updatedAt: now,
       serverAt: meta.plans[id].serverAt, deleted: false, data: built.data };
-    setAll(g, '✓ Publicado · ' + (STATUS_TXT[built.data.status] || 'Pendiente'), id);
+    setAll(g, '✓ Publicado · ' + (STATUS_TXT[built.data.status] || 'Pendiente') +
+      (borradaApp ? ' · la sesión se borró en la app (pon «Rehacer» en Acción para recuperarla)' : ''), id);
     stats.published++;
   });
 
@@ -471,6 +480,7 @@ function parseRows_(values, fmt) {
       intervalos: str_(v[PC.intervalos]),
       notas: str_(v[PC.notas]),
       borrar: norm_(v[PC.accion]) === 'borrar',
+      rehacer: norm_(v[PC.accion]) === 'rehacer',
       id: str_(v[PC.id]),
     });
   }
@@ -485,11 +495,12 @@ function groupSessions_(rows) {
     const key = norm_(r.apodo) + '|' + (r.fecha === null ? 'x' : r.fecha) + '|' + norm_(r.sesion);
     let g = by[key];
     if (!g) {
-      g = by[key] = { key: key, apodo: r.apodo, fecha: r.fecha, sesion: r.sesion, rows: [], ids: [], borrar: false, id: '' };
+      g = by[key] = { key: key, apodo: r.apodo, fecha: r.fecha, sesion: r.sesion, rows: [], ids: [], borrar: false, rehacer: false, id: '' };
       out.push(g);
     }
     g.rows.push(r);
     if (r.borrar) g.borrar = true;
+    if (r.rehacer) g.rehacer = true;
     if (r.id && g.ids.indexOf(r.id) < 0) g.ids.push(r.id);
   });
   return out;

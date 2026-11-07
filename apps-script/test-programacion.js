@@ -352,6 +352,15 @@ test('Fechas pasadas: se registran como sesión realizada', () => {
   api.publicarProgramacion();
   const vivas = JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'pull', since: 0 }) } })).records.filter(r => r.store === 'strength' && !r.deleted);
   eq(vivas.map(r => r.data.type), ['Pierna A'], 'al renombrar no queda la sesión antigua repetida');
+  // Se borra a mano en la app: no vuelve… hasta que en Acción se pone «Rehacer»
+  const sA = vivas[0];
+  api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'push', records: [{ store: 'strength', id: sA.id, userId: 'd1', updatedAt: Date.now() + 50, deleted: true, data: null }] }) } });
+  api.publicarProgramacion();
+  const vivasB = () => JSON.parse(api.doPost({ postData: { contents: JSON.stringify({ token: 'COACH', action: 'pull', since: 0 }) } })).records.filter(r => r.store === 'strength' && !r.deleted);
+  eq([vivasB().length, /Rehacer/.test(col(ss, 'estado')[0])], [0, true], 'borrada en la app: no se recrea y el estado lo explica');
+  for (let r = 1; r <= 3; r++) pd[r][COLS.indexOf('accion')] = 'Rehacer';
+  api.publicarProgramacion();
+  eq(vivasB().map(r => r.data.type), ['Pierna A'], '«Rehacer» la vuelve a crear');
 });
 
 test('Octubre de 2026: RPE de sesión 8 y 60 minutos si no hay nada anotado', () => {
