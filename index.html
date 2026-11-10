@@ -1110,6 +1110,7 @@ const DB={db:null,mem:null,
     if(!v.synced)return this.purge(s,id);
     await this.putRaw(s,s==='tracks'?{id,deleted:true,dirty:1,synced:1,updatedAt:Date.now()}:{...v,deleted:true,dirty:1,updatedAt:Date.now()});Sync.schedule()}
 };
+try{navigator.storage?.persist?.().catch(()=>{})}catch(e){} // que el navegador no borre solo los datos de la app
 const SYNC_STORES=['profiles','sessions','tracks','strength','tests','plans','wellness','exercises'];
 const LIB_UID='lib',LIB_FIELDS=['name','mov','muscles','uni','plyo','act','cues','hidden','aliases','kind','metric','start','base','model','weeks'];
 
@@ -3527,6 +3528,10 @@ async function importFiles(files){
         const byCloud=p.cloudId&&S.profiles.find(x=>x.cloudId===p.cloudId&&x.id!==p.id);
         if(byCloud){idMap[p.id]=byCloud.id;q={...q,id:byCloud.id}}
         else if(p.linkId&&p.linkId!==p.id&&prof(p.linkId)){idMap[p.id]=p.linkId;q={...q,id:p.linkId,name:prof(p.linkId).name}}}
+      // Copia del móvil del entrenador en un aparato que ya descargó ese deportista de la hoja como «Deportista N»:
+      // se juntan en ese mismo perfil (con el nombre de la copia) en vez de quedar dos
+      else if(coachCopy&&p.cloudId){const byCloud=S.profiles.find(x=>x.cloudId===p.cloudId&&x.id!==p.id&&!x.example);
+        if(byCloud){idMap[p.id]=byCloud.id;q={...q,id:byCloud.id}}}
       // Lo que vincula el perfil en este móvil se conserva, y también su nombre salvo que sea el provisional «Deportista N»
       const loc=prof(q.id);
       if(loc?.cloudId){q.cloudId=loc.cloudId;q.cloudInviteToken=loc.cloudInviteToken||q.cloudInviteToken;if(!/^Deportista \d+$/.test(loc.name))q.name=loc.name}
