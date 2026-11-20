@@ -668,14 +668,15 @@ function buildPlan_(g, id, cid, existing, now) {
 
 // Plan con fecha pasada -> sesión de fuerza realizada (formato de la app). Conserva lo que se haya añadido luego
 // en la app (duración, RPE pre/post, notas).
-// Sesiones de octubre de 2026 (y la semana del 28 de septiembre) pasadas desde los Excel: sin RPE de sesión ni duración anotados, se ponen RPE 8 y 60 min
-const OCTUBRE_2026 = { desde: '2026-09-28', hasta: '2026-11-01', rpe: 8, min: 60 };   // incluye la semana del 28 sep (hojas «28-2»)
+// Desde la semana del 28 sep de 2026, las sesiones pasadas desde los Excel sin RPE de sesión ni duración anotados llevan RPE 8 y 60 min
+// Sesiones importadas ya pasadas: RPE de sesión 8 y 60 min si no se ha anotado otra cosa (desde la semana del 28 sep, sin fecha de fin)
+const SESION_DEF = { desde: '2026-09-28', rpe: 8, min: 60 };
 
 function sesionDesdePlan_(plan, sid, cid, prev) {
   const nn = function (v) { return v === undefined || v === '' ? null : v; };
-  const oct = plan.date >= OCTUBRE_2026.desde && plan.date < OCTUBRE_2026.hasta;
-  const dur = prev && nn(prev.durationMin) !== null ? prev.durationMin : oct ? OCTUBRE_2026.min : null;
-  const rpePost = prev && nn(prev.rpePost) !== null ? prev.rpePost : oct ? OCTUBRE_2026.rpe : null;
+  const oct = plan.date >= SESION_DEF.desde;
+  const dur = prev && nn(prev.durationMin) !== null ? prev.durationMin : oct ? SESION_DEF.min : null;
+  const rpePost = prev && nn(prev.rpePost) !== null ? prev.rpePost : oct ? SESION_DEF.rpe : null;
   const t = Date.parse(plan.date + 'T12:00:00Z');
   const exercises = (plan.exercises || []).map(function (e) {
     if (e.act) {
