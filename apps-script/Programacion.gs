@@ -18,12 +18,12 @@ const PROG_TAB = 'programacion';
 const DEP_TAB = 'deportistas';
 const PROG_HEADERS = ['Deportista', 'Fecha', 'Sesión', 'Tipo', 'Ejercicio', 'Variante', 'Unilateral', 'Pliometría',
   'Series', 'Reps', 'Kg', '%1RM', 'RPE', 'RIR', 'Intensidad', 'Minutos', 'Zona', 'Intervalos', 'Indicaciones',
-  'Acción', 'Estado', 'id', 'Origen'];
+  'Acción', 'Estado', 'id', 'Origen', 'RPE sesión'];
 const PC = {}; // índice (0..21) de cada columna por nombre corto
 ['apodo', 'fecha', 'sesion', 'tipo', 'ejercicio', 'variante', 'unilateral', 'plyo', 'series', 'reps', 'kg', 'pct',
-  'rpe', 'rir', 'int', 'minutos', 'zona', 'intervalos', 'notas', 'accion', 'estado', 'id', 'origen']
+  'rpe', 'rir', 'int', 'minutos', 'zona', 'intervalos', 'notas', 'accion', 'estado', 'id', 'origen', 'rpeses']
   .forEach(function (k, i) { PC[k] = i; });
-const PROG_COLS = PROG_HEADERS.length;          // 23 (Origen: filas importadas de Excel, oculta)
+const PROG_COLS = PROG_HEADERS.length;          // 24 (Origen: filas importadas de Excel, oculta; RPE sesión: el RPE post del Excel)
 const INT_BY_NAME = { baja: 1, media: 2, alta: 3, b: 1, m: 2, a: 3 };
 const STATUS_TXT = { pending: 'Pendiente', inprogress: 'En curso', done: 'Hecho' };
 
@@ -71,6 +71,7 @@ function prepararProgramacion() {
   if (prog.getLastRow() === 0) prog.getRange(1, 1, 1, PROG_COLS).setValues([PROG_HEADERS]);
   if (prog.getMaxColumns() < PROG_COLS) prog.insertColumnsAfter(prog.getMaxColumns(), PROG_COLS - prog.getMaxColumns());
   if (prog.getRange(1, PC.origen + 1).getValue() === '') prog.getRange(1, PC.origen + 1).setValue('Origen');
+  if (prog.getRange(1, PC.rpeses + 1).getValue() === '') prog.getRange(1, PC.rpeses + 1).setValue('RPE sesión');
   const head = prog.getRange(1, 1, 1, PROG_COLS);
   head.setFontWeight('bold').setBackground('#e8eaed').setWrap(true).setVerticalAlignment('middle');
   prog.setFrozenRows(1);
@@ -90,6 +91,7 @@ function prepararProgramacion() {
   col('plyo').insertCheckboxes();
   col('int').setDataValidation(list(['Baja', 'Media', 'Alta']));
   col('zona').setDataValidation(list(['Z1', 'Z2', 'Z3', 'Z4', 'Z5']));
+  prog.getRange(1, PC.rpeses + 1).setNote('RPE de la sesión (0-10). Lo trae el Excel (casilla RPE post); si está vacío, las sesiones ya pasadas llevan RPE 8.');
   col('accion').setDataValidation(list(['Borrar', 'Rehacer']));
   ['sesion', 'ejercicio', 'variante', 'intervalos', 'notas'].forEach(function (k) { col(k).setNumberFormat('@'); });
   col('estado').setFontColor('#5f6368').setFontStyle('italic');
@@ -99,7 +101,7 @@ function prepararProgramacion() {
 
   const widths = { apodo: 110, fecha: 95, sesion: 130, tipo: 85, ejercicio: 150, variante: 110, unilateral: 75,
     plyo: 75, series: 55, reps: 55, kg: 55, pct: 55, rpe: 50, rir: 50, int: 85, minutos: 65, zona: 60,
-    intervalos: 170, notas: 220, accion: 80, estado: 190 };
+    intervalos: 170, notas: 220, accion: 80, estado: 190, rpeses: 80 };
   Object.keys(widths).forEach(function (k) { prog.setColumnWidth(PC[k] + 1, widths[k]); });
 
   // Colores de la columna Estado
@@ -157,6 +159,7 @@ function prepararProgramacion() {
 
 function publicarProgramacion() {
   const prog = sheet_(PROG_TAB);
+  if (prog.getMaxColumns() < PROG_COLS) prog.insertColumnsAfter(prog.getMaxColumns(), PROG_COLS - prog.getMaxColumns());   // columna nueva «RPE sesión»
   const tz = prog.getParent().getSpreadsheetTimeZone();
   const res = withLock_(function () { return publish_(prog, tz, Date.now()); });
   if (!res || res.ok === false) {
@@ -255,7 +258,7 @@ function publish_(prog, tz, now) {
       if (!propia && sm && sm.deleted && !g.rehacer) borradaApp = true;
       if (!propia && (!(sm && sm.deleted) || g.rehacer)) {
         const prev = sm && !sm.deleted ? readRecord_(sm, meta).data : null;
-        const ses = sesionDesdePlan_(d, sid, cid, prev);
+        const ses = sesionDesdePlan_(d, sid, cid, prev, g.rpeSes);
         if (!prev || JSON.stringify(prev.exercises) !== JSON.stringify(ses.exercises) || prev.startTime !== ses.startTime || prev.type !== ses.type ||
             prev.durationMin !== ses.durationMin || prev.rpePost !== ses.rpePost) {
           meta.strength[sid] = writeRecord_(writer, sm || null, { store: 'strength', id: sid, userId: cid, updatedAt: now, deleted: false },
@@ -481,6 +484,7 @@ function parseRows_(values, fmt) {
       notas: str_(v[PC.notas]),
       borrar: norm_(v[PC.accion]) === 'borrar',
       rehacer: norm_(v[PC.accion]) === 'rehacer',
+      rpeSes: num_(v[PC.rpeses]),
       id: str_(v[PC.id]),
     });
   }
@@ -501,6 +505,7 @@ function groupSessions_(rows) {
     g.rows.push(r);
     if (r.borrar) g.borrar = true;
     if (r.rehacer) g.rehacer = true;
+    if (g.rpeSes === undefined && r.rpeSes !== null && r.rpeSes >= 0 && r.rpeSes <= 10) g.rpeSes = r.rpeSes;
     if (r.id && g.ids.indexOf(r.id) < 0) g.ids.push(r.id);
   });
   return out;
@@ -672,11 +677,12 @@ function buildPlan_(g, id, cid, existing, now) {
 // Sesiones importadas ya pasadas: RPE de sesión 8 y 60 min si no se ha anotado otra cosa (desde la semana del 28 sep, sin fecha de fin)
 const SESION_DEF = { desde: '2026-09-28', rpe: 8, min: 60 };
 
-function sesionDesdePlan_(plan, sid, cid, prev) {
+function sesionDesdePlan_(plan, sid, cid, prev, rpeExcel) {
   const nn = function (v) { return v === undefined || v === '' ? null : v; };
   const oct = plan.date >= SESION_DEF.desde;
   const dur = prev && nn(prev.durationMin) !== null ? prev.durationMin : oct ? SESION_DEF.min : null;
-  const rpePost = prev && nn(prev.rpePost) !== null ? prev.rpePost : oct ? SESION_DEF.rpe : null;
+  // RPE de la sesión: el del Excel manda; si no hay, el que se anotó en la app; si tampoco, 8
+  const rpePost = rpeExcel !== undefined && rpeExcel !== null ? rpeExcel : prev && nn(prev.rpePost) !== null ? prev.rpePost : oct ? SESION_DEF.rpe : null;
   const t = Date.parse(plan.date + 'T12:00:00Z');
   const exercises = (plan.exercises || []).map(function (e) {
     if (e.act) {

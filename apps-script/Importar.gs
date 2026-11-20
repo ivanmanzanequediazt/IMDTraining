@@ -137,6 +137,7 @@ function importar_() {
 
 function ensureOrigenCol_(prog) {
   if (prog.getMaxColumns() < PROG_COLS) prog.insertColumnsAfter(prog.getMaxColumns(), PROG_COLS - prog.getMaxColumns());
+  if (prog.getRange(1, PC.rpeses + 1).getValue() !== 'RPE sesión') prog.getRange(1, PC.rpeses + 1).setValue('RPE sesión').setFontWeight('bold').setBackground('#e8eaed');
   const h = prog.getRange(1, PC.origen + 1);
   if (h.getValue() !== 'Origen') {
     h.setValue('Origen').setFontWeight('bold').setBackground('#e8eaed');
@@ -596,6 +597,25 @@ function metaTabla_(txt, hr, etiqueta) {
   return '';
 }
 
+// Casilla «RPE post:» encima de la tabla (plantilla): un número, o uno por cliente en la de pareja
+// («RPE post (O · S):» con dos casillas, en el orden de las columnas de peso). -> null | número | {O: n, S: n}
+function rpePostTabla_(at, txt, hr, letras) {
+  const num = function (v) { const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')); return n >= 0 && n <= 10 ? n : null; };
+  for (let r = hr - 1; r >= Math.max(1, hr - 2); r--) {
+    for (let c = 1; c <= 30; c++) {
+      if (normH_(txt(r, c)).replace(/ /g, '').indexOf('rpepost') !== 0) continue;
+      if (letras.length > 1) {
+        const out = {}; let alguno = false;
+        letras.forEach(function (l, i) { const n = num(at(r, c + 1 + i)); if (n !== null) { out[l] = n; alguno = true; } });
+        return alguno ? out : null;
+      }
+      for (let k = c + 1; k <= c + 2; k++) { const n = num(at(r, k)); if (n !== null) return n; }
+      return null;
+    }
+  }
+  return null;
+}
+
 function parseTablas_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
   const inicio = inicioSemana_(at, txt);
   const hrs = filasCabecera_(txt, maxRow);
@@ -603,6 +623,7 @@ function parseTablas_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
     const cp = columnas_(txt, hr), col = cp.col, pesos = cp.pesos;
     const fin = n + 1 < hrs.length ? hrs[n + 1] - 2 : maxRow;
     const diaTxt = metaTabla_(txt, hr, 'dia'), nombre = metaTabla_(txt, hr, 'nombre');
+    const rpeSes = rpePostTabla_(at, txt, hr, Object.keys(pesos));
     const ejercicios = [];
     let bloque = '', etiquetas = false;
     for (let r = hr + 1; r <= fin; r++) {
@@ -631,7 +652,7 @@ function parseTablas_(hoja, at, txt, maxRow, bloques, avisos, sinPrincipal) {
     const t0 = new Date(inicio + 'T00:00:00Z');
     const t = new Date(t0.getTime() + ((dow - t0.getUTCDay() + 7) % 7) * 864e5);
     if (!etiquetas) sinPrincipal.push(etiq);
-    bloques.push({ hoja: hoja, fecha: ymdStr_(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()), dia: DIAS[dow], label: nombre, ejercicios: ejercicios });
+    bloques.push({ hoja: hoja, fecha: ymdStr_(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()), dia: DIAS[dow], label: nombre, ejercicios: ejercicios, rpeSes: rpeSes });
   });
 }
 
@@ -763,7 +784,7 @@ function parseWorkbook_(wb, y, m) {
     const k0 = b.fecha + '|' + norm_(sesion);
     if (usados[k0]) { let i = 2; while (usados[b.fecha + '|' + norm_(sesion + ' (' + i + ')')]) i++; sesion += ' (' + i + ')'; }
     usados[b.fecha + '|' + norm_(sesion)] = true;
-    sesiones.push({ fecha: b.fecha, sesion: sesion, hoja: b.hoja, ejercicios: b.ejercicios });
+    sesiones.push({ fecha: b.fecha, sesion: sesion, hoja: b.hoja, ejercicios: b.ejercicios, rpeSes: b.rpeSes || null });
   });
   sesiones.sort(function (a, b) { return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0; });
   if (sinPrincipal.length) avisos.push('sin «P. PRINCIPAL» (o sin Bloque), todo como parte principal: ' + sinPrincipal.join(', '));
@@ -850,6 +871,8 @@ function repartir_(txt, n) {
 
 function filasDeSesion_(apodo, s, origen, letra, letras) {
   const filas = [];
+  const rpeSes = s.rpeSes === null || s.rpeSes === undefined ? '' : typeof s.rpeSes === 'number' ? s.rpeSes
+    : (letra && s.rpeSes[letra] !== undefined ? s.rpeSes[letra] : '');
   s.ejercicios.forEach(function (e) {
     if (e.aer) {                                     // aeróbico al final de la sesión
       const r = PROG_HEADERS.map(function () { return ''; });
@@ -931,6 +954,7 @@ function filasDeSesion_(apodo, s, origen, letra, letras) {
       filas.push(r);
     });
   });
+  if (rpeSes !== '') filas.forEach(function (r) { r[PC.rpeses] = rpeSes; });   // RPE de la sesión (casilla RPE post del Excel)
   return filas;
 }
 
